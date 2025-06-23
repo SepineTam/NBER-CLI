@@ -13,10 +13,12 @@ import aiosqlite
 import os
 import time
 import random
-import orjson # 比json更快的JSON库
+import orjson  # 比json更快的JSON库
 from fake_useragent import UserAgent
 from typing import List, Set, Dict, Any
 import logging
+import ssl
+import certifi
 from aiohttp_retry import RetryClient, ExponentialRetry
 import functools
 import concurrent.futures
@@ -136,10 +138,11 @@ async def download_paper(paper_id: str, save_path: str):
     ua = UserAgent()
     headers = {'User-Agent': ua.random}
     retry_options = ExponentialRetry(attempts=MAX_RETRIES)
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
 
     try:
         async with RetryClient(retry_options=retry_options, headers=headers) as session:
-            async with session.get(url, timeout=30) as response:
+            async with session.get(url, timeout=30, ssl=ssl_context) as response:
                 if response.status == 200:
                     content = await response.read()
                     with open(filepath, 'wb') as f:
