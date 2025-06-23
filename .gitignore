@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# VScode
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# OS X
+*.DS_Store
