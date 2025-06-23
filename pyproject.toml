@@ -9,7 +9,8 @@ dependencies = [
     "aiosqlite",
     "orjson",
     "fake_useragent",
-    "aiohttp-retry"
+    "aiohttp-retry",
+    "certifi"
 ]
 
 [project.scripts]
