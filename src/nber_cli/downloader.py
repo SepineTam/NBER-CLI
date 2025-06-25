@@ -125,15 +125,19 @@ async def update_paper_state(paper_id: str, status: str):
 
 async def download_paper(paper_id: str, save_path: str):
     """下载单个NBER论文"""
-    if await get_paper_state(paper_id) == 'ok':
-        logger.info(f"Skipping {paper_id}, already downloaded.")
-        return
-
-    url = f"https://www.nber.org/papers/{paper_id}.pdf"
     filepath = os.path.join(save_path, f"{paper_id}.pdf")
 
     # 确保保存路径存在
     os.makedirs(save_path, exist_ok=True)
+
+    state = await get_paper_state(paper_id)
+    if state == 'ok' and os.path.exists(filepath):
+        logger.info(f"Skipping {paper_id}, already downloaded.")
+        return
+    if state == 'ok' and not os.path.exists(filepath):
+        logger.info(f"{paper_id} marked as downloaded but file missing, re-downloading.")
+
+    url = f"https://www.nber.org/papers/{paper_id}.pdf"
 
     ua = UserAgent()
     headers = {'User-Agent': ua.random}
