@@ -160,12 +160,17 @@ async def download_paper(paper_id: str, save_path: str):
         logger.error(f"An error occurred while downloading {paper_id}: {e}")
         await update_paper_state(paper_id, 'fail')
 
-async def main_download(paper_id: str, save_path: str):
-    """主下载函数，用于CLI调用"""
+async def main_download_multiple(paper_ids: List[str], save_path: str):
+    """主下载函数，可下载多个paper"""
     await create_db_pool()
     await init_db()
     await load_ids_from_db()
-    await download_paper(paper_id, save_path)
+    await asyncio.gather(*(download_paper(pid, save_path) for pid in paper_ids))
     await close_db_pool()
+
+
+async def main_download(paper_id: str, save_path: str):
+    """向后兼容的单文件下载接口"""
+    await main_download_multiple([paper_id], save_path)
 
 

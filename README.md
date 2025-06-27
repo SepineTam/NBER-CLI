@@ -19,12 +19,12 @@ nber-cli --help
 
 - Download the certain paper to default directory:
 ```bash
-nber-cli --download paper_id
+nber-cli --download paper_id [paper_id ...]
 ```
 
 - Shorthand:
 ```bash
-nber-cli -d paper_id
+nber-cli -d paper_id [paper_id ...]
 ```
 
 - Download the certain paper to a specific directory:
@@ -39,6 +39,11 @@ nber-cli --download w1234 --save_path ~/Downloads/nber-cli
 2025-06-23 12:00:29,266 - INFO - Loaded 1 ok ids and 0 fail ids from db.
 2025-06-23 12:00:41,097 - INFO - Successfully downloaded w1234 to /Users/sepinetam/Downloads/nber-cli/w1234.pdf
 
+```
+
+You can also download multiple papers at once:
+```bash
+nber-cli --download w1234 w5678
 ```
 ## Web UI
 
