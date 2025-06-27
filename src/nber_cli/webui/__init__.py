@@ -1,7 +1,7 @@
 import os
 import asyncio
 from flask import Flask, request, render_template_string
-from ..downloader import main_download_multiple
+from ..core.download.downloader import main_download_multiple
 
 DEFAULT_SAVE_PATH = os.path.expanduser("~/Documents/nber_paper")
 app = Flask(__name__)

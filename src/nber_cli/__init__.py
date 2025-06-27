@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import os
-from .downloader import main_download_multiple
+from .core.download.downloader import main_download_multiple
 
 def main():
     parser = argparse.ArgumentParser(description="Download NBER papers.")
