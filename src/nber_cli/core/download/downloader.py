@@ -7,21 +7,18 @@
 # @Email  : sepinetam@gmail.com
 # @File   : downloader.py
 
-import aiohttp
 import asyncio
-import aiosqlite
-import os
-import time
-import random
-import orjson  # 比json更快的JSON库
-from fake_useragent import UserAgent
-from typing import List, Set, Dict, Any
 import logging
+import os
+import random
 import ssl
+import time
+from typing import List
+
+import aiosqlite
 import certifi
-from aiohttp_retry import RetryClient, ExponentialRetry
-import functools
-import concurrent.futures
+from aiohttp_retry import ExponentialRetry, RetryClient
+from fake_useragent import UserAgent
 
 # 设置日志记录
 logging.basicConfig(
@@ -47,7 +44,8 @@ ID_CACHE = {
 
 # 创建数据库连接池
 db_pool = None
-DB_PATH = os.path.expanduser("~/.nber_cli_state.db") # 数据库路径，放在用户主目录下
+DB_PATH = os.path.expanduser("~/.nber_cli_state.db")  # 数据库路径，放在用户主目录下
+
 
 async def create_db_pool():
     """创建数据库连接池"""
@@ -55,15 +53,18 @@ async def create_db_pool():
     if db_pool is None:
         db_pool = [await aiosqlite.connect(DB_PATH) for _ in range(DB_POOL_SIZE)]
 
+
 async def close_db_pool():
     """关闭数据库连接池"""
     if db_pool:
         for conn in db_pool:
             await conn.close()
 
+
 async def get_db_conn():
     """从连接池中获取一个数据库连接"""
     return random.choice(db_pool)
+
 
 async def init_db():
     """初始化数据库"""
@@ -78,7 +79,8 @@ async def init_db():
         )
         await conn.commit()
     finally:
-        pass # 不关闭连接，因为它是从连接池中获取的
+        pass  # 不关闭连接，因为它是从连接池中获取的
+
 
 async def load_ids_from_db():
     """从数据库加载已处理的ID到内存缓存"""
@@ -91,9 +93,11 @@ async def load_ids_from_db():
                 else:
                     ID_CACHE["fail_ids"].add(row[0])
         ID_CACHE["last_update"] = time.time()
-        logger.info(f"Loaded {len(ID_CACHE['ok_ids'])} ok ids and {len(ID_CACHE['fail_ids'])} fail ids from db.")
+        logger.info(
+            f"Loaded {len(ID_CACHE['ok_ids'])} ok ids and {len(ID_CACHE['fail_ids'])} fail ids from db.")
     finally:
         pass
+
 
 async def get_paper_state(paper_id: str) -> str:
     """获取特定论文的下载状态"""
@@ -102,6 +106,7 @@ async def get_paper_state(paper_id: str) -> str:
     if paper_id in ID_CACHE["fail_ids"]:
         return "fail"
     return None
+
 
 async def update_paper_state(paper_id: str, status: str):
     """更新论文的下载状态"""
@@ -123,6 +128,7 @@ async def update_paper_state(paper_id: str, status: str):
     finally:
         pass
 
+
 async def download_paper(paper_id: str, save_path: str):
     """下载单个NBER论文"""
     filepath = os.path.join(save_path, f"{paper_id}.pdf")
@@ -135,7 +141,8 @@ async def download_paper(paper_id: str, save_path: str):
         logger.info(f"Skipping {paper_id}, already downloaded.")
         return
     if state == 'ok' and not os.path.exists(filepath):
-        logger.info(f"{paper_id} marked as downloaded but file missing, re-downloading.")
+        logger.info(
+            f"{paper_id} marked as downloaded but file missing, re-downloading.")
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
 
@@ -151,14 +158,17 @@ async def download_paper(paper_id: str, save_path: str):
                     content = await response.read()
                     with open(filepath, 'wb') as f:
                         f.write(content)
-                    logger.info(f"Successfully downloaded {paper_id} to {filepath}")
+                    logger.info(
+                        f"Successfully downloaded {paper_id} to {filepath}")
                     await update_paper_state(paper_id, 'ok')
                 else:
-                    logger.error(f"Failed to download {paper_id}, status code: {response.status}")
+                    logger.error(
+                        f"Failed to download {paper_id}, status code: {response.status}")
                     await update_paper_state(paper_id, 'fail')
     except Exception as e:
         logger.error(f"An error occurred while downloading {paper_id}: {e}")
         await update_paper_state(paper_id, 'fail')
+
 
 async def main_download_multiple(paper_ids: List[str], save_path: str):
     """主下载函数，可下载多个paper"""
@@ -172,5 +182,3 @@ async def main_download_multiple(paper_ids: List[str], save_path: str):
 async def main_download(paper_id: str, save_path: str):
     """向后兼容的单文件下载接口"""
     await main_download_multiple([paper_id], save_path)
-
-

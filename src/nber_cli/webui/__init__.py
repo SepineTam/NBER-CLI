@@ -1,6 +1,8 @@
-import os
 import asyncio
-from flask import Flask, request, render_template_string
+import os
+
+from flask import Flask, render_template_string, request
+
 from ..core.download.downloader import main_download_multiple
 
 DEFAULT_SAVE_PATH = os.path.expanduser("~/Documents/nber_paper")
@@ -29,6 +31,7 @@ FORM = """
 </html>
 """
 
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     message = ''
@@ -41,6 +44,7 @@ def index():
         else:
             message = 'Please enter at least one paper ID.'
     return render_template_string(FORM, message=message)
+
 
 def run():
     app.run()
