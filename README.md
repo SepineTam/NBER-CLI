@@ -38,7 +38,15 @@ An example of downloading a paper with ID `w1234` to the specific directory:
 nber-cli --download w1234 --save_path ~/Downloads/nber-cli
 2025-06-23 12:00:29,266 - INFO - Loaded 1 ok ids and 0 fail ids from db.
 2025-06-23 12:00:41,097 - INFO - Successfully downloaded w1234 to /Users/sepinetam/Downloads/nber-cli/w1234.pdf
+
 ```
+## Web UI
+
+Start a simple web server with:
+```bash
+nber-cli-web
+```
+
 
 ## LICENSE
 [APACHE-2.0](LICENSE)
