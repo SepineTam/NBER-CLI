@@ -1,4 +1,11 @@
 # NBER-CLI
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI version](https://img.shields.io/pypi/v/nber-cli.svg)](https://pypi.org/project/nber-cli/)
+[![PyPI Downloads](https://static.pepy.tech/badge/nber-cli)](https://pepy.tech/projects/nber-cli)
+[![Issue](https://img.shields.io/badge/Issue-report-green.svg)](https://github.com/sepinetam/nber-cli/issues/new)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/SepineTam/nber-cli)
+
 NBER-CLI is a command line interface for the National Bureau of Economic Research (NBER) paper data.
 
 
