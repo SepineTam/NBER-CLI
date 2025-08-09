@@ -27,7 +27,7 @@ Examples:
   nber-cli --help
         """
     )
-    
+
     # 添加版本参数
     parser.add_argument(
         "-v",
@@ -35,7 +35,7 @@ Examples:
         action="version",
         version=f"NBER CLI v{get_version_info()}"
     )
-    
+
     # 添加下载参数组
     download_group = parser.add_argument_group("Download Options")
     download_group.add_argument(
@@ -53,12 +53,12 @@ Examples:
         help="The directory to save the downloaded paper. Defaults to ~/Documents/nber_paper.")
 
     args = parser.parse_args()
-    
+
     # 如果没有提供任何参数，显示帮助信息
     if not any(vars(args).values()):
         parser.print_help()
         sys.exit(0)
-    
+
     # 如果提供了paper_ids参数，执行下载
     if args.paper_ids:
         asyncio.run(main_download_multiple(args.paper_ids, args.save_path))
