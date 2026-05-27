@@ -4,10 +4,27 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
 
-from .core.download.downloader import download_multiple_papers, download_paper, download_paper_to_file
+from .core.download.downloader import (
+    DownloadBatchResult,
+    DownloadFailure,
+    download_multiple_papers,
+    download_paper,
+    download_paper_to_file,
+)
+
+__all__ = [
+    "DownloadBatchResult",
+    "DownloadFailure",
+    "download_multiple_papers",
+    "download_paper",
+    "download_paper_to_file",
+    "get_version_info",
+    "main",
+]
 
 
 def get_version_info() -> str:
@@ -74,7 +91,17 @@ def main() -> None:
         asyncio.run(download_paper_to_file(paper_ids[0], args.file_path))
         return
 
-    if len(paper_ids) == 1:
-        asyncio.run(download_paper(paper_ids[0], args.save_base))
+    if args.batch_ids is not None:
+        batch_result = asyncio.run(download_multiple_papers(paper_ids, args.save_base))
+        if batch_result.failures:
+            for failure in batch_result.failures:
+                error_message = str(failure.error) or failure.error.__class__.__name__
+                print(f"Failed to download {failure.paper_id}: {error_message}", file=sys.stderr)
+            print(
+                f"Downloaded {len(batch_result.paths)} of {len(paper_ids)} papers; "
+                f"{len(batch_result.failures)} failed.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
     else:
-        asyncio.run(download_multiple_papers(paper_ids, args.save_base))
+        asyncio.run(download_paper(paper_ids[0], args.save_base))

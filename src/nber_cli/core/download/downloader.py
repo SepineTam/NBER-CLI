@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ssl
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -14,6 +15,18 @@ from fake_useragent import UserAgent
 
 MAX_RETRIES = 3
 REQUEST_TIMEOUT_SECONDS = 30
+
+
+@dataclass
+class DownloadFailure:
+    paper_id: str
+    error: BaseException
+
+
+@dataclass
+class DownloadBatchResult:
+    paths: list[Path]
+    failures: list[DownloadFailure]
 
 
 async def download_paper_to_file(paper_id: str, output_file: Path) -> Path:
@@ -47,14 +60,17 @@ async def download_paper(paper_id: str, save_base: Path) -> Path:
     return await download_paper_to_file(paper_id, save_base / f"{paper_id}.pdf")
 
 
-async def download_multiple_papers(paper_ids: list[str], save_base: Path) -> list[Path]:
+async def download_multiple_papers(
+    paper_ids: list[str], save_base: Path
+) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
     tasks = [download_paper(paper_id=paper_id, save_base=save_base) for paper_id in paper_ids]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     paths: list[Path] = []
+    failures: list[DownloadFailure] = []
     for paper_id, result in zip(paper_ids, results):
-        if isinstance(result, Exception):
-            print(f"Failed to download {paper_id}: {result}")
+        if isinstance(result, (Exception, asyncio.CancelledError)):
+            failures.append(DownloadFailure(paper_id=paper_id, error=result))
         else:
             paths.append(cast(Path, result))
-    return paths
+    return DownloadBatchResult(paths=paths, failures=failures)
