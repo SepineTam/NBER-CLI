@@ -27,11 +27,6 @@ Rules:
 - Batch download supports `--save-base` only.
 - Batch download does not support `--file`.
 
-## Web UI
-
-```bash
-nber-cli-web
-```
 
 ## License
 

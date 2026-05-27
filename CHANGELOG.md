@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Removed database-backed download state tracking.
 - Simplified downloader to direct async HTTP PDF fetches.
 - Updated documentation for the v0.2 command model.
+- Removed the legacy web UI module and script entrypoint.
 
 ## [0.1.4] - 2025-08-09
 

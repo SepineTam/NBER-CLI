@@ -8,13 +8,11 @@ dependencies = [
     "aiohttp",
     "fake_useragent",
     "aiohttp-retry",
-    "certifi",
-    "flask"
+    "certifi"
 ]
 
 [project.scripts]
 nber-cli = "nber_cli:main"
-nber-cli-web = "nber_cli.webui:run"
 
 [build-system]
 requires = ["hatchling"]
