@@ -15,6 +15,10 @@ from fake_useragent import UserAgent
 
 MAX_RETRIES = 3
 REQUEST_TIMEOUT_SECONDS = 30
+DEFAULT_CONNECTION_LIMIT = 100
+DEFAULT_CONNECTION_LIMIT_PER_HOST = 10
+
+_USER_AGENT = UserAgent()
 
 
 @dataclass
@@ -29,43 +33,85 @@ class DownloadBatchResult:
     failures: list[DownloadFailure]
 
 
-async def download_paper_to_file(paper_id: str, output_file: Path) -> Path:
-    """Download a single NBER paper to an explicit output file path."""
+def _create_connector() -> TCPConnector:
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    return TCPConnector(
+        ssl=ssl_context,
+        limit=DEFAULT_CONNECTION_LIMIT,
+        limit_per_host=DEFAULT_CONNECTION_LIMIT_PER_HOST,
+    )
+
+
+def _create_retry_client(session: ClientSession) -> RetryClient:
+    retry_options = ExponentialRetry(attempts=MAX_RETRIES)
+    return RetryClient(
+        client_session=session,
+        retry_options=retry_options,
+    )
+
+
+async def download_paper_to_file(
+    paper_id: str, output_file: Path, session: ClientSession | RetryClient | None = None
+) -> Path:
+    """Download a single NBER paper to an explicit output file path.
+
+    If *session* is provided, it is reused. Otherwise a new session is created
+    and closed before the function returns.
+    """
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
-    headers = {"User-Agent": UserAgent().random}
-    retry_options = ExponentialRetry(attempts=MAX_RETRIES)
+    headers = {"User-Agent": _USER_AGENT.random}
     timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
-    connector = TCPConnector(ssl=ssl_context)
 
-    async with ClientSession(
-        timeout=timeout, connector=connector, headers=headers
-    ) as base_session:
-        async with RetryClient(
-            client_session=base_session,
-            retry_options=retry_options,
-        ) as session:
-            async with session.get(url) as response:
-                response.raise_for_status()
-                content = await response.read()
+    if session is not None:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            content = await response.read()
+    else:
+        connector = _create_connector()
+        async with ClientSession(
+            timeout=timeout, connector=connector, headers=headers
+        ) as base_session:
+            async with _create_retry_client(base_session) as retry_client:
+                async with retry_client.get(url) as response:
+                    response.raise_for_status()
+                    content = await response.read()
 
     output_file.write_bytes(content)
     return output_file
 
 
-async def download_paper(paper_id: str, save_base: Path) -> Path:
-    """Download a single paper into a base directory using <paper_id>.pdf naming."""
-    return await download_paper_to_file(paper_id, save_base / f"{paper_id}.pdf")
+async def download_paper(
+    paper_id: str, save_base: Path, session: ClientSession | RetryClient | None = None
+) -> Path:
+    """Download a single paper into a base directory using <paper_id>.pdf naming.
+
+    If *session* is provided, it is reused. Otherwise a new session is created
+    and closed before the function returns.
+    """
+    return await download_paper_to_file(
+        paper_id, save_base / f"{paper_id}.pdf", session=session
+    )
 
 
 async def download_multiple_papers(
     paper_ids: list[str], save_base: Path
 ) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
-    tasks = [download_paper(paper_id=paper_id, save_base=save_base) for paper_id in paper_ids]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    connector = _create_connector()
+    timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
+    headers = {"User-Agent": _USER_AGENT.random}
+    async with ClientSession(
+        timeout=timeout, connector=connector, headers=headers
+    ) as base_session:
+        async with _create_retry_client(base_session) as retry_client:
+            tasks = [
+                download_paper(paper_id=paper_id, save_base=save_base, session=retry_client)
+                for paper_id in paper_ids
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
     paths: list[Path] = []
     failures: list[DownloadFailure] = []
     for paper_id, result in zip(paper_ids, results):
