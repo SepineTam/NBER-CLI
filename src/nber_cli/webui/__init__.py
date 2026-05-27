@@ -1,11 +1,11 @@
 import asyncio
-import os
-
 from flask import Flask, render_template_string, request
 
-from ..core.download.downloader import main_download_multiple
+from ..core.download.downloader import download_multiple_papers
 
-DEFAULT_SAVE_PATH = os.path.expanduser("~/Documents/nber_paper")
+from pathlib import Path
+
+DEFAULT_SAVE_PATH = Path.cwd()
 app = Flask(__name__)
 
 FORM = """
@@ -39,7 +39,7 @@ def index():
         ids_raw = request.form.get('paper_ids', '')
         paper_ids = [pid.strip() for pid in ids_raw.split() if pid.strip()]
         if paper_ids:
-            asyncio.run(main_download_multiple(paper_ids, DEFAULT_SAVE_PATH))
+            asyncio.run(download_multiple_papers(paper_ids, DEFAULT_SAVE_PATH))
             message = f"Downloaded {', '.join(paper_ids)}"
         else:
             message = 'Please enter at least one paper ID.'
