@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 import ssl
+from pathlib import Path
+from typing import cast
 
 import certifi
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
@@ -26,11 +27,12 @@ async def download_paper_to_file(paper_id: str, output_file: Path) -> Path:
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     connector = TCPConnector(ssl=ssl_context)
 
-    async with ClientSession(timeout=timeout, connector=connector) as base_session:
+    async with ClientSession(
+        timeout=timeout, connector=connector, headers=headers
+    ) as base_session:
         async with RetryClient(
             client_session=base_session,
             retry_options=retry_options,
-            headers=headers,
         ) as session:
             async with session.get(url) as response:
                 response.raise_for_status()
@@ -48,4 +50,11 @@ async def download_paper(paper_id: str, save_base: Path) -> Path:
 async def download_multiple_papers(paper_ids: list[str], save_base: Path) -> list[Path]:
     """Download multiple papers concurrently into the same base directory."""
     tasks = [download_paper(paper_id=paper_id, save_base=save_base) for paper_id in paper_ids]
-    return await asyncio.gather(*tasks)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    paths: list[Path] = []
+    for paper_id, result in zip(paper_ids, results):
+        if isinstance(result, Exception):
+            print(f"Failed to download {paper_id}: {result}")
+        else:
+            paths.append(cast(Path, result))
+    return paths

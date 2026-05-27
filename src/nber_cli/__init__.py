@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from pathlib import Path
 from importlib.metadata import version as get_version
+from pathlib import Path
 
 from .core.download.downloader import download_multiple_papers, download_paper, download_paper_to_file
 
@@ -56,6 +56,12 @@ def main() -> None:
     if args.command != "download":
         parser.print_help()
         raise SystemExit(0)
+
+    if args.paper_id and args.batch_ids:
+        parser.error("cannot mix positional paper ID with --batch")
+
+    if args.batch_ids and args.file_path is not None:
+        parser.error("--file/-f is not supported with --batch")
 
     paper_ids = _resolve_paper_ids(args.paper_id, args.batch_ids)
     if not paper_ids:
