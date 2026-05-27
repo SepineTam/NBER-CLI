@@ -133,6 +133,13 @@ class TestMainEntrypoint:
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp"))
 
+    @patch("nber_cli.download_paper_to_file", new_callable=AsyncMock)
+    def test_single_paper_with_file_path(self, mock_download):
+        mock_download.return_value = Path("/tmp/custom.pdf")
+        with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/custom.pdf"]):
+            main()
+        mock_download.assert_called_once_with("w1234", Path("/tmp/custom.pdf"))
+
     @patch("nber_cli.download_multiple_papers", new_callable=AsyncMock)
     def test_batch_download_all_success(self, mock_download):
         mock_result = MagicMock()
