@@ -102,8 +102,8 @@ def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[s
 
 
 def _run_mcp_server(transport: str, port: int) -> None:
-    from .mcp import mcp
-    mcp.run(transport=transport, port=port)
+    from .mcp import nber_mcp
+    nber_mcp.run(transport=transport, port=port)
 
 
 def main() -> None:
