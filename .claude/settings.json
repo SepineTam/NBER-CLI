@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv add *)",
+      "Bash(uv run *)",
+      "Bash(uv lock *)",
+      "Bash(uv sync *)",
+      "Bash(nber-cli:*)",
+      "mcp__ide__getDiagnostics",
+      "mcp__codex-mcp__codex",
+      "mcp__codex-mcp__codex-reply"
+    ],
+    "deny": [
+      "Read(.env)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "codex-mcp",
+    "context7"
+  ]
+}

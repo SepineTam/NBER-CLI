@@ -1,0 +1,11 @@
+[mcp_servers.claude-code-docs]
+url = "https://code.claude.com/docs/mcp"
+
+[mcp_servers.claude-code-docs.tools.search_claude_code_docs]
+approval_mode = "approve"
+
+[mcp_servers.claude-code-docs.tools.query_docs_filesystem_claude_code_docs]
+approval_mode = "approve"
+
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
