@@ -1,4 +1,11 @@
-"""Tests for async download utilities."""
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : test_downloader.py
 
 import asyncio
 from pathlib import Path
@@ -6,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from nber_cli.core.download.downloader import (
+from nber_cli.download import (
     DownloadBatchResult,
     DownloadFailure,
     _create_connector,
@@ -104,9 +111,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     result = await download_paper_to_file("w1234", output_file)
 
@@ -120,9 +127,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     result = await download_paper_to_file("w1234", output_file)
 
@@ -136,9 +143,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
@@ -152,9 +159,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
@@ -168,9 +175,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(asyncio.TimeoutError):
                         await download_paper_to_file("w1234", output_file)
@@ -182,9 +189,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(ConnectionError):
                         await download_paper_to_file("w1234", output_file)
@@ -196,9 +203,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session):
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     await download_paper_to_file("w9999", output_file)
 
@@ -212,9 +219,9 @@ class TestDownloadPaperToFile:
         fake_session = FakeClientSession(response=fake_response)
         fake_retry = FakeRetryClient(fake_session)
 
-        with patch("nber_cli.core.download.downloader.ClientSession", return_value=fake_session) as mock_client_session:
-            with patch("nber_cli.core.download.downloader._create_retry_client", return_value=fake_retry):
-                with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download.ClientSession", return_value=fake_session) as mock_client_session:
+            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "TestAgent/1.0"
                     await download_paper_to_file("w1234", output_file)
 
@@ -228,7 +235,7 @@ class TestDownloadPaperToFile:
         fake_response = FakeResponse(status=200, content=b"session pdf")
         fake_session = FakeClientSession(response=fake_response)
 
-        with patch("nber_cli.core.download.downloader._USER_AGENT") as mock_ua:
+        with patch("nber_cli.download._USER_AGENT") as mock_ua:
             mock_ua.random = "Mozilla/5.0"
             result = await download_paper_to_file("w1234", output_file, session=fake_session)
 
@@ -239,7 +246,7 @@ class TestDownloadPaperToFile:
 class TestDownloadPaper:
     @pytest.mark.asyncio
     async def test_download_paper_uses_correct_filename(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper_to_file") as mock_download:
+        with patch("nber_cli.download.download_paper_to_file") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
             result = await download_paper("w1234", tmp_path)
             assert result == tmp_path / "w1234.pdf"
@@ -248,7 +255,7 @@ class TestDownloadPaper:
     @pytest.mark.asyncio
     async def test_download_paper_with_session(self, tmp_path):
         fake_session = MagicMock()
-        with patch("nber_cli.core.download.downloader.download_paper_to_file") as mock_download:
+        with patch("nber_cli.download.download_paper_to_file") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
             result = await download_paper("w1234", tmp_path, session=fake_session)
             assert result == tmp_path / "w1234.pdf"
@@ -258,7 +265,7 @@ class TestDownloadPaper:
 class TestDownloadMultiplePapers:
     @pytest.mark.asyncio
     async def test_all_success(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper") as mock_download:
+        with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.side_effect = [
                 tmp_path / "w1234.pdf",
                 tmp_path / "w5678.pdf",
@@ -270,7 +277,7 @@ class TestDownloadMultiplePapers:
 
     @pytest.mark.asyncio
     async def test_all_failure(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper") as mock_download:
+        with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.side_effect = [
                 Exception("network error"),
                 Exception("timeout"),
@@ -283,7 +290,7 @@ class TestDownloadMultiplePapers:
 
     @pytest.mark.asyncio
     async def test_partial_failure(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper") as mock_download:
+        with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.side_effect = [
                 tmp_path / "w1234.pdf",
                 Exception("not found"),
@@ -297,7 +304,7 @@ class TestDownloadMultiplePapers:
 
     @pytest.mark.asyncio
     async def test_single_paper(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper") as mock_download:
+        with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
             result = await download_multiple_papers(["w1234"], tmp_path)
             assert len(result.paths) == 1
@@ -311,7 +318,7 @@ class TestDownloadMultiplePapers:
 
     @pytest.mark.asyncio
     async def test_cancelled_error_handled(self, tmp_path):
-        with patch("nber_cli.core.download.downloader.download_paper") as mock_download:
+        with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.side_effect = [
                 tmp_path / "w1234.pdf",
                 asyncio.CancelledError("task cancelled"),
@@ -331,7 +338,7 @@ class TestDownloadMultiplePapers:
             await asyncio.sleep(0.01)
             return save_base / f"{paper_id}.pdf"
 
-        with patch("nber_cli.core.download.downloader.download_paper", side_effect=slow_download):
+        with patch("nber_cli.download.download_paper", side_effect=slow_download):
             result = await download_multiple_papers(["w1", "w2", "w3"], tmp_path)
             assert len(result.paths) == 3
             assert len(result.failures) == 0

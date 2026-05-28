@@ -1,10 +1,16 @@
-"""Download utilities for NBER papers."""
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : download.py
 
 from __future__ import annotations
 
 import asyncio
 import ssl
-from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -13,24 +19,14 @@ from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp_retry import ExponentialRetry, RetryClient
 from fake_useragent import UserAgent
 
+from .core.models import DownloadBatchResult, DownloadFailure
+
 MAX_RETRIES = 3
 REQUEST_TIMEOUT_SECONDS = 30
 DEFAULT_CONNECTION_LIMIT = 100
 DEFAULT_CONNECTION_LIMIT_PER_HOST = 10
 
 _USER_AGENT = UserAgent()
-
-
-@dataclass
-class DownloadFailure:
-    paper_id: str
-    error: BaseException
-
-
-@dataclass
-class DownloadBatchResult:
-    paths: list[Path]
-    failures: list[DownloadFailure]
 
 
 def _create_connector() -> TCPConnector:
