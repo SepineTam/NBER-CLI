@@ -22,3 +22,7 @@ release/
 
 # local files
 *.local.*
+
+# Coverage
+.coverage
+htmlcov/

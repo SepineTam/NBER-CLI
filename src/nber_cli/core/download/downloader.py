@@ -1,184 +1,122 @@
-#!/usr/bin/python3
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2025 - Present Sepine Tam, Inc. All Rights Reserved
-#
-# @Author : Sepine Tam
-# @Email  : sepinetam@gmail.com
-# @File   : downloader.py
+"""Download utilities for NBER papers."""
+
+from __future__ import annotations
 
 import asyncio
-import logging
-import os
-import random
 import ssl
-import time
-from typing import List
+from dataclasses import dataclass
+from pathlib import Path
+from typing import cast
 
-import aiosqlite
 import certifi
+from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp_retry import ExponentialRetry, RetryClient
 from fake_useragent import UserAgent
 
-# 设置日志记录
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
+MAX_RETRIES = 3
+REQUEST_TIMEOUT_SECONDS = 30
+DEFAULT_CONNECTION_LIMIT = 100
+DEFAULT_CONNECTION_LIMIT_PER_HOST = 10
 
-logger = logging.getLogger(__name__)
-
-# 配置参数
-MAX_RETRIES = 3  # 最大重试次数
-DB_POOL_SIZE = 5  # 数据库连接池大小，调整为更小的值，因为是单文件下载
-
-# 内存缓存，减少数据库操作
-ID_CACHE = {
-    "ok_ids": set(),
-    "fail_ids": set(),
-    "last_update": 0
-}
-
-# 创建数据库连接池
-db_pool = None
-DB_PATH = os.path.expanduser("~/.nber_cli_state.db")  # 数据库路径，放在用户主目录下
+_USER_AGENT = UserAgent()
 
 
-async def create_db_pool():
-    """创建数据库连接池"""
-    global db_pool
-    if db_pool is None:
-        db_pool = [await aiosqlite.connect(DB_PATH) for _ in range(DB_POOL_SIZE)]
+@dataclass
+class DownloadFailure:
+    paper_id: str
+    error: BaseException
 
 
-async def close_db_pool():
-    """关闭数据库连接池"""
-    if db_pool:
-        for conn in db_pool:
-            await conn.close()
+@dataclass
+class DownloadBatchResult:
+    paths: list[Path]
+    failures: list[DownloadFailure]
 
 
-async def get_db_conn():
-    """从连接池中获取一个数据库连接"""
-    return random.choice(db_pool)
+def _create_connector() -> TCPConnector:
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+    return TCPConnector(
+        ssl=ssl_context,
+        limit=DEFAULT_CONNECTION_LIMIT,
+        limit_per_host=DEFAULT_CONNECTION_LIMIT_PER_HOST,
+    )
 
 
-async def init_db():
-    """初始化数据库"""
-    conn = await get_db_conn()
-    try:
-        await conn.execute(
-            """CREATE TABLE IF NOT EXISTS paper_state (
-                id TEXT PRIMARY KEY,
-                status TEXT NOT NULL,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )"""
-        )
-        await conn.commit()
-    finally:
-        pass  # 不关闭连接，因为它是从连接池中获取的
+def _create_retry_client(session: ClientSession) -> RetryClient:
+    retry_options = ExponentialRetry(attempts=MAX_RETRIES)
+    return RetryClient(
+        client_session=session,
+        retry_options=retry_options,
+    )
 
 
-async def load_ids_from_db():
-    """从数据库加载已处理的ID到内存缓存"""
-    conn = await get_db_conn()
-    try:
-        async with conn.execute("SELECT id, status FROM paper_state") as cursor:
-            async for row in cursor:
-                if row[1] == 'ok':
-                    ID_CACHE["ok_ids"].add(row[0])
-                else:
-                    ID_CACHE["fail_ids"].add(row[0])
-        ID_CACHE["last_update"] = time.time()
-        logger.info(
-            f"Loaded {len(ID_CACHE['ok_ids'])} ok ids and {len(ID_CACHE['fail_ids'])} fail ids from db.")
-    finally:
-        pass
+async def download_paper_to_file(
+    paper_id: str, output_file: Path, session: ClientSession | RetryClient | None = None
+) -> Path:
+    """Download a single NBER paper to an explicit output file path.
 
-
-async def get_paper_state(paper_id: str) -> str:
-    """获取特定论文的下载状态"""
-    if paper_id in ID_CACHE["ok_ids"]:
-        return "ok"
-    if paper_id in ID_CACHE["fail_ids"]:
-        return "fail"
-    return None
-
-
-async def update_paper_state(paper_id: str, status: str):
-    """更新论文的下载状态"""
-    conn = await get_db_conn()
-    try:
-        await conn.execute(
-            "INSERT OR REPLACE INTO paper_state (id, status) VALUES (?, ?)",
-            (paper_id, status)
-        )
-        await conn.commit()
-        if status == 'ok':
-            ID_CACHE["ok_ids"].add(paper_id)
-            if paper_id in ID_CACHE["fail_ids"]:
-                ID_CACHE["fail_ids"].remove(paper_id)
-        else:
-            ID_CACHE["fail_ids"].add(paper_id)
-            if paper_id in ID_CACHE["ok_ids"]:
-                ID_CACHE["ok_ids"].remove(paper_id)
-    finally:
-        pass
-
-
-async def download_paper(paper_id: str, save_path: str):
-    """下载单个NBER论文"""
-    filepath = os.path.join(save_path, f"{paper_id}.pdf")
-
-    # 确保保存路径存在
-    os.makedirs(save_path, exist_ok=True)
-
-    state = await get_paper_state(paper_id)
-    if state == 'ok' and os.path.exists(filepath):
-        logger.info(f"Skipping {paper_id}, already downloaded.")
-        return
-    if state == 'ok' and not os.path.exists(filepath):
-        logger.info(
-            f"{paper_id} marked as downloaded but file missing, re-downloading.")
+    If *session* is provided, it is reused. Otherwise a new session is created
+    and closed before the function returns.
+    """
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
+    headers = {"User-Agent": _USER_AGENT.random}
+    timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
 
-    ua = UserAgent()
-    headers = {'User-Agent': ua.random}
-    retry_options = ExponentialRetry(attempts=MAX_RETRIES)
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
-
-    try:
-        async with RetryClient(retry_options=retry_options, headers=headers) as session:
-            async with session.get(url, timeout=30, ssl=ssl_context) as response:
-                if response.status == 200:
+    if session is not None:
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            content = await response.read()
+    else:
+        connector = _create_connector()
+        async with ClientSession(
+            timeout=timeout, connector=connector, headers=headers
+        ) as base_session:
+            async with _create_retry_client(base_session) as retry_client:
+                async with retry_client.get(url) as response:
+                    response.raise_for_status()
                     content = await response.read()
-                    with open(filepath, 'wb') as f:
-                        f.write(content)
-                    logger.info(
-                        f"Successfully downloaded {paper_id} to {filepath}")
-                    await update_paper_state(paper_id, 'ok')
-                else:
-                    logger.error(
-                        f"Failed to download {paper_id}, status code: {response.status}")
-                    await update_paper_state(paper_id, 'fail')
-    except Exception as e:
-        logger.error(f"An error occurred while downloading {paper_id}: {e}")
-        await update_paper_state(paper_id, 'fail')
+
+    output_file.write_bytes(content)
+    return output_file
 
 
-async def main_download_multiple(paper_ids: List[str], save_path: str):
-    """主下载函数，可下载多个paper"""
-    await create_db_pool()
-    await init_db()
-    await load_ids_from_db()
-    await asyncio.gather(*(download_paper(pid, save_path) for pid in paper_ids))
-    await close_db_pool()
+async def download_paper(
+    paper_id: str, save_base: Path, session: ClientSession | RetryClient | None = None
+) -> Path:
+    """Download a single paper into a base directory using <paper_id>.pdf naming.
+
+    If *session* is provided, it is reused. Otherwise a new session is created
+    and closed before the function returns.
+    """
+    return await download_paper_to_file(
+        paper_id, save_base / f"{paper_id}.pdf", session=session
+    )
 
 
-async def main_download(paper_id: str, save_path: str):
-    """向后兼容的单文件下载接口"""
-    await main_download_multiple([paper_id], save_path)
+async def download_multiple_papers(
+    paper_ids: list[str], save_base: Path
+) -> DownloadBatchResult:
+    """Download multiple papers concurrently into the same base directory."""
+    connector = _create_connector()
+    timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
+    headers = {"User-Agent": _USER_AGENT.random}
+    async with ClientSession(
+        timeout=timeout, connector=connector, headers=headers
+    ) as base_session:
+        async with _create_retry_client(base_session) as retry_client:
+            tasks = [
+                download_paper(paper_id=paper_id, save_base=save_base, session=retry_client)
+                for paper_id in paper_ids
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    paths: list[Path] = []
+    failures: list[DownloadFailure] = []
+    for paper_id, result in zip(paper_ids, results):
+        if isinstance(result, (Exception, asyncio.CancelledError)):
+            failures.append(DownloadFailure(paper_id=paper_id, error=result))
+        else:
+            paths.append(cast(Path, result))
+    return DownloadBatchResult(paths=paths, failures=failures)

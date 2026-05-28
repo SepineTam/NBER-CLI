@@ -1,23 +1,26 @@
 [project]
 name = "nber-cli"
-version = "0.1.4"
+version = "0.2.0"
 description = "A command-line tool to download NBER papers."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiohttp",
-    "aiosqlite",
-    "orjson",
     "fake_useragent",
     "aiohttp-retry",
-    "certifi",
-    "flask"
+    "certifi"
 ]
 
 [project.scripts]
 nber-cli = "nber_cli:main"
-nber-cli-web = "nber_cli.webui:run"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+]
