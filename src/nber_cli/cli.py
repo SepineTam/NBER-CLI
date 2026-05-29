@@ -16,6 +16,8 @@ import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
 
+from aiohttp import ClientError, ClientResponseError
+
 from .core.models import DownloadBatchResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
 from .fetcher import get_nber, search_nber
@@ -133,15 +135,63 @@ def _parse_paper_id(paper_id_str: str) -> int:
     return int(cleaned)
 
 
+def _print_download_success(paper_id: str, output_file: Path) -> None:
+    print(f"Successfully downloaded {paper_id} to {output_file}")
+
+
+def _format_download_error(paper_id: str, error: BaseException) -> str:
+    if isinstance(error, ClientResponseError):
+        if error.status == 403:
+            return (
+                f"Failed to download {paper_id}: no permission to access this paper "
+                "(HTTP 403). It may still be in NBER's first-week access restriction."
+            )
+        if error.status == 404:
+            return f"Failed to download {paper_id}: paper not found (HTTP 404)."
+
+        error_message = error.message or "HTTP error"
+        return f"Failed to download {paper_id}: HTTP {error.status} {error_message}."
+
+    if isinstance(error, TimeoutError):
+        return f"Failed to download {paper_id}: request timed out."
+
+    if isinstance(error, (ClientError, ConnectionError)):
+        error_message = str(error) or error.__class__.__name__
+        return f"Failed to download {paper_id}: network error: {error_message}."
+
+    if isinstance(error, asyncio.CancelledError):
+        return f"Failed to download {paper_id}: download cancelled."
+
+    error_message = str(error) or error.__class__.__name__
+    return f"Failed to download {paper_id}: {error_message}"
+
+
+def _run_single_download(paper_id: str, output_file: Path | None, save_base: Path) -> None:
+    try:
+        if output_file is not None:
+            downloaded_file = asyncio.run(download_paper_to_file(paper_id, output_file))
+        else:
+            downloaded_file = asyncio.run(download_paper(paper_id, save_base))
+    except (Exception, asyncio.CancelledError) as error:
+        print(_format_download_error(paper_id, error), file=sys.stderr)
+        raise SystemExit(1) from None
+
+    _print_download_success(paper_id, downloaded_file)
+
+
 def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[str]) -> None:
+    for output_file in batch_result.paths:
+        _print_download_success(output_file.stem, output_file)
+
     for failure in batch_result.failures:
-        error_message = str(failure.error) or failure.error.__class__.__name__
-        print(f"Failed to download {failure.paper_id}: {error_message}", file=sys.stderr)
-    print(
-        f"Downloaded {len(batch_result.paths)} of {len(paper_ids)} papers; "
-        f"{len(batch_result.failures)} failed.",
-        file=sys.stderr,
-    )
+        print(_format_download_error(failure.paper_id, failure.error), file=sys.stderr)
+
+    if batch_result.failures:
+        print(
+            f"Downloaded {len(batch_result.paths)} of {len(paper_ids)} papers; "
+            f"{len(batch_result.failures)} failed.",
+            file=sys.stderr,
+        )
 
 
 def _run_mcp_server(transport: str, port: int) -> None:
@@ -185,17 +235,17 @@ def main() -> None:
             parser.error("--file/-f is only supported for single downloads, not for --batch or multiple IDs.")
 
         if args.file_path is not None:
-            asyncio.run(download_paper_to_file(paper_ids[0], args.file_path))
+            _run_single_download(paper_ids[0], args.file_path, args.save_base)
             return
 
         if args.batch_ids is not None:
             batch_result = asyncio.run(download_multiple_papers(paper_ids, args.save_base))
+            _handle_download_errors(batch_result, paper_ids)
             if batch_result.failures:
-                _handle_download_errors(batch_result, paper_ids)
                 raise SystemExit(1)
             return
 
-        asyncio.run(download_paper(paper_ids[0], args.save_base))
+        _run_single_download(paper_ids[0], None, args.save_base)
         return
 
     if args.command == "info":

@@ -13,8 +13,16 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aiohttp import ClientResponseError
 
-from nber_cli.cli import _build_parser, _get_version, _parse_paper_id, _resolve_paper_ids, main
+from nber_cli.cli import (
+    _build_parser,
+    _format_download_error,
+    _get_version,
+    _parse_paper_id,
+    _resolve_paper_ids,
+    main,
+)
 
 
 class TestGetVersion:
@@ -160,6 +168,45 @@ class TestParsePaperId:
             _parse_paper_id("abc")
 
 
+class TestFormatDownloadError:
+    def test_formats_403_as_permission_error(self):
+        error = ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=403,
+            message="Forbidden",
+        )
+
+        message = _format_download_error("w1234", error)
+
+        assert "Failed to download w1234" in message
+        assert "no permission" in message
+        assert "HTTP 403" in message
+        assert "first-week" in message
+
+    def test_formats_404_as_not_found(self):
+        error = ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=404,
+            message="Not Found",
+        )
+
+        message = _format_download_error("w1235456", error)
+
+        assert message == "Failed to download w1235456: paper not found (HTTP 404)."
+
+    def test_formats_timeout(self):
+        message = _format_download_error("w1234", TimeoutError("timed out"))
+
+        assert message == "Failed to download w1234: request timed out."
+
+    def test_formats_network_error(self):
+        message = _format_download_error("w1234", ConnectionError("broken pipe"))
+
+        assert message == "Failed to download w1234: network error: broken pipe."
+
+
 class TestMainEntrypoint:
     def test_no_command_prints_help(self, capsys):
         with pytest.raises(SystemExit) as exc_info:
@@ -194,7 +241,7 @@ class TestMainEntrypoint:
         assert exc_info.value.code == 2
 
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
-    def test_batch_with_single_id_and_no_file_path(self, mock_download):
+    def test_batch_with_single_id_and_no_file_path(self, mock_download, capsys):
         mock_result = MagicMock()
         mock_result.paths = [Path("/tmp/w1234.pdf")]
         mock_result.failures = []
@@ -202,30 +249,38 @@ class TestMainEntrypoint:
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
         mock_download.assert_called_once_with(["w1234"], Path("/tmp"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
     @patch("nber_cli.cli.download_paper_to_file", new_callable=AsyncMock)
-    def test_single_download_with_file_path(self, mock_download):
+    def test_single_download_with_file_path(self, mock_download, capsys):
         mock_download.return_value = Path("/tmp/paper.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/paper.pdf"]):
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp/paper.pdf"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/paper.pdf" in captured.out
 
     @patch("nber_cli.cli.download_paper", new_callable=AsyncMock)
-    def test_single_download_without_file_path(self, mock_download):
+    def test_single_download_without_file_path(self, mock_download, capsys):
         mock_download.return_value = Path("/tmp/w1234.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--save-base", "/tmp"]):
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
     @patch("nber_cli.cli.download_paper_to_file", new_callable=AsyncMock)
-    def test_single_paper_with_file_path(self, mock_download):
+    def test_single_paper_with_file_path(self, mock_download, capsys):
         mock_download.return_value = Path("/tmp/custom.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/custom.pdf"]):
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp/custom.pdf"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/custom.pdf" in captured.out
 
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
-    def test_batch_download_all_success(self, mock_download):
+    def test_batch_download_all_success(self, mock_download, capsys):
         mock_result = MagicMock()
         mock_result.paths = [Path("/tmp/w1234.pdf"), Path("/tmp/w5678.pdf")]
         mock_result.failures = []
@@ -233,16 +288,21 @@ class TestMainEntrypoint:
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "w5678", "--save-base", "/tmp"]):
             main()
         mock_download.assert_called_once_with(["w1234", "w5678"], Path("/tmp"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
+        assert "Successfully downloaded w5678 to /tmp/w5678.pdf" in captured.out
 
     @patch("nber_cli.cli.download_paper", new_callable=AsyncMock)
-    def test_single_paper_no_batch_no_file(self, mock_download):
+    def test_single_paper_no_batch_no_file(self, mock_download, capsys):
         mock_download.return_value = Path("/tmp/w1234.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--save-base", "/tmp"]):
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
-    def test_batch_download_no_failures(self, mock_download):
+    def test_batch_download_no_failures(self, mock_download, capsys):
         mock_result = MagicMock()
         mock_result.paths = [Path("/tmp/w1234.pdf")]
         mock_result.failures = []
@@ -250,6 +310,26 @@ class TestMainEntrypoint:
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
         mock_download.assert_called_once_with(["w1234"], Path("/tmp"))
+        captured = capsys.readouterr()
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
+
+    @patch("nber_cli.cli.download_paper", new_callable=AsyncMock)
+    def test_single_download_404_exits_1_without_traceback(self, mock_download, capsys):
+        mock_download.side_effect = ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=404,
+            message="Not Found",
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "download", "w1235456", "--save-base", "/tmp"]):
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Failed to download w1235456: paper not found (HTTP 404)." in captured.err
+        assert "Traceback" not in captured.err
 
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
     def test_batch_download_with_failures_exits_1(self, mock_download, capsys):
@@ -267,6 +347,7 @@ class TestMainEntrypoint:
         captured = capsys.readouterr()
         assert "Failed to download w5678" in captured.err
         assert "Downloaded 1 of 2 papers" in captured.err
+        assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
     def test_batch_download_all_failures_exits_1(self, mock_download, capsys):
