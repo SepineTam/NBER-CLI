@@ -14,7 +14,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .fetcher import get_nber, search_nber
 from .formatters import info, related, search_results
-from .download import download_paper, download_paper_to_file
+from .download import download_paper as download_paper_to_dir, download_paper_to_file
 
 nber_mcp = FastMCP("nber_mcp")
 
@@ -91,6 +91,6 @@ async def download_paper(paper_id: str, output_path: Optional[str] = None) -> bo
     if output_path:
         await download_paper_to_file(paper_id, Path(output_path))
     else:
-        await download_paper(paper_id, Path.cwd())
+        await download_paper_to_dir(paper_id, Path.cwd())
 
     return True
