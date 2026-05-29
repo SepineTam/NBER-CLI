@@ -9,3 +9,7 @@ approval_mode = "approve"
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.codex-mcp]
+command = "codex"
+args = ["mcp-server"]

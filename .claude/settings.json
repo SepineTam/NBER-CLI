@@ -6,6 +6,10 @@
       "Bash(uv lock *)",
       "Bash(uv sync *)",
       "Bash(nber-cli:*)",
+      "WebFetch(domain:openai.github.io)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:nber.org)",
+      "WebFetch(domain:github.com)",
       "mcp__ide__getDiagnostics",
       "mcp__codex-mcp__codex",
       "mcp__codex-mcp__codex-reply"

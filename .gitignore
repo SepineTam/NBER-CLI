@@ -26,3 +26,4 @@ release/
 # Coverage
 .coverage
 htmlcov/
+site/
