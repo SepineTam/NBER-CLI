@@ -1,0 +1,116 @@
+site_name: NBER-CLI
+site_description: A command line interface for downloading the National Bureau of Economic Research (NBER) papers without a browser.
+site_author: Sepine Tam
+site_url: https://sepinetam.github.io/NBER-CLI/
+
+theme:
+  name: material
+  language: en
+  features:
+    - content.code.copy
+    - content.code.select
+    - navigation.path
+    - navigation.sections
+    - content.code.annotate
+    - navigation.top
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    primary: black
+
+repo_name: SepineTam/NBER-CLI
+repo_url: https://github.com/SepineTam/NBER-CLI
+
+docs_dir: docs
+site_dir: site
+strict: true
+use_directory_urls: true
+
+plugins:
+  - search:
+      lang:
+        - en
+        - zh
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+          nav:
+            - Home: index.md
+            - Getting Started: getting-started.md
+            - User Guide:
+                - CLI Reference: cli.md
+                - MCP Server: mcp.md
+                - Configuration: configuration.md
+            - API Reference:
+                - Python API: python-api.md
+            - Development:
+                - Development Guide: development.md
+                - Contributing: contributing.md
+                - Changelog: changelog.md
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav:
+            - 首页: index.md
+            - 快速开始: getting-started.md
+            - 使用指南:
+                - CLI 参考: cli.md
+                - MCP Server: mcp.md
+                - 配置: configuration.md
+            - API 参考:
+                - Python API: python-api.md
+            - 开发:
+                - 开发指南: development.md
+                - 贡献指南: contributing.md
+                - 更新日志: changelog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/SepineTam
+  alternate:
+    - name: English
+      link: /NBER-CLI/
+      lang: en
+    - name: 简体中文
+      link: /NBER-CLI/zh/
+      lang: zh
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - User Guide:
+      - CLI Reference: cli.md
+      - MCP Server: mcp.md
+      - Configuration: configuration.md
+  - API Reference:
+      - Python API: python-api.md
+  - Development:
+      - Development Guide: development.md
+      - Contributing: contributing.md
+      - Changelog: changelog.md
+

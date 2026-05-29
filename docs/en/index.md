@@ -1,0 +1,68 @@
+# NBER-CLI
+
+NBER-CLI is a command-line toolkit for searching NBER working papers, reading paper metadata, downloading PDFs, and exposing those workflows to AI agents through MCP.
+
+## What It Does
+
+NBER-CLI focuses on the common research loop around NBER working papers:
+
+- Search for papers by keyword, author, title, abstract, or paper number.
+- Inspect a paper's title, authors, date, abstract, URL, and related metadata.
+- Download a PDF by paper ID.
+- Run batch downloads into a target directory.
+- Serve paper search, lookup, and download operations as MCP tools.
+
+## Quick Start
+
+Run without installing:
+
+```bash
+uvx nber-cli search "Labor Economic"
+uvx nber-cli info w25000
+uvx nber-cli download w34567
+```
+
+Install as a reusable command:
+
+```bash
+uv tool install nber-cli
+nber-cli search "Labor Economic"
+nber-cli info w25000
+nber-cli download w34567
+```
+
+## MCP in One Minute
+
+Start the stdio MCP server:
+
+```bash
+uvx nber-cli mcp-server
+```
+
+Add it to an MCP client:
+
+```json
+{
+  "mcpServers": {
+    "nber-cli": {
+      "command": "uvx",
+      "args": ["nber-cli", "mcp-server"]
+    }
+  }
+}
+```
+
+## Documentation Map
+
+- [Getting Started](getting-started.md): install options and first commands.
+- [CLI Reference](cli.md): command syntax, options, output formats, and examples.
+- [MCP Server](mcp.md): agent configuration, transports, and available tools.
+- [Python API](python-api.md): async functions and data models.
+- [Configuration](configuration.md): runtime defaults and operational behavior.
+- [Development](development.md): local setup, tests, docs, CI, and release workflow.
+- [Contributing](contributing.md): contribution standards and review expectations.
+- [Changelog](changelog.md): notable project changes.
+
+## Project Status
+
+The current public command model is `nber-cli` v0.2.0. The CLI is intentionally small and script-friendly: text output is optimized for human reading, and `--format json` is available where structured output matters.
