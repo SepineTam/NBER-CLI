@@ -68,6 +68,28 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## 批量下载
+
+```python
+import asyncio
+from pathlib import Path
+
+from nber_cli import download_multiple_papers
+
+
+async def main() -> None:
+    result = await download_multiple_papers(
+        ["w34567", "w25000", "w32000"],
+        Path("papers"),
+    )
+    print(f"成功下载 {len(result.paths)} 篇论文")
+    for failure in result.failures:
+        print(f"失败: {failure.paper_id} - {failure.error}")
+
+
+asyncio.run(main())
+```
+
 ## 数据模型
 
 ### NBER
@@ -96,6 +118,20 @@ asyncio.run(main())
 | `start_date` | `str` 或 `None` | 已应用的开始日期。 |
 | `end_date` | `str` 或 `None` | 已应用的结束日期。 |
 
+### DownloadFailure
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `paper_id` | `str` | 下载失败的论文编号。 |
+| `error` | `BaseException` | 下载尝试期间抛出的异常。 |
+
+### DownloadBatchResult
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `paths` | `list[Path]` | 成功下载的 PDF 路径。 |
+| `failures` | `list[DownloadFailure]` | 失败下载及其错误。 |
+
 ## Formatter 辅助函数
 
 如果需要稳定的字典输出用于 JSON 或 MCP 风格响应，可以使用 formatter：
@@ -107,3 +143,12 @@ from nber_cli import info, related, search_results
 - `info(paper)` 返回核心元数据。
 - `related(paper)` 返回可选相关字段。
 - `search_results(results)` 返回结构化搜索结果。
+
+如果需要适合人读的文本输出，可以使用文本格式化器：
+
+```python
+from nber_cli import info_text, search_results_text
+```
+
+- `info_text(paper, include_all=False)` 返回格式化的论文详情文本。设置 `include_all=True` 可包含 topic、programs 和 published version。
+- `search_results_text(results)` 返回格式化的搜索结果文本。

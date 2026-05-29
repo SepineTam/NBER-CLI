@@ -34,7 +34,7 @@ uv run --group docs mkdocs build --strict
 新增文档页时：
 
 1. 在 `docs/` 下添加英文页面。
-2. 在 `docs/zh-CN/` 下添加简体中文页面。
+2. 在 `docs/zh/` 下添加简体中文页面。
 3. 在 `mkdocs.yml` 中注册两个页面。
 4. 运行 `uv run --group docs mkdocs build --strict`。
 

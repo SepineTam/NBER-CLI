@@ -34,7 +34,7 @@ uv run --group docs mkdocs build --strict
 When adding a new documentation page:
 
 1. Add the English page under `docs/`.
-2. Add the Simplified Chinese page under `docs/zh-CN/`.
+2. Add the Simplified Chinese page under `docs/zh/`.
 3. Register both pages in `mkdocs.yml`.
 4. Run `uv run --group docs mkdocs build --strict`.
 

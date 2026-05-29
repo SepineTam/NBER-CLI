@@ -68,6 +68,28 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## Download Multiple Papers
+
+```python
+import asyncio
+from pathlib import Path
+
+from nber_cli import download_multiple_papers
+
+
+async def main() -> None:
+    result = await download_multiple_papers(
+        ["w34567", "w25000", "w32000"],
+        Path("papers"),
+    )
+    print(f"Downloaded {len(result.paths)} papers")
+    for failure in result.failures:
+        print(f"Failed: {failure.paper_id} - {failure.error}")
+
+
+asyncio.run(main())
+```
+
 ## Data Models
 
 ### NBER
@@ -96,6 +118,20 @@ asyncio.run(main())
 | `start_date` | `str` or `None` | Applied start date. |
 | `end_date` | `str` or `None` | Applied end date. |
 
+### DownloadFailure
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `paper_id` | `str` | The paper ID that failed to download. |
+| `error` | `BaseException` | The exception raised during the download attempt. |
+
+### DownloadBatchResult
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `paths` | `list[Path]` | Paths of successfully downloaded PDFs. |
+| `failures` | `list[DownloadFailure]` | Failed downloads with their errors. |
+
 ## Formatter Helpers
 
 Use formatter helpers when you want stable dictionaries for JSON output or MCP-style responses:
@@ -107,3 +143,12 @@ from nber_cli import info, related, search_results
 - `info(paper)` returns core metadata.
 - `related(paper)` returns related optional fields.
 - `search_results(results)` returns a structured search payload.
+
+For human-readable text output, use the text formatters:
+
+```python
+from nber_cli import info_text, search_results_text
+```
+
+- `info_text(paper, include_all=False)` returns a formatted text string with paper details. Set `include_all=True` to include topic, programs, and published version.
+- `search_results_text(results)` returns a formatted text string with search results.

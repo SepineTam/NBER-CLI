@@ -1,39 +1,78 @@
 # NBER-CLI
+A command line interface for downloading the National Bureau of Economic Research (NBER) paper without brower.
 
-NBER-CLI is a command line tool for downloading NBER paper PDFs.
+[![Pytest](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml)
+[![Lint](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml)
+[![Docs](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-## Installation
+[简体中文](README.zh-CN.md) | [Documentation](docs/index.md)
+
+> **NBER** is a registered trademark of the [National Bureau of Economic Research](https://www.nber.org). This project is an independent open-source tool and is **not affiliated with, endorsed by, or sponsored by** the National Bureau of Economic Research. By using this project, you agree to the [Usage Policy](docs/en/policy.md).
+
+## Features
+
+- Search NBER working papers by title, paper number, author, abstract, or keyword.
+- Fetch structured metadata and abstracts for a paper ID such as `w25000`.
+- Download single papers or batches as PDF files.
+- Expose the same core workflows as MCP tools for AI agents.
+- Return human-readable output by default, with JSON output for automation.
+
+## Quick Start
+
+Run commands directly with `uvx`:
 
 ```bash
-pip install nber-cli
+uvx nber-cli search "Labor Economic"
+uvx nber-cli info w25000
+uvx nber-cli download w34567
 ```
 
-## CLI v0.2 Usage
+Or install the command first:
 
 ```bash
-nber-cli download w1234
-nber-cli download w1234 --file /path/to/save/w1234.pdf
-nber-cli download w1234 -f /path/to/save/w1234.pdf
-nber-cli download w1234 --save-base /path/to/save
-nber-cli download w1234 -s /path/to/save
-nber-cli download --batch w1234 w23156 w1516 --save-base /path/to/save
-nber-cli download -b w1235 w4568 w0485
-nber-cli info w34255
-nber-cli info w34255 -f json
-nber-cli search "labor economics"
-nber-cli search "ChatGPT" --start-date 2024-01-01 --per-page 20
-nber-cli search "ChatGPT" -f json
+uv tool install nber-cli
+nber-cli search "Labor Economic"
+nber-cli info w25000
+nber-cli download w34567
 ```
 
-Rules:
+## MCP Server for Agents
 
-- If neither `--file` nor `--save-base` is set, files are saved to `Path.cwd()`.
-- If both `--file` and `--save-base` are set, `--file` wins.
-- Batch download supports `--save-base` only.
-- Batch download does not support `--file`.
-- `info` and `search` default to list output. Use `--format json` or `-f json` for structured output.
+NBER-CLI can run as a stdio MCP server:
 
+```bash
+uvx nber-cli mcp-server
+```
+
+Example MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "nber-cli": {
+      "command": "uvx",
+      "args": ["nber-cli", "mcp-server"]
+    }
+  }
+}
+```
+
+The MCP server exposes tools for paper lookup, search, and PDF download.
+
+## Documentation
+
+More usage details, command references, MCP setup, Python API examples, development notes, and release history are available in the [documentation](docs/index.md).
+
+## Development
+
+```bash
+uv sync --dev --group docs
+uv run pytest
+uv run ruff check .
+uv run --group docs mkdocs serve
+```
 
 ## License
 
-[Apache-2.0](LICENSE)
+NBER-CLI is released under the [Apache-2.0 License](LICENSE).

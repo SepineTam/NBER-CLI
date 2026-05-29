@@ -53,6 +53,7 @@ plugins:
                 - Development Guide: development.md
                 - Contributing: contributing.md
                 - Changelog: changelog.md
+            - Usage Policy: policy.md
         - locale: zh
           name: 简体中文
           build: true
@@ -69,6 +70,7 @@ plugins:
                 - 开发指南: development.md
                 - 贡献指南: contributing.md
                 - 更新日志: changelog.md
+            - 使用政策: policy.md
 
 markdown_extensions:
   - admonition
@@ -113,4 +115,5 @@ nav:
       - Development Guide: development.md
       - Contributing: contributing.md
       - Changelog: changelog.md
+  - Usage Policy: policy.md
 
