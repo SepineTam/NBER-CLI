@@ -13,26 +13,28 @@ import asyncio
 import html
 import json
 import re
+import time
 from datetime import date
 from typing import Any
 from urllib.parse import urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientResponseError, ClientSession
 
+from .config import NBER_CLI_CONFIG
 from .core.models import NBER, NBERSearchResults
 
-_REQUEST_TIMEOUT_SECONDS = 30
-_REQUEST_TIMEOUT = ClientTimeout(total=_REQUEST_TIMEOUT_SECONDS)
 _NBER_SEARCH_API = "https://www.nber.org/api/v1/working_page_listing/contentType/working_paper/_/_/search"
 _NBER_BASE_URL = "https://www.nber.org"
-_SUPPORTED_SEARCH_PAGE_SIZES = {20, 50, 100}
+_REQUEST_TIMEOUT_SECONDS = NBER_CLI_CONFIG.request_timeout_seconds
+_SUPPORTED_SEARCH_PAGE_SIZES = NBER_CLI_CONFIG.search_page_sizes
 
 
 async def get_nber(nber_id: int, session: ClientSession | None = None) -> NBER:
     _url = f"https://www.nber.org/papers/w{nber_id:04d}"
     if session is not None:
-        page = await _load_page(_url, session)
+        page = await _load_page_with_retry(_url, session)
     else:
         page = await asyncio.to_thread(_load_page_sync, _url)
     return parse_page(page)
@@ -55,7 +57,7 @@ async def search_nber(
         per_page=per_page,
     )
     if session is not None:
-        payload = await _load_json(_NBER_SEARCH_API, session, params)
+        payload = await _load_json_with_retry(_NBER_SEARCH_API, session, params)
     else:
         payload = await asyncio.to_thread(_load_json_sync, _NBER_SEARCH_API, params)
     return _parse_search_payload(payload, params)
@@ -75,17 +77,73 @@ async def _load_json(url: str, session: ClientSession, params: dict[str, Any]) -
         return await resp.json()
 
 
+async def _load_page_with_retry(url: str, session: ClientSession) -> str:
+    return await _retry_async(lambda: _load_page(url, session))
+
+
+async def _load_json_with_retry(
+    url: str, session: ClientSession, params: dict[str, Any]
+) -> dict[str, Any]:
+    return await _retry_async(lambda: _load_json(url, session, params))
+
+
 def _load_page_sync(url: str) -> str:
-    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
-        encoding = response.headers.get_content_charset("utf-8")
-        return response.read().decode(encoding)
+    return _load_text_sync(url)
 
 
 def _load_json_sync(url: str, params: dict[str, Any]) -> dict[str, Any]:
     query_string = urlencode(params)
-    page = _load_page_sync(f"{url}?{query_string}")
+    page = _load_text_sync(f"{url}?{query_string}")
     return json.loads(page)
+
+
+def _load_text_sync(url: str) -> str:
+    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    last_error: BaseException | None = None
+
+    for attempt in range(NBER_CLI_CONFIG.request_attempts):
+        try:
+            with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+                encoding = response.headers.get_content_charset("utf-8")
+                return response.read().decode(encoding)
+        except HTTPError as error:
+            if not _should_retry_http_error(error) or attempt >= NBER_CLI_CONFIG.request_retry_count:
+                raise
+            last_error = error
+        except (URLError, TimeoutError, OSError) as error:
+            if attempt >= NBER_CLI_CONFIG.request_retry_count:
+                raise
+            last_error = error
+
+        time.sleep(0)
+
+    if last_error is not None:
+        raise last_error
+
+    raise RuntimeError("request failed unexpectedly")
+
+
+async def _retry_async(loader):
+    last_error: BaseException | None = None
+
+    for attempt in range(NBER_CLI_CONFIG.request_attempts):
+        try:
+            return await loader()
+        except ClientResponseError as error:
+            if not _should_retry_aiohttp_error(error) or attempt >= NBER_CLI_CONFIG.request_retry_count:
+                raise
+            last_error = error
+        except (ClientError, asyncio.TimeoutError, TimeoutError, OSError) as error:
+            if attempt >= NBER_CLI_CONFIG.request_retry_count:
+                raise
+            last_error = error
+
+        await asyncio.sleep(0)
+
+    if last_error is not None:
+        raise last_error
+
+    raise RuntimeError("request failed unexpectedly")
 
 
 def parse_page(page: str) -> NBER:
@@ -232,3 +290,11 @@ def _clean_html_text(value: Any) -> str:
         return ""
     text = re.sub(r"<[^>]+>", "", str(value))
     return " ".join(html.unescape(text).split())
+
+
+def _should_retry_http_error(error: HTTPError) -> bool:
+    return 500 <= error.code < 600 or error.code == 408
+
+
+def _should_retry_aiohttp_error(error: ClientResponseError) -> bool:
+    return 500 <= error.status < 600 or error.status == 408

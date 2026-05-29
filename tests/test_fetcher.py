@@ -8,10 +8,20 @@
 # @File   : test_fetcher.py
 
 from datetime import date
+from urllib.error import URLError
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from nber_cli.fetcher import _build_search_params, _parse_search_payload
+from nber_cli.config import NBER_CLI_CONFIG
+from nber_cli.fetcher import _build_search_params, _load_text_sync, _parse_search_payload
+
+
+class TestConfigDefaults:
+    def test_request_defaults(self):
+        assert NBER_CLI_CONFIG.request_timeout_seconds == 60
+        assert NBER_CLI_CONFIG.request_retry_count == 3
+        assert NBER_CLI_CONFIG.request_attempts == 4
 
 
 class TestBuildSearchParams:
@@ -93,3 +103,36 @@ class TestParseSearchPayload:
         assert results.results[0].authors == ["Person A", "Person & B"]
         assert results.results[0].url == "https://www.nber.org/papers/w32000"
         assert results.results[0].abstract == "Abstract with markup."
+
+
+class TestLoadTextSyncRetry:
+    def test_retries_on_network_error(self):
+        class FakeResponse:
+            def __init__(self, text_value: str):
+                self._text_value = text_value
+                self.headers = MagicMock()
+                self.headers.get_content_charset.return_value = "utf-8"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return self._text_value.encode("utf-8")
+
+        calls = [URLError("temporary failure"), URLError("temporary failure"), FakeResponse("ok")]
+
+        def fake_urlopen(request, timeout):
+            result = calls.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        with patch("nber_cli.fetcher.urlopen", side_effect=fake_urlopen):
+            with patch("nber_cli.fetcher.time.sleep") as mock_sleep:
+                text = _load_text_sync("https://example.com")
+
+        assert text == "ok"
+        assert mock_sleep.call_count == 2

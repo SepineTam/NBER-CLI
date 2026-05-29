@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .cli import main
+from .config import NBER_CLI_CONFIG, NBERCLIConfig
 from .core.models import (
     DownloadBatchResult,
     DownloadFailure,
@@ -15,6 +16,8 @@ from .formatters import info, related, search_results
 
 __all__ = [
     "NBER",
+    "NBERCLIConfig",
+    "NBER_CLI_CONFIG",
     "DownloadBatchResult",
     "DownloadFailure",
     "NBERSearchResults",

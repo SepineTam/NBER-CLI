@@ -19,12 +19,8 @@ from aiohttp import ClientSession, ClientTimeout, TCPConnector
 from aiohttp_retry import ExponentialRetry, RetryClient
 from fake_useragent import UserAgent
 
+from .config import NBER_CLI_CONFIG
 from .core.models import DownloadBatchResult, DownloadFailure
-
-MAX_RETRIES = 3
-REQUEST_TIMEOUT_SECONDS = 30
-DEFAULT_CONNECTION_LIMIT = 100
-DEFAULT_CONNECTION_LIMIT_PER_HOST = 10
 
 _USER_AGENT = UserAgent()
 
@@ -33,13 +29,13 @@ def _create_connector() -> TCPConnector:
     ssl_context = ssl.create_default_context(cafile=certifi.where())
     return TCPConnector(
         ssl=ssl_context,
-        limit=DEFAULT_CONNECTION_LIMIT,
-        limit_per_host=DEFAULT_CONNECTION_LIMIT_PER_HOST,
+        limit=NBER_CLI_CONFIG.download_connection_limit,
+        limit_per_host=NBER_CLI_CONFIG.download_connection_limit_per_host,
     )
 
 
 def _create_retry_client(session: ClientSession) -> RetryClient:
-    retry_options = ExponentialRetry(attempts=MAX_RETRIES)
+    retry_options = ExponentialRetry(attempts=NBER_CLI_CONFIG.request_attempts)
     return RetryClient(
         client_session=session,
         retry_options=retry_options,
@@ -58,7 +54,7 @@ async def download_paper_to_file(
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
     headers = {"User-Agent": _USER_AGENT.random}
-    timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
+    timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
 
     if session is not None:
         async with session.get(url, headers=headers) as response:
@@ -96,7 +92,7 @@ async def download_multiple_papers(
 ) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
     connector = _create_connector()
-    timeout = ClientTimeout(total=REQUEST_TIMEOUT_SECONDS)
+    timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
     headers = {"User-Agent": _USER_AGENT.random}
     async with ClientSession(
         timeout=timeout, connector=connector, headers=headers
