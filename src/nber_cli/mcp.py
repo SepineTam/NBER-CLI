@@ -12,8 +12,8 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from .fetcher import get_nber
-from .formatters import info, related
+from .fetcher import get_nber, search_nber
+from .formatters import info, related, search_results
 from .download import download_paper, download_paper_to_file
 
 nber_mcp = FastMCP("nber_mcp")
@@ -45,6 +45,36 @@ async def get_paper_info(paper_id: str, include_all: bool = True) -> dict:
             result["published_version"] = paper.published_version
 
     return result
+
+
+@nber_mcp.tool()
+async def search_papers(
+    query: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 20,
+) -> dict:
+    """Search NBER working papers by keyword with optional date constraints.
+
+    Args:
+        query: Title, number, author, abstract, or keyword.
+        start_date: Optional earliest working paper date, formatted YYYY-MM-DD.
+        end_date: Optional latest working paper date, formatted YYYY-MM-DD.
+        page: Result page to fetch.
+        per_page: Number of results per page.
+
+    Returns:
+        Dictionary containing result metadata and papers.
+    """
+    results = await search_nber(
+        query,
+        start_date=start_date,
+        end_date=end_date,
+        page=page,
+        per_page=per_page,
+    )
+    return search_results(results)
 
 
 @nber_mcp.tool()

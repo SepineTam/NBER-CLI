@@ -11,14 +11,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
 
 from .core.models import DownloadBatchResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .fetcher import get_nber
-from .formatters import info, related
+from .fetcher import get_nber, search_nber
+from .formatters import info, info_text, related, search_results, search_results_text
+
+_OUTPUT_FORMATS = ["list", "json"]
 
 
 def _get_version() -> str:
@@ -58,6 +61,46 @@ def _build_parser() -> argparse.ArgumentParser:
     info_parser.add_argument("paper_id", help="Paper ID, e.g. w1234.")
     info_parser.add_argument(
         "--all", "-a", action="store_true", dest="show_all", help="Show all fields including related."
+    )
+    info_parser.add_argument(
+        "--format",
+        "-f",
+        choices=_OUTPUT_FORMATS,
+        default="list",
+        dest="output_format",
+        help="Output format (default: list).",
+    )
+
+    search_parser = subparsers.add_parser("search", help="Search NBER working papers.")
+    search_parser.add_argument("query", help="Title, number, author, abstract, or keyword.")
+    search_parser.add_argument(
+        "--start-date",
+        "--start",
+        dest="start_date",
+        help="Only include papers on or after this date (YYYY-MM-DD).",
+    )
+    search_parser.add_argument(
+        "--end-date",
+        "--end",
+        dest="end_date",
+        help="Only include papers on or before this date (YYYY-MM-DD).",
+    )
+    search_parser.add_argument("--page", type=int, default=1, help="Result page to fetch.")
+    search_parser.add_argument(
+        "--per-page",
+        type=int,
+        default=20,
+        choices=[20, 50, 100],
+        dest="per_page",
+        help="Number of results per page.",
+    )
+    search_parser.add_argument(
+        "--format",
+        "-f",
+        choices=_OUTPUT_FORMATS,
+        default="list",
+        dest="output_format",
+        help="Output format (default: list).",
     )
 
     mcp_parser = subparsers.add_parser("mcp-server", help="Start the MCP server.")
@@ -106,6 +149,19 @@ def _run_mcp_server(transport: str, port: int) -> None:
     nber_mcp.run(transport=transport, port=port)
 
 
+def _print_json(payload: dict) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _info_payload(paper, include_all: bool) -> dict:
+    result = info(paper)
+    if include_all:
+        result.update(related(paper))
+        if paper.published_version:
+            result["published_version"] = paper.published_version
+    return result
+
+
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
@@ -149,11 +205,29 @@ def main() -> None:
             parser.error(f"invalid paper ID '{args.paper_id}'")
 
         paper = asyncio.run(get_nber(nber_id))
-        print(info(paper))
-        if args.show_all:
-            print(related(paper))
-            if paper.published_version:
-                print({"published_version": paper.published_version})
+        if args.output_format == "json":
+            _print_json(_info_payload(paper, args.show_all))
+        else:
+            print(info_text(paper, include_all=args.show_all))
+        return
+
+    if args.command == "search":
+        try:
+            results = asyncio.run(
+                search_nber(
+                    args.query,
+                    start_date=args.start_date,
+                    end_date=args.end_date,
+                    page=args.page,
+                    per_page=args.per_page,
+                )
+            )
+        except ValueError as error:
+            parser.error(str(error))
+        if args.output_format == "json":
+            _print_json(search_results(results))
+        else:
+            print(search_results_text(results))
         return
 
     if args.command == "mcp-server":

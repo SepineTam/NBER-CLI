@@ -20,9 +20,21 @@ class NBER:
     date: str
     abstract: str
 
+    url: str | None = None
     published_version: str | None = None
     topic: str | None = None
     programs: str | None = None
+
+
+@dataclass
+class NBERSearchResults:
+    query: str
+    total_results: int
+    results: list[NBER]
+    page: int
+    per_page: int
+    start_date: str | None = None
+    end_date: str | None = None
 
 
 @dataclass

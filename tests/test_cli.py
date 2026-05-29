@@ -7,6 +7,7 @@
 # @Email  : sepinetam@gmail.com
 # @File   : test_cli.py
 
+import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -74,18 +75,60 @@ class TestBuildParser:
         assert args.command == "info"
         assert args.paper_id == "w1234"
         assert args.show_all is False
+        assert args.output_format == "list"
 
     def test_info_subcommand_with_all_flag(self):
         parser = _build_parser()
-        args = parser.parse_args(["info", "w1234", "--all"])
+        args = parser.parse_args(["info", "w1234", "--all", "-f", "json"])
         assert args.command == "info"
         assert args.paper_id == "w1234"
         assert args.show_all is True
+        assert args.output_format == "json"
 
     def test_info_subcommand_without_args(self):
         parser = _build_parser()
         with pytest.raises(SystemExit):
             parser.parse_args(["info"])
+
+    def test_search_subcommand_with_query(self):
+        parser = _build_parser()
+        args = parser.parse_args(["search", "inflation"])
+        assert args.command == "search"
+        assert args.query == "inflation"
+        assert args.start_date is None
+        assert args.end_date is None
+        assert args.page == 1
+        assert args.per_page == 20
+        assert args.output_format == "list"
+
+    def test_search_subcommand_with_date_args(self):
+        parser = _build_parser()
+        args = parser.parse_args(
+            [
+                "search",
+                "inflation",
+                "--start-date",
+                "2024-01-01",
+                "--end-date",
+                "2024-12-31",
+                "--page",
+                "2",
+                "--per-page",
+                "50",
+                "-f",
+                "json",
+            ]
+        )
+        assert args.start_date == "2024-01-01"
+        assert args.end_date == "2024-12-31"
+        assert args.page == 2
+        assert args.per_page == 50
+        assert args.output_format == "json"
+
+    def test_search_subcommand_without_query(self):
+        parser = _build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["search"])
 
 
 class TestResolvePaperIds:
@@ -278,6 +321,7 @@ class TestMainEntrypointInfo:
         with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
             main()
         captured = capsys.readouterr()
+        assert "w1234 | Test Title" in captured.out
         assert "Test Title" in captured.out
         assert "Author A" in captured.out
         assert "Test abstract." in captured.out
@@ -300,6 +344,22 @@ class TestMainEntrypointInfo:
         assert "Published in Journal." in captured.out
 
     @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
+    def test_info_json_output(self, mock_get_nber, capsys):
+        from nber_cli.core.models import NBER
+        mock_get_nber.return_value = NBER(
+            paper_id=1234,
+            title="Test Title",
+            authors=["Author A"],
+            date="2024/01/01",
+            abstract="Test abstract.",
+        )
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
+            main()
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["id"] == "w1234"
+        assert payload["title"] == "Test Title"
+
+    @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
     def test_info_without_w_prefix(self, mock_get_nber, capsys):
         from nber_cli.core.models import NBER
         mock_get_nber.return_value = NBER(
@@ -319,4 +379,100 @@ class TestMainEntrypointInfo:
         with pytest.raises(SystemExit) as exc_info:
             with patch.object(sys, "argv", ["nber-cli", "info", "abc"]):
                 main()
+        assert exc_info.value.code == 2
+
+
+class TestMainEntrypointSearch:
+    @patch("nber_cli.cli.search_nber", new_callable=AsyncMock)
+    def test_search_outputs_results(self, mock_search, capsys):
+        from nber_cli.core.models import NBER, NBERSearchResults
+
+        mock_search.return_value = NBERSearchResults(
+            query="inflation",
+            total_results=1,
+            results=[
+                NBER(
+                    paper_id=32000,
+                    title="Inflation Paper",
+                    authors=["Author A"],
+                    date="January 2024",
+                    abstract="Search abstract.",
+                    url="https://www.nber.org/papers/w32000",
+                )
+            ],
+            page=2,
+            per_page=50,
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+        )
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "nber-cli",
+                "search",
+                "inflation",
+                "--start-date",
+                "2024-01-01",
+                "--end-date",
+                "2024-12-31",
+                "--page",
+                "2",
+                "--per-page",
+                "50",
+            ],
+        ):
+            main()
+
+        mock_search.assert_called_once_with(
+            "inflation",
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            page=2,
+            per_page=50,
+        )
+        captured = capsys.readouterr()
+        assert "Query: inflation" in captured.out
+        assert "Total results: 1" in captured.out
+        assert "Inflation Paper" in captured.out
+        assert "w32000" in captured.out
+
+    @patch("nber_cli.cli.search_nber", new_callable=AsyncMock)
+    def test_search_json_output(self, mock_search, capsys):
+        from nber_cli.core.models import NBER, NBERSearchResults
+
+        mock_search.return_value = NBERSearchResults(
+            query="inflation",
+            total_results=1,
+            results=[
+                NBER(
+                    paper_id=32000,
+                    title="Inflation Paper",
+                    authors=["Author A"],
+                    date="January 2024",
+                    abstract="Search abstract.",
+                    url="https://www.nber.org/papers/w32000",
+                )
+            ],
+            page=1,
+            per_page=20,
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "search", "inflation", "--format", "json"]):
+            main()
+
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["query"] == "inflation"
+        assert payload["total_results"] == 1
+        assert payload["results"][0]["id"] == "w32000"
+
+    @patch("nber_cli.cli.search_nber", new_callable=AsyncMock)
+    def test_search_validation_error_exits_2(self, mock_search):
+        mock_search.side_effect = ValueError("invalid date 'x', expected YYYY-MM-DD")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "search", "inflation", "--start-date", "x"]):
+                main()
+
         assert exc_info.value.code == 2
