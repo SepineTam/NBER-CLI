@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nber-cli",
+  "description": "Claude Code marketplace for NBER-CLI research workflows.",
+  "version": "0.2.0",
+  "owner": {
+    "name": "Song Tan",
+    "email": "sepinetam@gmail.com",
+    "url": "https://github.com/SepineTam"
+  },
+  "plugins": [
+    {
+      "name": "nber-cli",
+      "description": "Use NBER-CLI to search, inspect, download, and serve NBER working paper workflows.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Song Tan",
+        "email": "sepinetam@gmail.com"
+      },
+      "category": "development",
+      "source": "./plugins/nber-cli"
+    }
+  ]
+}

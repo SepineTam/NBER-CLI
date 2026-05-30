@@ -1,6 +1,6 @@
 site_name: NBER-CLI
-site_description: A command line interface for downloading the National Bureau of Economic Research (NBER) papers without a browser.
-site_author: Sepine Tam
+site_description: A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower.
+site_author: Song Tan
 site_url: https://sepinetam.github.io/NBER-CLI/
 
 theme:
@@ -116,4 +116,3 @@ nav:
       - Contributing: contributing.md
       - Changelog: changelog.md
   - Usage Policy: policy.md
-

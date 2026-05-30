@@ -1,9 +1,30 @@
 [project]
 name = "nber-cli"
 version = "0.2.0"
-description = "A command-line tool to download NBER papers."
+description = "A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower."
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    { name = "Song Tan", email = "sepinetam@gmail.com" },
+]
+license = "Apache-2.0"
+keywords = [
+    "nber",
+    "working-papers",
+    "cli",
+    "mcp",
+    "research",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Utilities",
+]
 dependencies = [
     "aiohttp",
     "fake_useragent",
@@ -14,6 +35,12 @@ dependencies = [
 
 [project.scripts]
 nber-cli = "nber_cli:main"
+
+[project.urls]
+Homepage = "https://github.com/SepineTam/NBER-CLI"
+Repository = "https://github.com/SepineTam/NBER-CLI"
+Issues = "https://github.com/SepineTam/NBER-CLI/issues"
+Documentation = "https://sepinetam.github.io/NBER-CLI/"
 
 [build-system]
 requires = ["hatchling"]

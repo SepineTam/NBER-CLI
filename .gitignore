@@ -27,3 +27,6 @@ release/
 .coverage
 htmlcov/
 site/
+
+# Files
+*.pdf

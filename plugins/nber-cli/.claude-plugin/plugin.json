@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "nber-cli",
+  "description": "Use NBER-CLI to search, inspect, download, and serve NBER working paper workflows.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Song Tan",
+    "email": "sepinetam@gmail.com"
+  },
+  "homepage": "https://github.com/SepineTam/NBER-CLI",
+  "repository": "https://github.com/SepineTam/NBER-CLI",
+  "license": "Apache-2.0",
+  "keywords": [
+    "nber",
+    "working-papers",
+    "cli",
+    "mcp",
+    "research"
+  ],
+  "skills": [
+    "./skills/NBER-CLI"
+  ],
+  "mcpServers": "./.mcp.json"
+}

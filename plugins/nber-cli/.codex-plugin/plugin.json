@@ -1,0 +1,31 @@
+{
+  "name": "nber-cli",
+  "version": "0.2.0",
+  "description": "Use NBER-CLI to search, inspect, download, and serve NBER working paper workflows.",
+  "author": {
+    "name": "Song Tan",
+    "email": "sepinetam@gmail.com"
+  },
+  "homepage": "https://github.com/SepineTam/NBER-CLI",
+  "repository": "https://github.com/SepineTam/NBER-CLI",
+  "license": "Apache-2.0",
+  "keywords": [
+    "nber",
+    "working-papers",
+    "cli",
+    "mcp",
+    "research"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "NBER-CLI",
+    "shortDescription": "Search and download NBER working papers.",
+    "longDescription": "NBER-CLI provides agent-friendly workflows for searching NBER working papers, inspecting metadata, downloading PDFs, and running the MCP server.",
+    "developerName": "Song Tan",
+    "category": "Productivity",
+    "capabilities": [],
+    "websiteURL": "https://github.com/SepineTam/NBER-CLI",
+    "defaultPrompt": "Help me use NBER-CLI to search or download NBER working papers."
+  }
+}
