@@ -1,9 +1,9 @@
 # NBER-CLI
 A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower.
 
-[![Pytest](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml)
-[![Lint](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml)
-[![Docs](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml)
+[![Pytest](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml)
+[![Lint](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml)
+[![Docs](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 [简体中文](README.zh-CN.md) | [Documentation](docs/en/index.md)
@@ -20,6 +20,29 @@ A command line interface for reaching the National Bureau of Economic Research (
 
 ## Quick Start
 
+### Use in Agents
+
+NBER-CLI can be used by agents through plugins, the MCP server, and the skill. Claude Code and Codex should install the NBER-CLI plugin first; OpenClaw and other agents should use the MCP server plus the skill.
+
+If you want an agent to install and check NBER-CLI automatically, send it this prompt:
+
+```text
+Install NBER-CLI globally for yourself from https://github.com/sepinetam/nber-cli, and check the status.
+```
+
+After installation, verify it with either prompt:
+
+```text
+I remember that in 2025, Anton had a paper on NBER about Agent for Econ. Download it to the current directory.
+```
+
+```text
+I remember that paper w25000 was interesting. Show me its abstract.
+```
+
+If you are an agent, visit the [Agent Guides](docs/en/agents/index.md).
+
+### CLI Mode
 Run commands directly with `uvx`:
 
 ```bash
@@ -37,7 +60,7 @@ nber-cli info w25000
 nber-cli download w34567
 ```
 
-## MCP Server for Agents
+### MCP Server Mode
 
 NBER-CLI can run as a stdio MCP server:
 
@@ -50,7 +73,7 @@ Example MCP client configuration:
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }

@@ -89,4 +89,4 @@ NBER-CLI must not bypass NBER controls. Do not suggest proxy rotation, credentia
 
 ## Report Issues
 
-If the user finds a bug or unexpected behavior in NBER-CLI, direct them to report it at `https://github.com/SepineTam/NBER-CLI/issues`.
+If the user finds a bug or unexpected behavior in NBER-CLI, direct them to report it at `https://github.com/sepinetam/nber-cli/issues`.

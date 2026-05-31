@@ -1,7 +1,7 @@
 site_name: NBER-CLI
 site_description: A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower.
 site_author: Song Tan
-site_url: https://sepinetam.github.io/NBER-CLI/
+site_url: https://sepinetam.github.io/nber-cli/
 
 theme:
   name: material
@@ -20,8 +20,8 @@ theme:
   palette:
     primary: black
 
-repo_name: SepineTam/NBER-CLI
-repo_url: https://github.com/SepineTam/NBER-CLI
+repo_name: sepinetam/nber-cli
+repo_url: https://github.com/sepinetam/nber-cli
 
 docs_dir: docs
 site_dir: site
@@ -43,6 +43,12 @@ plugins:
           nav:
             - Home: index.md
             - Getting Started: getting-started.md
+            - Agent Guides:
+                - Overview: agents/index.md
+                - Claude Code: agents/claude-code.md
+                - Codex: agents/codex.md
+                - OpenClaw: agents/openclaw.md
+                - Others: agents/others.md
             - User Guide:
                 - CLI Reference: cli.md
                 - MCP Server: mcp.md
@@ -60,6 +66,12 @@ plugins:
           nav:
             - 首页: index.md
             - 快速开始: getting-started.md
+            - Agent 指南:
+                - 概览: agents/index.md
+                - Claude Code: agents/claude-code.md
+                - Codex: agents/codex.md
+                - OpenClaw: agents/openclaw.md
+                - 其他 Agent: agents/others.md
             - 使用指南:
                 - CLI 参考: cli.md
                 - MCP Server: mcp.md
@@ -93,18 +105,24 @@ extra:
   generator: false
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/SepineTam
+      link: https://github.com/sepinetam
   alternate:
     - name: English
-      link: /NBER-CLI/
+      link: /nber-cli/
       lang: en
     - name: 简体中文
-      link: /NBER-CLI/zh/
+      link: /nber-cli/zh/
       lang: zh
 
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Agent Guides:
+      - Overview: agents/index.md
+      - Claude Code: agents/claude-code.md
+      - Codex: agents/codex.md
+      - OpenClaw: agents/openclaw.md
+      - Others: agents/others.md
   - User Guide:
       - CLI Reference: cli.md
       - MCP Server: mcp.md

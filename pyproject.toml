@@ -37,10 +37,10 @@ dependencies = [
 nber-cli = "nber_cli:main"
 
 [project.urls]
-Homepage = "https://github.com/SepineTam/NBER-CLI"
-Repository = "https://github.com/SepineTam/NBER-CLI"
-Issues = "https://github.com/SepineTam/NBER-CLI/issues"
-Documentation = "https://sepinetam.github.io/NBER-CLI/"
+Homepage = "https://github.com/sepinetam/nber-cli"
+Repository = "https://github.com/sepinetam/nber-cli"
+Issues = "https://github.com/sepinetam/nber-cli/issues"
+Documentation = "https://sepinetam.github.io/nber-cli/"
 
 [build-system]
 requires = ["hatchling"]

@@ -23,7 +23,7 @@ Use this configuration for MCP clients that launch stdio servers:
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }
@@ -36,7 +36,7 @@ If `nber-cli` is already installed on the machine, the client can call it direct
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "nber-cli",
       "args": ["mcp-server"]
     }

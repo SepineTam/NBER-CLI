@@ -44,7 +44,7 @@ uvx nber-cli mcp-server
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }
@@ -55,6 +55,7 @@ uvx nber-cli mcp-server
 ## 文档导航
 
 - [快速开始](getting-started.md)：安装方式和第一组命令。
+- [Agent 指南](agents/index.md)：Claude Code、Codex、OpenClaw 和其他 Agent 的 plugin、MCP 与 skill 配置。
 - [CLI 参考](cli.md)：命令语法、选项、输出格式和示例。
 - [MCP Server](mcp.md)：Agent 配置、传输方式和可用工具。
 - [Python API](python-api.md)：异步函数和数据模型。

@@ -1,9 +1,9 @@
 # NBER-CLI
 一个无需浏览器即可访问 National Bureau of Economic Research (NBER) 论文的命令行界面。
 
-[![Pytest](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/pytest.yml)
-[![Lint](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/lint.yml)
-[![Docs](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml/badge.svg)](https://github.com/SepineTam/NBER-CLI/actions/workflows/docs.yml)
+[![Pytest](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml)
+[![Lint](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml)
+[![Docs](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 [English](README.md) | [中文文档](docs/zh/index.md)
@@ -20,6 +20,29 @@
 
 ## 快速开始
 
+### 在 Agent 中使用
+
+NBER-CLI 可以通过 plugin、MCP server 和 skill 给 Agent 使用。Claude Code 和 Codex 优先安装 NBER-CLI plugin；OpenClaw 和其他 Agent 使用 MCP server 加 skill。
+
+如果你希望让 Agent 自动安装和检查 NBER-CLI，可以把下面这段话发给它：
+
+```text
+Install NBER-CLI globally for yourself from https://github.com/sepinetam/nber-cli, and check the status.
+```
+
+安装成功后，可以用下面任意一句话验证：
+
+```text
+我记得在 2025 年，Anton 在 NBER 上有一篇关于 Agent for Econ 的文章，帮我下载到当前目录。
+```
+
+```text
+我记得 w25000 这篇论文很有意思，把摘要发给我看看。
+```
+
+如果你是 Agent，请访问 [Agent 指南](docs/zh/agents/index.md)。
+
+### 命令行模式
 直接通过 `uvx` 运行：
 
 ```bash
@@ -37,7 +60,7 @@ nber-cli info w25000
 nber-cli download w34567
 ```
 
-## 给 Agent 使用的 MCP Server
+### MCP Server 模式
 
 NBER-CLI 可以作为 stdio MCP server 运行：
 
@@ -50,7 +73,7 @@ MCP 客户端配置示例：
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }

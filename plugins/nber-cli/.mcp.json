@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": [
         "nber-cli",

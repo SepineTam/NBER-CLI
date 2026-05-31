@@ -23,7 +23,7 @@ nber-cli mcp-server
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }
@@ -36,7 +36,7 @@ nber-cli mcp-server
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "nber-cli",
       "args": ["mcp-server"]
     }

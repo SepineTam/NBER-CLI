@@ -44,7 +44,7 @@ Add it to an MCP client:
 ```json
 {
   "mcpServers": {
-    "nber-cli": {
+    "nber-cli-mcp": {
       "command": "uvx",
       "args": ["nber-cli", "mcp-server"]
     }
@@ -55,6 +55,7 @@ Add it to an MCP client:
 ## Documentation Map
 
 - [Getting Started](getting-started.md): install options and first commands.
+- [Agent Guides](agents/index.md): plugin, MCP, and skill setup for Claude Code, Codex, OpenClaw, and other agents.
 - [CLI Reference](cli.md): command syntax, options, output formats, and examples.
 - [MCP Server](mcp.md): agent configuration, transports, and available tools.
 - [Python API](python-api.md): async functions and data models.

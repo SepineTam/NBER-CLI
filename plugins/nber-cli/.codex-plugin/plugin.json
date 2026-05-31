@@ -6,8 +6,8 @@
     "name": "Song Tan",
     "email": "sepinetam@gmail.com"
   },
-  "homepage": "https://github.com/SepineTam/NBER-CLI",
-  "repository": "https://github.com/SepineTam/NBER-CLI",
+  "homepage": "https://github.com/sepinetam/nber-cli",
+  "repository": "https://github.com/sepinetam/nber-cli",
   "license": "Apache-2.0",
   "keywords": [
     "nber",
@@ -25,7 +25,7 @@
     "developerName": "Song Tan",
     "category": "Productivity",
     "capabilities": [],
-    "websiteURL": "https://github.com/SepineTam/NBER-CLI",
+    "websiteURL": "https://github.com/sepinetam/nber-cli",
     "defaultPrompt": "Help me use NBER-CLI to search or download NBER working papers."
   }
 }
