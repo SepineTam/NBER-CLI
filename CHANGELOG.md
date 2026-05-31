@@ -2,16 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.0] - 2026-05-27
+## [0.2.0] - 2026-05-31
+
+### Added
+- `download` subcommand: single paper ID or batch mode (`--batch`), explicit file path (`--file`), target directory (`--save-base`).
+- `info` subcommand: paper metadata with `--all` flag for full details and `--format json` option.
+- `search` subcommand: full-text search with date filters (`--start-date`, `--end-date`), pagination (`--page`, `--per-page`), `--format json` option.
+- `mcp-server` subcommand: MCP server for AI agent integration with stdio and streamable_http transports.
 
 ### Changed
-- Reworked the CLI into `nber-cli download ...` subcommand syntax.
-- Added `--file/-f` and `--save-base/-s` path handling behavior.
-- Added `--batch/-b` multi-ID download mode.
-- Removed database-backed download state tracking.
-- Simplified downloader to direct async HTTP PDF fetches.
-- Updated documentation for the v0.2 command model.
-- Removed the legacy web UI module and script entrypoint.
+- Reworked CLI into subcommand syntax (`nber-cli <subcommand>`).
+- Simplified downloader to direct async HTTP PDF fetches (removed database-backed state tracking).
+- Removed legacy web UI module and script entrypoint.
 
 ## [0.1.4] - 2025-08-09
 
