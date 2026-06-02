@@ -20,8 +20,17 @@ from aiohttp import ClientError, ClientResponseError
 
 from .core.models import DownloadBatchResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
+from .feed import fetch_feed, init_feed_database
 from .fetcher import get_nber, search_nber
-from .formatters import info, info_text, related, search_results, search_results_text
+from .formatters import (
+    feed_results,
+    feed_results_text,
+    info,
+    info_text,
+    related,
+    search_results,
+    search_results_text,
+)
 
 _OUTPUT_FORMATS = ["list", "json"]
 
@@ -105,6 +114,35 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format (default: list).",
     )
 
+    feed_parser = subparsers.add_parser("feed", help="Manage the NBER working papers RSS feed.")
+    feed_subparsers = feed_parser.add_subparsers(dest="feed_command", required=True)
+
+    feed_init_parser = feed_subparsers.add_parser("init", help="Initialize the feed database.")
+    feed_init_parser.add_argument(
+        "--db-path",
+        type=Path,
+        default=None,
+        help="SQLite database path. Defaults to ~/.nber-cli/feed.db.",
+    )
+
+    feed_fetch_parser = feed_subparsers.add_parser("fetch", help="Fetch the NBER RSS feed.")
+    feed_fetch_parser.add_argument(
+        "--display-all",
+        nargs="?",
+        const="true",
+        default=False,
+        type=_parse_bool,
+        help="Display all fetched items instead of only new items (true/false, default: false).",
+    )
+    feed_fetch_parser.add_argument(
+        "--format",
+        "-f",
+        choices=_OUTPUT_FORMATS,
+        default="list",
+        dest="output_format",
+        help="Output format (default: list).",
+    )
+
     mcp_parser = subparsers.add_parser("mcp-server", help="Start the MCP server.")
     mcp_parser.add_argument(
         "--transport",
@@ -133,6 +171,18 @@ def _resolve_paper_ids(single_id: str | None, batch_ids: list[str] | None) -> li
 def _parse_paper_id(paper_id_str: str) -> int:
     cleaned = paper_id_str.lower().removeprefix("w")
     return int(cleaned)
+
+
+def _parse_bool(value: str | bool) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError("expected true or false")
 
 
 def _print_download_success(paper_id: str, output_file: Path) -> None:
@@ -279,6 +329,26 @@ def main() -> None:
         else:
             print(search_results_text(results))
         return
+
+    if args.command == "feed":
+        if args.feed_command == "init":
+            try:
+                db_path = init_feed_database(args.db_path)
+            except ValueError as error:
+                parser.error(str(error))
+            print(f"Feed database initialized at {db_path}")
+            return
+
+        if args.feed_command == "fetch":
+            try:
+                result = fetch_feed(display_all=args.display_all)
+            except ValueError as error:
+                parser.error(str(error))
+            if args.output_format == "json":
+                _print_json(feed_results(result))
+            else:
+                print(feed_results_text(result))
+            return
 
     if args.command == "mcp-server":
         _run_mcp_server(args.transport, args.port)

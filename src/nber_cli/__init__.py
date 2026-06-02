@@ -8,11 +8,14 @@ from .core.models import (
     DownloadBatchResult,
     DownloadFailure,
     NBER,
+    NBERFeedFetchResult,
+    NBERFeedItem,
     NBERSearchResults,
 )
 from .download import download_multiple_papers, download_paper, download_paper_to_file
+from .feed import fetch_feed, init_feed_database, parse_feed_xml
 from .fetcher import get_nber, search_nber
-from .formatters import info, related, search_results
+from .formatters import feed_results, info, related, search_results
 
 __all__ = [
     "NBER",
@@ -20,13 +23,19 @@ __all__ = [
     "NBER_CLI_CONFIG",
     "DownloadBatchResult",
     "DownloadFailure",
+    "NBERFeedFetchResult",
+    "NBERFeedItem",
     "NBERSearchResults",
     "download_multiple_papers",
     "download_paper",
     "download_paper_to_file",
+    "feed_results",
+    "fetch_feed",
     "get_nber",
+    "init_feed_database",
     "info",
     "main",
+    "parse_feed_xml",
     "related",
     "search_nber",
     "search_results",

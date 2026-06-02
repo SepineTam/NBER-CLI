@@ -10,7 +10,7 @@
 import textwrap
 from typing import Dict
 
-from .core.models import NBER, NBERSearchResults
+from .core.models import NBER, NBERFeedFetchResult, NBERFeedItem, NBERSearchResults
 
 _TEXT_WIDTH = 88
 
@@ -62,6 +62,29 @@ def search_results(search: NBERSearchResults) -> Dict:
     }
 
 
+def feed_item(item: NBERFeedItem) -> Dict:
+    return {
+        "id": item.paper_id,
+        "title": item.title,
+        "authors": item.authors,
+        "abstract": item.abstract,
+        "url": item.url,
+        "source_url": item.source_url,
+        "guid": item.guid,
+    }
+
+
+def feed_results(result: NBERFeedFetchResult) -> Dict:
+    return {
+        "source_url": result.source_url,
+        "database_path": str(result.database_path),
+        "total_fetched": result.total_fetched,
+        "new_count": result.new_count,
+        "display_all": result.display_all,
+        "results": [feed_item(item) for item in result.items],
+    }
+
+
 def info_text(paper: NBER, include_all: bool = False) -> str:
     lines = [
         f"{paper_id_str(paper)} | {paper.title}",
@@ -101,6 +124,28 @@ def search_results_text(search: NBERSearchResults) -> str:
     return "\n".join(lines)
 
 
+def feed_results_text(result: NBERFeedFetchResult) -> str:
+    lines = [
+        f"Feed: {result.source_url}",
+        f"Database: {result.database_path}",
+        f"Fetched: {result.total_fetched}",
+        f"New: {result.new_count}",
+        "",
+    ]
+
+    if not result.items:
+        if result.display_all:
+            lines.append("No feed items found.")
+        else:
+            lines.append("No new feed items.")
+        return "\n".join(lines)
+
+    lines.append("Items:")
+    lines.append("")
+    lines.append("\n\n".join(_feed_item_text(item) for item in result.items))
+    return "\n".join(lines)
+
+
 def _search_result_line(paper: NBER) -> str:
     parts = [
         paper_id_str(paper),
@@ -111,6 +156,17 @@ def _search_result_line(paper: NBER) -> str:
     if paper.url:
         parts.append(paper.url)
     return " | ".join(parts)
+
+
+def _feed_item_text(item: NBERFeedItem) -> str:
+    lines = [
+        f"{item.paper_id} | {item.title}",
+        f"Authors: {_join_authors(item.authors)}",
+        f"URL: {item.url}",
+    ]
+    if item.abstract:
+        lines.extend(["", "Abstract:", _wrap_text(item.abstract)])
+    return "\n".join(lines)
 
 
 def _format_date_range(start_date: str | None, end_date: str | None) -> str:

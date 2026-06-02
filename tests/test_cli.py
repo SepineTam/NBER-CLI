@@ -7,6 +7,7 @@
 # @Email  : sepinetam@gmail.com
 # @File   : test_cli.py
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ from nber_cli.cli import (
     _build_parser,
     _format_download_error,
     _get_version,
+    _parse_bool,
     _parse_paper_id,
     _resolve_paper_ids,
     main,
@@ -138,6 +140,32 @@ class TestBuildParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["search"])
 
+    def test_feed_init_subcommand_with_db_path(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "init", "--db-path", "/tmp/feed.db"])
+        assert args.command == "feed"
+        assert args.feed_command == "init"
+        assert args.db_path == Path("/tmp/feed.db")
+
+    def test_feed_fetch_subcommand_defaults(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "fetch"])
+        assert args.command == "feed"
+        assert args.feed_command == "fetch"
+        assert args.display_all is False
+        assert args.output_format == "list"
+
+    def test_feed_fetch_subcommand_with_display_all_false(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "fetch", "--display-all", "false", "-f", "json"])
+        assert args.display_all is False
+        assert args.output_format == "json"
+
+    def test_feed_fetch_subcommand_with_display_all_flag(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "fetch", "--display-all"])
+        assert args.display_all is True
+
 
 class TestResolvePaperIds:
     def test_batch_ids_take_priority(self):
@@ -166,6 +194,22 @@ class TestParsePaperId:
     def test_invalid_raises_valueerror(self):
         with pytest.raises(ValueError):
             _parse_paper_id("abc")
+
+
+class TestParseBool:
+    def test_true_values(self):
+        assert _parse_bool("true") is True
+        assert _parse_bool("1") is True
+        assert _parse_bool("yes") is True
+
+    def test_false_values(self):
+        assert _parse_bool("false") is False
+        assert _parse_bool("0") is False
+        assert _parse_bool("no") is False
+
+    def test_invalid_raises_argument_error(self):
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_bool("maybe")
 
 
 class TestFormatDownloadError:
@@ -461,6 +505,88 @@ class TestMainEntrypointInfo:
             with patch.object(sys, "argv", ["nber-cli", "info", "abc"]):
                 main()
         assert exc_info.value.code == 2
+
+
+class TestMainEntrypointFeed:
+    @patch("nber_cli.cli.init_feed_database")
+    def test_feed_init_outputs_database_path(self, mock_init, capsys):
+        mock_init.return_value = Path("/tmp/feed.db")
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "init", "--db-path", "/tmp/feed.db"]):
+            main()
+
+        mock_init.assert_called_once_with(Path("/tmp/feed.db"))
+        captured = capsys.readouterr()
+        assert "Feed database initialized at /tmp/feed.db" in captured.out
+
+    @patch("nber_cli.cli.fetch_feed")
+    def test_feed_fetch_outputs_text(self, mock_fetch, capsys):
+        from nber_cli.core.models import NBERFeedFetchResult, NBERFeedItem
+
+        mock_fetch.return_value = NBERFeedFetchResult(
+            source_url="https://www.nber.org/rss/new.xml",
+            database_path=Path("/tmp/feed.db"),
+            total_fetched=1,
+            new_count=1,
+            display_all=False,
+            items=[
+                NBERFeedItem(
+                    paper_id="w35254",
+                    title="Feed Paper",
+                    authors=["Author A"],
+                    abstract="Feed abstract.",
+                    url="https://www.nber.org/papers/w35254",
+                    source_url="https://www.nber.org/papers/w35254#fromrss",
+                    guid="https://www.nber.org/papers/w35254#fromrss",
+                )
+            ],
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "fetch"]):
+            main()
+
+        mock_fetch.assert_called_once_with(display_all=False)
+        captured = capsys.readouterr()
+        assert "Fetched: 1" in captured.out
+        assert "New: 1" in captured.out
+        assert "w35254 | Feed Paper" in captured.out
+
+    @patch("nber_cli.cli.fetch_feed")
+    def test_feed_fetch_outputs_json(self, mock_fetch, capsys):
+        from nber_cli.core.models import NBERFeedFetchResult, NBERFeedItem
+
+        mock_fetch.return_value = NBERFeedFetchResult(
+            source_url="https://www.nber.org/rss/new.xml",
+            database_path=Path("/tmp/feed.db"),
+            total_fetched=1,
+            new_count=0,
+            display_all=True,
+            items=[
+                NBERFeedItem(
+                    paper_id="w35254",
+                    title="Feed Paper",
+                    authors=["Author A"],
+                    abstract="Feed abstract.",
+                    url="https://www.nber.org/papers/w35254",
+                    source_url="https://www.nber.org/papers/w35254#fromrss",
+                    guid="https://www.nber.org/papers/w35254#fromrss",
+                )
+            ],
+        )
+
+        with patch.object(
+            sys,
+            "argv",
+            ["nber-cli", "feed", "fetch", "--display-all", "true", "--format", "json"],
+        ):
+            main()
+
+        mock_fetch.assert_called_once_with(display_all=True)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["total_fetched"] == 1
+        assert payload["new_count"] == 0
+        assert payload["display_all"] is True
+        assert payload["results"][0]["id"] == "w35254"
 
 
 class TestMainEntrypointSearch:

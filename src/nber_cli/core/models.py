@@ -38,6 +38,27 @@ class NBERSearchResults:
 
 
 @dataclass
+class NBERFeedItem:
+    paper_id: str
+    title: str
+    authors: list[str]
+    abstract: str
+    url: str
+    source_url: str
+    guid: str
+
+
+@dataclass
+class NBERFeedFetchResult:
+    source_url: str
+    database_path: Path
+    total_fetched: int
+    new_count: int
+    display_all: bool
+    items: list[NBERFeedItem]
+
+
+@dataclass
 class DownloadFailure:
     paper_id: str
     error: BaseException
