@@ -69,4 +69,4 @@ uvx nber-cli mcp-server
 
 ## 项目状态
 
-当前公开命令模型是 `nber-cli` v0.2.0。CLI 保持小而清晰：默认文本输出适合人读，需要结构化输出时可以使用 `--format json`。
+当前公开命令模型是 `nber-cli` v0.3.0。CLI 保持小而清晰：默认文本输出适合人读，需要结构化输出时可以使用 `--format json`。

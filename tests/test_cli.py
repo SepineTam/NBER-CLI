@@ -31,12 +31,12 @@ from nber_cli.cli import (
 
 class TestGetVersion:
     def test_returns_version_when_package_installed(self):
-        with patch("nber_cli.cli.get_version", return_value="0.2.0"):
-            assert _get_version() == "0.2.0"
+        with patch("nber_cli.cli.get_version", return_value="0.3.0"):
+            assert _get_version() == "0.3.0"
 
     def test_returns_fallback_when_package_not_installed(self):
         with patch("nber_cli.cli.get_version", side_effect=Exception("not found")):
-            assert _get_version() == "0.2.0"
+            assert _get_version() == "0.3.0"
 
 
 class TestBuildParser:
