@@ -21,6 +21,7 @@ from nber_cli.cli import (
     _format_download_error,
     _get_version,
     _parse_bool,
+    _parse_non_negative_int,
     _parse_paper_id,
     _resolve_paper_ids,
     main,
@@ -152,7 +153,7 @@ class TestBuildParser:
         args = parser.parse_args(["feed", "fetch"])
         assert args.command == "feed"
         assert args.feed_command == "fetch"
-        assert args.display_all is False
+        assert args.display_all is None
         assert args.output_format == "list"
 
     def test_feed_fetch_subcommand_with_display_all_false(self):
@@ -160,6 +161,17 @@ class TestBuildParser:
         args = parser.parse_args(["feed", "fetch", "--display-all", "false", "-f", "json"])
         assert args.display_all is False
         assert args.output_format == "json"
+
+    def test_feed_fetch_subcommand_with_max_items(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "fetch", "--max-items", "5"])
+        assert args.display_all is None
+        assert args.max_items == 5
+
+    def test_feed_fetch_subcommand_rejects_max_abbreviation(self):
+        parser = _build_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["feed", "fetch", "--max", "5"])
 
     def test_feed_fetch_subcommand_with_display_all_flag(self):
         parser = _build_parser()
@@ -210,6 +222,20 @@ class TestParseBool:
     def test_invalid_raises_argument_error(self):
         with pytest.raises(argparse.ArgumentTypeError):
             _parse_bool("maybe")
+
+
+class TestParseNonNegativeInt:
+    def test_valid_non_negative_int(self):
+        assert _parse_non_negative_int("5") == 5
+        assert _parse_non_negative_int("0") == 0
+
+    def test_rejects_negative_number(self):
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_non_negative_int("-1")
+
+    def test_rejects_non_integer(self):
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_non_negative_int("five")
 
 
 class TestFormatDownloadError:
@@ -545,7 +571,7 @@ class TestMainEntrypointFeed:
         with patch.object(sys, "argv", ["nber-cli", "feed", "fetch"]):
             main()
 
-        mock_fetch.assert_called_once_with(display_all=False)
+        mock_fetch.assert_called_once_with(display_all=False, max_items=None)
         captured = capsys.readouterr()
         assert "Fetched: 1" in captured.out
         assert "New: 1" in captured.out
@@ -561,6 +587,7 @@ class TestMainEntrypointFeed:
             total_fetched=1,
             new_count=0,
             display_all=True,
+            max_items=1,
             items=[
                 NBERFeedItem(
                     paper_id="w35254",
@@ -577,16 +604,64 @@ class TestMainEntrypointFeed:
         with patch.object(
             sys,
             "argv",
-            ["nber-cli", "feed", "fetch", "--display-all", "true", "--format", "json"],
+            ["nber-cli", "feed", "fetch", "--display-all", "true", "--max-items", "1", "--format", "json"],
         ):
             main()
 
-        mock_fetch.assert_called_once_with(display_all=True)
+        mock_fetch.assert_called_once_with(display_all=True, max_items=1)
         payload = json.loads(capsys.readouterr().out)
         assert payload["total_fetched"] == 1
         assert payload["new_count"] == 0
         assert payload["display_all"] is True
+        assert payload["max_items"] == 1
+        assert payload["displayed_count"] == 1
         assert payload["results"][0]["id"] == "w35254"
+
+    @patch("nber_cli.cli.fetch_feed")
+    def test_feed_fetch_with_max_items_defaults_to_display_all(self, mock_fetch, capsys):
+        from nber_cli.core.models import NBERFeedFetchResult
+
+        mock_fetch.return_value = NBERFeedFetchResult(
+            source_url="https://www.nber.org/rss/new.xml",
+            database_path=Path("/tmp/feed.db"),
+            total_fetched=1,
+            new_count=0,
+            display_all=True,
+            max_items=5,
+            items=[],
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "fetch", "--max-items", "5"]):
+            main()
+
+        mock_fetch.assert_called_once_with(display_all=True, max_items=5)
+        captured = capsys.readouterr()
+        assert "Max items: 5" in captured.out
+
+    @patch("nber_cli.cli.fetch_feed")
+    def test_feed_fetch_with_max_items_respects_explicit_display_all_false(self, mock_fetch, capsys):
+        from nber_cli.core.models import NBERFeedFetchResult
+
+        mock_fetch.return_value = NBERFeedFetchResult(
+            source_url="https://www.nber.org/rss/new.xml",
+            database_path=Path("/tmp/feed.db"),
+            total_fetched=1,
+            new_count=0,
+            display_all=False,
+            max_items=5,
+            items=[],
+        )
+
+        with patch.object(
+            sys,
+            "argv",
+            ["nber-cli", "feed", "fetch", "--max-items", "5", "--display-all", "false"],
+        ):
+            main()
+
+        mock_fetch.assert_called_once_with(display_all=False, max_items=5)
+        captured = capsys.readouterr()
+        assert "Max items: 5" in captured.out
 
 
 class TestMainEntrypointSearch:

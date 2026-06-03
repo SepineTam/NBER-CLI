@@ -125,14 +125,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="SQLite database path. Defaults to ~/.nber-cli/feed.db.",
     )
 
-    feed_fetch_parser = feed_subparsers.add_parser("fetch", help="Fetch the NBER RSS feed.")
+    feed_fetch_parser = feed_subparsers.add_parser(
+        "fetch",
+        help="Fetch the NBER RSS feed.",
+        allow_abbrev=False,
+    )
     feed_fetch_parser.add_argument(
         "--display-all",
         nargs="?",
         const="true",
-        default=False,
+        default=None,
         type=_parse_bool,
-        help="Display all fetched items instead of only new items (true/false, default: false).",
+        help=(
+            "Display all fetched items instead of only new items "
+            "(true/false; defaults to true when --max-items is set, otherwise false)."
+        ),
     )
     feed_fetch_parser.add_argument(
         "--format",
@@ -141,6 +148,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="list",
         dest="output_format",
         help="Output format (default: list).",
+    )
+    feed_fetch_parser.add_argument(
+        "--max-items",
+        type=_parse_non_negative_int,
+        default=None,
+        dest="max_items",
+        help="Maximum number of feed items to display.",
     )
 
     mcp_parser = subparsers.add_parser("mcp-server", help="Start the MCP server.")
@@ -183,6 +197,16 @@ def _parse_bool(value: str | bool) -> bool:
     if normalized in {"0", "false", "no", "n", "off"}:
         return False
     raise argparse.ArgumentTypeError("expected true or false")
+
+
+def _parse_non_negative_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a non-negative integer") from error
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("expected a non-negative integer")
+    return parsed
 
 
 def _print_download_success(paper_id: str, output_file: Path) -> None:
@@ -341,7 +365,12 @@ def main() -> None:
 
         if args.feed_command == "fetch":
             try:
-                result = fetch_feed(display_all=args.display_all)
+                display_all = (
+                    args.display_all
+                    if args.display_all is not None
+                    else args.max_items is not None
+                )
+                result = fetch_feed(display_all=display_all, max_items=args.max_items)
             except ValueError as error:
                 parser.error(str(error))
             if args.output_format == "json":

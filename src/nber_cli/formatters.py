@@ -81,6 +81,8 @@ def feed_results(result: NBERFeedFetchResult) -> Dict:
         "total_fetched": result.total_fetched,
         "new_count": result.new_count,
         "display_all": result.display_all,
+        "max_items": result.max_items,
+        "displayed_count": len(result.items),
         "results": [feed_item(item) for item in result.items],
     }
 
@@ -130,8 +132,11 @@ def feed_results_text(result: NBERFeedFetchResult) -> str:
         f"Database: {result.database_path}",
         f"Fetched: {result.total_fetched}",
         f"New: {result.new_count}",
-        "",
+        f"Displayed: {len(result.items)}",
     ]
+    if result.max_items is not None:
+        lines.append(f"Max items: {result.max_items}")
+    lines.append("")
 
     if not result.items:
         if result.display_all:

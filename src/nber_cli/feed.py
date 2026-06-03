@@ -36,7 +36,14 @@ def init_feed_database(db_path: Path | str | None = None) -> Path:
     return resolved_db_path
 
 
-def fetch_feed(display_all: bool = False, db_path: Path | str | None = None) -> NBERFeedFetchResult:
+def fetch_feed(
+    display_all: bool = False,
+    db_path: Path | str | None = None,
+    max_items: int | None = None,
+) -> NBERFeedFetchResult:
+    if max_items is not None and max_items < 0:
+        raise ValueError("max_items must be 0 or greater")
+
     resolved_db_path = _normalize_db_path(db_path or _configured_feed_db_path())
     _ensure_feed_schema(resolved_db_path)
 
@@ -45,6 +52,8 @@ def fetch_feed(display_all: bool = False, db_path: Path | str | None = None) -> 
     seen_at = _utc_now()
     new_items = _save_feed_items(resolved_db_path, feed_items, seen_at)
     output_items = feed_items if display_all else new_items
+    if max_items is not None:
+        output_items = output_items[:max_items]
 
     return NBERFeedFetchResult(
         source_url=NBER_FEED_URL,
@@ -52,6 +61,7 @@ def fetch_feed(display_all: bool = False, db_path: Path | str | None = None) -> 
         total_fetched=len(feed_items),
         new_count=len(new_items),
         display_all=display_all,
+        max_items=max_items,
         items=output_items,
     )
 

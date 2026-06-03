@@ -56,6 +56,7 @@ class NBERFeedFetchResult:
     new_count: int
     display_all: bool
     items: list[NBERFeedItem]
+    max_items: int | None = None
 
 
 @dataclass

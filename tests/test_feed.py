@@ -11,6 +11,8 @@ import json
 import sqlite3
 from unittest.mock import patch
 
+import pytest
+
 from nber_cli.feed import fetch_feed, init_feed_database, parse_feed_xml
 
 SAMPLE_FEED_XML = """<?xml version="1.0" encoding="UTF-8" ?>
@@ -101,6 +103,38 @@ class TestFetchFeed:
         assert result.total_fetched == 2
         assert result.new_count == 0
         assert [item.paper_id for item in result.items] == ["w35254", "w35255"]
+
+    def test_fetch_max_items_limits_output_without_limiting_storage(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+
+        with patch("nber_cli.feed._load_text_sync", return_value=SAMPLE_FEED_XML):
+            result = fetch_feed(db_path=db_path, max_items=1)
+
+        assert result.total_fetched == 2
+        assert result.new_count == 2
+        assert result.max_items == 1
+        assert [item.paper_id for item in result.items] == ["w35254"]
+
+        with sqlite3.connect(db_path) as connection:
+            stored_count = connection.execute("SELECT COUNT(*) FROM feed_items").fetchone()[0]
+
+        assert stored_count == 2
+
+    def test_fetch_allows_zero_max_items(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+
+        with patch("nber_cli.feed._load_text_sync", return_value=SAMPLE_FEED_XML):
+            result = fetch_feed(db_path=db_path, max_items=0)
+
+        assert result.new_count == 2
+        assert result.items == []
+
+    def test_fetch_rejects_invalid_max_items(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+
+        with patch("nber_cli.feed._load_text_sync", return_value=SAMPLE_FEED_XML):
+            with pytest.raises(ValueError, match="max_items"):
+                fetch_feed(db_path=db_path, max_items=-1)
 
     def test_fetch_records_fetch_history(self, tmp_path):
         db_path = tmp_path / "feed.db"
