@@ -20,7 +20,7 @@ from aiohttp import ClientError, ClientResponseError
 
 from .core.models import DownloadBatchResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .feed import fetch_feed, init_feed_database
+from .feed import fetch_feed, init_feed_database, migrate_feed_database
 from .fetcher import get_nber, search_nber
 from .formatters import (
     feed_results,
@@ -124,6 +124,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="SQLite database path. Defaults to ~/.nber-cli/feed.db.",
     )
+
+    feed_migrate_parser = feed_subparsers.add_parser(
+        "migrate",
+        help="Move the feed database to a new path and update config.",
+    )
+    feed_migrate_parser.add_argument("new_db_path", type=Path, help="New SQLite database path.")
 
     feed_fetch_parser = feed_subparsers.add_parser(
         "fetch",
@@ -361,6 +367,14 @@ def main() -> None:
             except ValueError as error:
                 parser.error(str(error))
             print(f"Feed database initialized at {db_path}")
+            return
+
+        if args.feed_command == "migrate":
+            try:
+                old_db_path, new_db_path = migrate_feed_database(args.new_db_path)
+            except ValueError as error:
+                parser.error(str(error))
+            print(f"Feed database migrated from {old_db_path} to {new_db_path}")
             return
 
         if args.feed_command == "fetch":

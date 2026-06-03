@@ -13,7 +13,12 @@ from unittest.mock import patch
 
 import pytest
 
-from nber_cli.feed import fetch_feed, init_feed_database, parse_feed_xml
+from nber_cli.feed import (
+    fetch_feed,
+    init_feed_database,
+    migrate_feed_database,
+    parse_feed_xml,
+)
 
 SAMPLE_FEED_XML = """<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -76,6 +81,95 @@ class TestInitFeedDatabase:
 
         assert "feed_items" in table_names
         assert "feed_fetches" in table_names
+
+
+class TestMigrateFeedDatabase:
+    def test_migrates_configured_database_and_updates_config(self, tmp_path):
+        home = tmp_path / "home"
+        old_db_path = tmp_path / "old" / "feed.db"
+        new_db_path = tmp_path / "new" / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            init_feed_database(old_db_path)
+            old_path, new_path = migrate_feed_database(new_db_path)
+
+        config_path = home / ".nber-cli" / "config.json"
+        config = json.loads(config_path.read_text())
+
+        assert old_path == old_db_path
+        assert new_path == new_db_path
+        assert not old_db_path.exists()
+        assert new_db_path.exists()
+        assert config["feed"]["db-path"] == str(new_db_path)
+
+    def test_migrates_default_database_when_config_is_missing(self, tmp_path):
+        home = tmp_path / "home"
+        new_db_path = tmp_path / "new" / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            default_db_path = home / ".nber-cli" / "feed.db"
+            init_feed_database(default_db_path)
+            (home / ".nber-cli" / "config.json").unlink()
+
+            old_path, new_path = migrate_feed_database(new_db_path)
+
+        assert old_path == default_db_path
+        assert new_path == new_db_path
+        assert not default_db_path.exists()
+        assert new_db_path.exists()
+
+    def test_migrates_sqlite_sidecar_files(self, tmp_path):
+        home = tmp_path / "home"
+        old_db_path = tmp_path / "old" / "feed.db"
+        new_db_path = tmp_path / "new" / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            init_feed_database(old_db_path)
+            old_wal_path = tmp_path / "old" / "feed.db-wal"
+            old_shm_path = tmp_path / "old" / "feed.db-shm"
+            old_wal_path.write_text("wal")
+            old_shm_path.write_text("shm")
+
+            migrate_feed_database(new_db_path)
+
+        assert not old_wal_path.exists()
+        assert not old_shm_path.exists()
+        assert (tmp_path / "new" / "feed.db-wal").read_text() == "wal"
+        assert (tmp_path / "new" / "feed.db-shm").read_text() == "shm"
+
+    def test_rejects_missing_source_database(self, tmp_path):
+        home = tmp_path / "home"
+        new_db_path = tmp_path / "new" / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            with pytest.raises(ValueError, match="does not exist"):
+                migrate_feed_database(new_db_path)
+
+    def test_rejects_existing_target_database(self, tmp_path):
+        home = tmp_path / "home"
+        old_db_path = tmp_path / "old" / "feed.db"
+        new_db_path = tmp_path / "new" / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            init_feed_database(old_db_path)
+            new_db_path.parent.mkdir(parents=True)
+            new_db_path.write_text("existing")
+
+            with pytest.raises(ValueError, match="already exists"):
+                migrate_feed_database(new_db_path)
+
+        assert old_db_path.exists()
+        assert new_db_path.read_text() == "existing"
+
+    def test_rejects_same_database_path(self, tmp_path):
+        home = tmp_path / "home"
+        db_path = tmp_path / "feed.db"
+
+        with patch("nber_cli.feed.Path.home", return_value=home):
+            init_feed_database(db_path)
+
+            with pytest.raises(ValueError, match="different"):
+                migrate_feed_database(db_path)
 
 
 class TestFetchFeed:

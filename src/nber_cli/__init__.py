@@ -13,7 +13,7 @@ from .core.models import (
     NBERSearchResults,
 )
 from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .feed import fetch_feed, init_feed_database, parse_feed_xml
+from .feed import fetch_feed, init_feed_database, migrate_feed_database, parse_feed_xml
 from .fetcher import get_nber, search_nber
 from .formatters import feed_results, info, related, search_results
 
@@ -35,6 +35,7 @@ __all__ = [
     "init_feed_database",
     "info",
     "main",
+    "migrate_feed_database",
     "parse_feed_xml",
     "related",
     "search_nber",

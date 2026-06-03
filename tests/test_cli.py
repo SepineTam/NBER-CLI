@@ -148,6 +148,13 @@ class TestBuildParser:
         assert args.feed_command == "init"
         assert args.db_path == Path("/tmp/feed.db")
 
+    def test_feed_migrate_subcommand_with_new_db_path(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "migrate", "/tmp/new-feed.db"])
+        assert args.command == "feed"
+        assert args.feed_command == "migrate"
+        assert args.new_db_path == Path("/tmp/new-feed.db")
+
     def test_feed_fetch_subcommand_defaults(self):
         parser = _build_parser()
         args = parser.parse_args(["feed", "fetch"])
@@ -544,6 +551,27 @@ class TestMainEntrypointFeed:
         mock_init.assert_called_once_with(Path("/tmp/feed.db"))
         captured = capsys.readouterr()
         assert "Feed database initialized at /tmp/feed.db" in captured.out
+
+    @patch("nber_cli.cli.migrate_feed_database")
+    def test_feed_migrate_outputs_database_paths(self, mock_migrate, capsys):
+        mock_migrate.return_value = (Path("/tmp/old-feed.db"), Path("/tmp/new-feed.db"))
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "migrate", "/tmp/new-feed.db"]):
+            main()
+
+        mock_migrate.assert_called_once_with(Path("/tmp/new-feed.db"))
+        captured = capsys.readouterr()
+        assert "Feed database migrated from /tmp/old-feed.db to /tmp/new-feed.db" in captured.out
+
+    @patch("nber_cli.cli.migrate_feed_database")
+    def test_feed_migrate_validation_error_exits_2(self, mock_migrate):
+        mock_migrate.side_effect = ValueError("target feed database file already exists")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "feed", "migrate", "/tmp/new-feed.db"]):
+                main()
+
+        assert exc_info.value.code == 2
 
     @patch("nber_cli.cli.fetch_feed")
     def test_feed_fetch_outputs_text(self, mock_fetch, capsys):

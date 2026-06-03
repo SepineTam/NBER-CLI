@@ -12,6 +12,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import shutil
 import sqlite3
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -34,6 +35,28 @@ def init_feed_database(db_path: Path | str | None = None) -> Path:
     _ensure_feed_schema(resolved_db_path)
     _write_feed_config(resolved_db_path)
     return resolved_db_path
+
+
+def migrate_feed_database(new_db_path: Path | str) -> tuple[Path, Path]:
+    old_db_path = get_feed_database_path()
+    resolved_new_db_path = _normalize_db_path(new_db_path)
+
+    if old_db_path == resolved_new_db_path:
+        raise ValueError("new feed database path must be different from current path")
+    if not old_db_path.exists():
+        raise ValueError(f"feed database does not exist: {old_db_path}")
+
+    move_pairs = _feed_database_move_pairs(old_db_path, resolved_new_db_path)
+    for _source_path, target_path in move_pairs:
+        if target_path.exists():
+            raise ValueError(f"target feed database file already exists: {target_path}")
+
+    resolved_new_db_path.parent.mkdir(parents=True, exist_ok=True)
+    for source_path, target_path in move_pairs:
+        shutil.move(str(source_path), str(target_path))
+
+    _write_feed_config(resolved_new_db_path)
+    return old_db_path, resolved_new_db_path
 
 
 def fetch_feed(
@@ -169,6 +192,15 @@ def _feed_item_exists(connection: sqlite3.Connection, paper_id: str) -> bool:
         (paper_id,),
     ).fetchone()
     return row is not None
+
+
+def _feed_database_move_pairs(old_db_path: Path, new_db_path: Path) -> list[tuple[Path, Path]]:
+    pairs = [(old_db_path, new_db_path)]
+    for suffix in ("-wal", "-shm", "-journal"):
+        source_path = Path(f"{old_db_path}{suffix}")
+        if source_path.exists():
+            pairs.append((source_path, Path(f"{new_db_path}{suffix}")))
+    return pairs
 
 
 def _ensure_feed_schema(db_path: Path) -> None:
