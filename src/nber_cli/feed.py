@@ -15,12 +15,12 @@ import re
 import shutil
 import sqlite3
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urldefrag
 
-from .core.models import NBERFeedFetchResult, NBERFeedItem
+from .core.models import NBERFeedCleanResult, NBERFeedFetchResult, NBERFeedItem
 from .fetcher import _load_text_sync
 
 NBER_FEED_URL = "https://www.nber.org/rss/new.xml"
@@ -57,6 +57,53 @@ def migrate_feed_database(new_db_path: Path | str) -> tuple[Path, Path]:
 
     _write_feed_config(resolved_new_db_path)
     return old_db_path, resolved_new_db_path
+
+
+def clean_feed_cache(
+    *,
+    days: int | None = None,
+    delete_all: bool = False,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    dry_run: bool = False,
+    db_path: Path | str | None = None,
+) -> NBERFeedCleanResult:
+    resolved_db_path = _normalize_db_path(db_path or _configured_feed_db_path())
+    if not resolved_db_path.exists():
+        raise ValueError(f"feed database does not exist: {resolved_db_path}")
+
+    condition, parameters, mode = _build_feed_cache_clean_condition(
+        days=days,
+        delete_all=delete_all,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    _ensure_feed_schema(resolved_db_path)
+
+    with sqlite3.connect(resolved_db_path) as connection:
+        matched_count = connection.execute(
+            f"SELECT COUNT(*) FROM feed_items WHERE {condition}",
+            parameters,
+        ).fetchone()[0]
+
+        deleted_count = 0
+        if not dry_run and matched_count:
+            cursor = connection.execute(
+                f"DELETE FROM feed_items WHERE {condition}",
+                parameters,
+            )
+            deleted_count = cursor.rowcount if cursor.rowcount >= 0 else matched_count
+
+    return NBERFeedCleanResult(
+        database_path=resolved_db_path,
+        matched_count=matched_count,
+        deleted_count=deleted_count,
+        mode=mode,
+        days=(30 if days is None else days) if mode == "days" else None,
+        start_date=start_date if mode == "date-range" else None,
+        end_date=end_date if mode == "date-range" else None,
+        dry_run=dry_run,
+    )
 
 
 def fetch_feed(
@@ -201,6 +248,62 @@ def _feed_database_move_pairs(old_db_path: Path, new_db_path: Path) -> list[tupl
         if source_path.exists():
             pairs.append((source_path, Path(f"{new_db_path}{suffix}")))
     return pairs
+
+
+def _build_feed_cache_clean_condition(
+    *,
+    days: int | None,
+    delete_all: bool,
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[str, tuple[str, ...], str]:
+    has_date_filter = start_date is not None or end_date is not None
+    mode_count = sum((days is not None, delete_all, has_date_filter))
+    if mode_count > 1:
+        raise ValueError("choose only one feed cache clean mode")
+
+    if delete_all:
+        return "1 = 1", (), "all"
+
+    if has_date_filter:
+        return _build_feed_cache_date_condition(start_date, end_date)
+
+    clean_days = 30 if days is None else days
+    if clean_days <= 0:
+        raise ValueError("days must be a positive integer")
+    cutoff_datetime = datetime.fromisoformat(_utc_now()) - timedelta(days=clean_days)
+    return "last_seen_at < ?", (cutoff_datetime.isoformat(timespec="seconds"),), "days"
+
+
+def _build_feed_cache_date_condition(
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[str, tuple[str, ...], str]:
+    if start_date is not None and end_date is None:
+        raise ValueError("end-date is required when start-date is provided")
+    if end_date is None:
+        raise ValueError("end-date is required for date range clean mode")
+
+    parsed_start_date = _parse_feed_cache_date(start_date) if start_date else None
+    parsed_end_date = _parse_feed_cache_date(end_date)
+    if parsed_start_date and parsed_start_date > parsed_end_date:
+        raise ValueError("start-date must be on or before end-date")
+
+    if parsed_start_date is None:
+        return "substr(last_seen_at, 1, 10) <= ?", (end_date,), "date-range"
+
+    return (
+        "substr(last_seen_at, 1, 10) >= ? AND substr(last_seen_at, 1, 10) <= ?",
+        (start_date, end_date),
+        "date-range",
+    )
+
+
+def _parse_feed_cache_date(value: str) -> date:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise ValueError(f"invalid date '{value}', expected YYYY-MM-DD") from error
 
 
 def _ensure_feed_schema(db_path: Path) -> None:

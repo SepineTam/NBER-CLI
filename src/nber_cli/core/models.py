@@ -60,6 +60,18 @@ class NBERFeedFetchResult:
 
 
 @dataclass
+class NBERFeedCleanResult:
+    database_path: Path
+    matched_count: int
+    deleted_count: int
+    mode: str
+    days: int | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    dry_run: bool = False
+
+
+@dataclass
 class DownloadFailure:
     paper_id: str
     error: BaseException

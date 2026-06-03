@@ -23,6 +23,7 @@ from nber_cli.cli import (
     _parse_bool,
     _parse_non_negative_int,
     _parse_paper_id,
+    _parse_positive_int,
     _resolve_paper_ids,
     main,
 )
@@ -155,6 +156,25 @@ class TestBuildParser:
         assert args.feed_command == "migrate"
         assert args.new_db_path == Path("/tmp/new-feed.db")
 
+    def test_feed_clean_subcommand_defaults(self):
+        parser = _build_parser()
+        args = parser.parse_args(["feed", "clean"])
+        assert args.command == "feed"
+        assert args.feed_command == "clean"
+        assert args.days is None
+        assert args.delete_all is False
+        assert args.start_date is None
+        assert args.end_date is None
+
+    def test_feed_clean_subcommand_with_filters(self):
+        parser = _build_parser()
+        args = parser.parse_args(
+            ["feed", "clean", "--start-date", "2026-05-01", "--end-date", "2026-05-31"]
+        )
+        assert args.feed_command == "clean"
+        assert args.start_date == "2026-05-01"
+        assert args.end_date == "2026-05-31"
+
     def test_feed_fetch_subcommand_defaults(self):
         parser = _build_parser()
         args = parser.parse_args(["feed", "fetch"])
@@ -243,6 +263,19 @@ class TestParseNonNegativeInt:
     def test_rejects_non_integer(self):
         with pytest.raises(argparse.ArgumentTypeError):
             _parse_non_negative_int("five")
+
+
+class TestParsePositiveInt:
+    def test_valid_positive_int(self):
+        assert _parse_positive_int("5") == 5
+
+    def test_rejects_zero(self):
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_positive_int("0")
+
+    def test_rejects_negative_number(self):
+        with pytest.raises(argparse.ArgumentTypeError):
+            _parse_positive_int("-1")
 
 
 class TestFormatDownloadError:
@@ -569,6 +602,117 @@ class TestMainEntrypointFeed:
 
         with pytest.raises(SystemExit) as exc_info:
             with patch.object(sys, "argv", ["nber-cli", "feed", "migrate", "/tmp/new-feed.db"]):
+                main()
+
+        assert exc_info.value.code == 2
+
+    @patch("builtins.input", return_value="y")
+    @patch("nber_cli.cli.clean_feed_cache")
+    def test_feed_clean_confirms_and_deletes_cache(self, mock_clean, mock_input, capsys):
+        from nber_cli.core.models import NBERFeedCleanResult
+
+        mock_clean.side_effect = [
+            NBERFeedCleanResult(
+                database_path=Path("/tmp/feed.db"),
+                matched_count=2,
+                deleted_count=0,
+                mode="days",
+                days=30,
+                dry_run=True,
+            ),
+            NBERFeedCleanResult(
+                database_path=Path("/tmp/feed.db"),
+                matched_count=2,
+                deleted_count=2,
+                mode="days",
+                days=30,
+            ),
+        ]
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "clean", "--days", "30"]):
+            main()
+
+        mock_input.assert_called_once_with()
+        assert mock_clean.call_count == 2
+        mock_clean.assert_any_call(
+            days=30,
+            delete_all=False,
+            start_date=None,
+            end_date=None,
+            dry_run=True,
+        )
+        mock_clean.assert_any_call(
+            days=30,
+            delete_all=False,
+            start_date=None,
+            end_date=None,
+        )
+        captured = capsys.readouterr()
+        assert "Matched cached records: 2" in captured.out
+        assert "This operation is irreversible." in captured.out
+        assert "Deleted cached records: 2" in captured.out
+
+    @patch("builtins.input", return_value="n")
+    @patch("nber_cli.cli.clean_feed_cache")
+    def test_feed_clean_aborts_without_deleting_cache(self, mock_clean, mock_input, capsys):
+        from nber_cli.core.models import NBERFeedCleanResult
+
+        mock_clean.return_value = NBERFeedCleanResult(
+            database_path=Path("/tmp/feed.db"),
+            matched_count=1,
+            deleted_count=0,
+            mode="all",
+            dry_run=True,
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "clean", "--all"]):
+            main()
+
+        mock_input.assert_called_once_with()
+        mock_clean.assert_called_once_with(
+            days=None,
+            delete_all=True,
+            start_date=None,
+            end_date=None,
+            dry_run=True,
+        )
+        assert "Aborted." in capsys.readouterr().out
+
+    @patch("builtins.input")
+    @patch("nber_cli.cli.clean_feed_cache")
+    def test_feed_clean_skips_prompt_when_no_cache_matches(self, mock_clean, mock_input, capsys):
+        from nber_cli.core.models import NBERFeedCleanResult
+
+        mock_clean.return_value = NBERFeedCleanResult(
+            database_path=Path("/tmp/feed.db"),
+            matched_count=0,
+            deleted_count=0,
+            mode="date-range",
+            end_date="2026-05-31",
+            dry_run=True,
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "feed", "clean", "--end-date", "2026-05-31"]):
+            main()
+
+        mock_input.assert_not_called()
+        mock_clean.assert_called_once_with(
+            days=None,
+            delete_all=False,
+            start_date=None,
+            end_date="2026-05-31",
+            dry_run=True,
+        )
+        captured = capsys.readouterr()
+        assert "Matched cached records: 0" in captured.out
+        assert "No cached records matched." in captured.out
+
+    @patch("nber_cli.cli.clean_feed_cache")
+    def test_feed_clean_validation_error_exits_2(self, mock_clean):
+        mock_clean.side_effect = ValueError("end-date is required when start-date is provided")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "feed", "clean", "--start-date", "2026-05-01"]):
                 main()
 
         assert exc_info.value.code == 2

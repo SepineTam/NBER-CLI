@@ -18,9 +18,9 @@ from pathlib import Path
 
 from aiohttp import ClientError, ClientResponseError
 
-from .core.models import DownloadBatchResult
+from .core.models import DownloadBatchResult, NBERFeedCleanResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .feed import fetch_feed, init_feed_database, migrate_feed_database
+from .feed import clean_feed_cache, fetch_feed, init_feed_database, migrate_feed_database
 from .fetcher import get_nber, search_nber
 from .formatters import (
     feed_results,
@@ -131,6 +131,33 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     feed_migrate_parser.add_argument("new_db_path", type=Path, help="New SQLite database path.")
 
+    feed_clean_parser = feed_subparsers.add_parser(
+        "clean",
+        help="Clean cached feed database records.",
+    )
+    feed_clean_parser.add_argument(
+        "--days",
+        type=_parse_positive_int,
+        default=None,
+        help="Clean cached records not seen for this many days (default: 30).",
+    )
+    feed_clean_parser.add_argument(
+        "--all",
+        action="store_true",
+        dest="delete_all",
+        help="Clean all cached feed database records.",
+    )
+    feed_clean_parser.add_argument(
+        "--start-date",
+        dest="start_date",
+        help="Clean cached records last seen on or after this date (YYYY-MM-DD).",
+    )
+    feed_clean_parser.add_argument(
+        "--end-date",
+        dest="end_date",
+        help="Clean cached records last seen on or before this date (YYYY-MM-DD).",
+    )
+
     feed_fetch_parser = feed_subparsers.add_parser(
         "fetch",
         help="Fetch the NBER RSS feed.",
@@ -215,6 +242,16 @@ def _parse_non_negative_int(value: str) -> int:
     return parsed
 
 
+def _parse_positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("expected a positive integer") from error
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("expected a positive integer")
+    return parsed
+
+
 def _print_download_success(paper_id: str, output_file: Path) -> None:
     print(f"Successfully downloaded {paper_id} to {output_file}")
 
@@ -290,6 +327,32 @@ def _info_payload(paper, include_all: bool) -> dict:
         if paper.published_version:
             result["published_version"] = paper.published_version
     return result
+
+
+def _feed_clean_options(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "days": args.days,
+        "delete_all": args.delete_all,
+        "start_date": args.start_date,
+        "end_date": args.end_date,
+    }
+
+
+def _print_feed_clean_preview(result: NBERFeedCleanResult) -> None:
+    print(f"Database: {result.database_path}")
+    print(f"Matched cached records: {result.matched_count}")
+    print("")
+    if result.matched_count == 0:
+        print("No cached records matched.")
+        return
+
+    print("This operation is irreversible.")
+    print("Deleted cache records may be fetched again as new items if they still appear in the RSS feed.")
+
+
+def _confirm_feed_clean() -> bool:
+    print("Continue? [y/N]: ", end="")
+    return input().strip() in {"y", "Y"}
 
 
 def main() -> None:
@@ -375,6 +438,27 @@ def main() -> None:
             except ValueError as error:
                 parser.error(str(error))
             print(f"Feed database migrated from {old_db_path} to {new_db_path}")
+            return
+
+        if args.feed_command == "clean":
+            clean_options = _feed_clean_options(args)
+            try:
+                preview = clean_feed_cache(**clean_options, dry_run=True)
+            except ValueError as error:
+                parser.error(str(error))
+
+            _print_feed_clean_preview(preview)
+            if preview.matched_count == 0:
+                return
+            if not _confirm_feed_clean():
+                print("Aborted.")
+                return
+
+            try:
+                result = clean_feed_cache(**clean_options)
+            except ValueError as error:
+                parser.error(str(error))
+            print(f"Deleted cached records: {result.deleted_count}")
             return
 
         if args.feed_command == "fetch":
