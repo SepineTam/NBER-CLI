@@ -92,14 +92,14 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-## 使用 Feed 缓存
+## 使用本地数据库
 
-初始化默认 feed 缓存：
+初始化默认数据库：
 
 ```python
-from nber_cli import init_feed_database
+from nber_cli import init_database
 
-db_path = init_feed_database()
+db_path = init_database()
 print(db_path)
 ```
 
@@ -123,14 +123,14 @@ from nber_cli import fetch_feed
 result = fetch_feed(display_all=True, max_items=5)
 ```
 
-移动 feed 缓存数据库：
+移动数据库：
 
 ```python
 from pathlib import Path
 
-from nber_cli import migrate_feed_database
+from nber_cli import migrate_database
 
-old_path, new_path = migrate_feed_database(Path("~/data/nber-feed.db"))
+old_path, new_path = migrate_database(Path("~/data/nber.db"))
 ```
 
 清理 feed 缓存数据库记录：
@@ -146,6 +146,20 @@ print(result.deleted_count)
 ```
 
 `clean_feed_cache` 只会删除本地缓存记录。如果被删除的记录仍然出现在 RSS feed 中，后续调用 `fetch_feed` 时它们可能会再次作为新条目返回。
+
+直接读写论文元数据缓存：
+
+```python
+from nber_cli import read_info_cache, write_info_cache
+from nber_cli import get_nber
+import asyncio
+
+paper = read_info_cache(None, "w25000")
+if paper is None:
+    paper = asyncio.run(get_nber(25000))
+    write_info_cache(None, paper)
+print(paper.title)
+```
 
 ## 数据模型
 

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented here.
 
+## 0.3.1 - 2026-06-03
+
+### Added
+
+- Added `nber-cli db init` and `nber-cli db migrate` for initializing and relocating the local database. These replace `feed init` and `feed migrate`.
+- Added `info_cache` table so repeated `nber-cli info` and MCP `get_paper_info` calls return immediately from cache.
+- Added `query_log`, `download_log`, and `info_log` tables for recording search keywords, download outcomes, and info lookups.
+- Added `schema_version` field in `~/.nber-cli/config.json` for forward-compatible schema upgrades.
+
+### Changed
+
+- Renamed default database file from `feed.db` to `nber.db`. Existing `~/.nber-cli/feed.db` installations keep working without manual steps.
+- Upgraded database schema from version 1 to version 2 with automatic upgrade on next invocation.
+- Consolidated database code into `nber_cli.db`. Old `init_feed_database` and `migrate_feed_database` helpers remain as thin compatibility wrappers.
+
 ## 0.3.0 - 2026-06-03
 
 ### Added

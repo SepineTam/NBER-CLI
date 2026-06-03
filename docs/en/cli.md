@@ -22,6 +22,7 @@ Running `nber-cli` without a subcommand prints the top-level help and exits succ
 | `download` | Download one or more paper PDFs. |
 | `info` | Show metadata and abstract for one paper. |
 | `search` | Search NBER working papers. |
+| `db` | Manage the local SQLite database. |
 | `feed` | Manage the NBER new working papers RSS feed cache. |
 | `mcp-server` | Start the MCP server for agents. |
 
@@ -142,18 +143,7 @@ When only `--start-date` is provided, NBER-CLI automatically uses the current da
 
 ## feed
 
-`feed` works with NBER's new working papers RSS feed and a local SQLite cache. The cache tracks which RSS items have already been seen, so `feed fetch` can show only newly discovered papers by default.
-
-### feed init
-
-Initialize the feed cache database and write the database path to the user config:
-
-```bash
-nber-cli feed init
-nber-cli feed init --db-path ~/.nber-cli/feed.db
-```
-
-If `--db-path` is omitted, the default database path is `~/.nber-cli/feed.db`.
+`feed` works with NBER's new working papers RSS feed and the local SQLite database. The database tracks which RSS items have already been seen, so `feed fetch` can show only newly discovered papers by default.
 
 ### feed fetch
 
@@ -184,16 +174,6 @@ Return JSON:
 nber-cli feed fetch --format json
 nber-cli feed fetch -f json
 ```
-
-### feed migrate
-
-Move the feed cache database to a new path and update the user config:
-
-```bash
-nber-cli feed migrate ~/data/nber-feed.db
-```
-
-Migration moves the SQLite database file and any SQLite sidecar files such as `-wal`, `-shm`, and `-journal`. The target path must not already exist.
 
 ### feed clean
 
@@ -235,15 +215,47 @@ Only `y` or `Y` continues. Any other response aborts without deleting records.
 
 | Subcommand | Option | Description |
 | --- | --- | --- |
-| `init` | `--db-path` | SQLite cache database path. Defaults to `~/.nber-cli/feed.db`. |
 | `fetch` | `--display-all [true|false]` | Display all fetched RSS items instead of only new items. |
 | `fetch` | `--format`, `-f` | Output format: `list` or `json`. Defaults to `list`. |
 | `fetch` | `--max-items` | Maximum number of feed items to display. |
-| `migrate` | `new_db_path` | New SQLite cache database path. |
 | `clean` | `--days` | Clean cached records not seen for this many days. Defaults to `30`. |
 | `clean` | `--all` | Clean all cached feed records. |
 | `clean` | `--start-date` | Clean cached records last seen on or after this date, formatted `YYYY-MM-DD`. |
 | `clean` | `--end-date` | Clean cached records last seen on or before this date, formatted `YYYY-MM-DD`. |
+
+## db
+
+`db` manages the local SQLite database used by `info`, `search`, `download`, and `feed` for cache and behavior logs.
+
+### db init
+
+Initialize the database and write its path to the user config:
+
+```bash
+nber-cli db init
+nber-cli db init --db-path ~/.nber-cli/nber.db
+```
+
+If `--db-path` is omitted, the default database path is `~/.nber-cli/nber.db`.
+
+If an existing `~/.nber-cli/feed.db` from 0.3.0 is present and no `nber.db` exists yet, NBER-CLI uses that legacy file in place. Schema is automatically upgraded from version 1 to version 2 on first use.
+
+### db migrate
+
+Move the database to a new path and update the user config:
+
+```bash
+nber-cli db migrate ~/data/nber.db
+```
+
+Migration moves the SQLite database file and any SQLite sidecar files such as `-wal`, `-shm`, and `-journal`. The target path must not already exist.
+
+### db Options
+
+| Subcommand | Option | Description |
+| --- | --- | --- |
+| `init` | `--db-path` | SQLite database path. Defaults to `~/.nber-cli/nber.db`. |
+| `migrate` | `new_db_path` | New SQLite database path. |
 
 ## mcp-server
 

@@ -36,7 +36,7 @@ class TestGetVersion:
 
     def test_returns_fallback_when_package_not_installed(self):
         with patch("nber_cli.cli.get_version", side_effect=Exception("not found")):
-            assert _get_version() == "0.3.0"
+            assert _get_version() == "0.3.1"
 
 
 class TestBuildParser:
@@ -142,19 +142,19 @@ class TestBuildParser:
         with pytest.raises(SystemExit):
             parser.parse_args(["search"])
 
-    def test_feed_init_subcommand_with_db_path(self):
+    def test_db_init_subcommand_with_db_path(self):
         parser = _build_parser()
-        args = parser.parse_args(["feed", "init", "--db-path", "/tmp/feed.db"])
-        assert args.command == "feed"
-        assert args.feed_command == "init"
-        assert args.db_path == Path("/tmp/feed.db")
+        args = parser.parse_args(["db", "init", "--db-path", "/tmp/nber.db"])
+        assert args.command == "db"
+        assert args.db_command == "init"
+        assert args.db_path == Path("/tmp/nber.db")
 
-    def test_feed_migrate_subcommand_with_new_db_path(self):
+    def test_db_migrate_subcommand_with_new_db_path(self):
         parser = _build_parser()
-        args = parser.parse_args(["feed", "migrate", "/tmp/new-feed.db"])
-        assert args.command == "feed"
-        assert args.feed_command == "migrate"
-        assert args.new_db_path == Path("/tmp/new-feed.db")
+        args = parser.parse_args(["db", "migrate", "/tmp/new-nber.db"])
+        assert args.command == "db"
+        assert args.db_command == "migrate"
+        assert args.new_db_path == Path("/tmp/new-nber.db")
 
     def test_feed_clean_subcommand_defaults(self):
         parser = _build_parser()
@@ -573,35 +573,35 @@ class TestMainEntrypointInfo:
         assert exc_info.value.code == 2
 
 
-class TestMainEntrypointFeed:
-    @patch("nber_cli.cli.init_feed_database")
-    def test_feed_init_outputs_database_path(self, mock_init, capsys):
-        mock_init.return_value = Path("/tmp/feed.db")
+class TestMainEntrypointDb:
+    @patch("nber_cli.cli.db.init_database")
+    def test_db_init_outputs_database_path(self, mock_init, capsys):
+        mock_init.return_value = Path("/tmp/nber.db")
 
-        with patch.object(sys, "argv", ["nber-cli", "feed", "init", "--db-path", "/tmp/feed.db"]):
+        with patch.object(sys, "argv", ["nber-cli", "db", "init", "--db-path", "/tmp/nber.db"]):
             main()
 
-        mock_init.assert_called_once_with(Path("/tmp/feed.db"))
+        mock_init.assert_called_once_with(Path("/tmp/nber.db"))
         captured = capsys.readouterr()
-        assert "Feed database initialized at /tmp/feed.db" in captured.out
+        assert "Database initialized at /tmp/nber.db" in captured.out
 
-    @patch("nber_cli.cli.migrate_feed_database")
-    def test_feed_migrate_outputs_database_paths(self, mock_migrate, capsys):
-        mock_migrate.return_value = (Path("/tmp/old-feed.db"), Path("/tmp/new-feed.db"))
+    @patch("nber_cli.cli.db.migrate_database")
+    def test_db_migrate_outputs_database_paths(self, mock_migrate, capsys):
+        mock_migrate.return_value = (Path("/tmp/old-nber.db"), Path("/tmp/new-nber.db"))
 
-        with patch.object(sys, "argv", ["nber-cli", "feed", "migrate", "/tmp/new-feed.db"]):
+        with patch.object(sys, "argv", ["nber-cli", "db", "migrate", "/tmp/new-nber.db"]):
             main()
 
-        mock_migrate.assert_called_once_with(Path("/tmp/new-feed.db"))
+        mock_migrate.assert_called_once_with(Path("/tmp/new-nber.db"))
         captured = capsys.readouterr()
-        assert "Feed database migrated from /tmp/old-feed.db to /tmp/new-feed.db" in captured.out
+        assert "Database migrated from /tmp/old-nber.db to /tmp/new-nber.db" in captured.out
 
-    @patch("nber_cli.cli.migrate_feed_database")
-    def test_feed_migrate_validation_error_exits_2(self, mock_migrate):
-        mock_migrate.side_effect = ValueError("target feed database file already exists")
+    @patch("nber_cli.cli.db.migrate_database")
+    def test_db_migrate_validation_error_exits_2(self, mock_migrate):
+        mock_migrate.side_effect = ValueError("target database file already exists")
 
         with pytest.raises(SystemExit) as exc_info:
-            with patch.object(sys, "argv", ["nber-cli", "feed", "migrate", "/tmp/new-feed.db"]):
+            with patch.object(sys, "argv", ["nber-cli", "db", "migrate", "/tmp/new-nber.db"]):
                 main()
 
         assert exc_info.value.code == 2

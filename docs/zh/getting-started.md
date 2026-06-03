@@ -75,10 +75,10 @@ nber-cli info w25000 --all
 
 ## 用 Feed 缓存跟踪新论文
 
-初始化本地 RSS feed 缓存：
+初始化本地数据库：
 
 ```bash
-nber-cli feed init
+nber-cli db init
 ```
 
 获取 NBER 最新工作论文 RSS feed：

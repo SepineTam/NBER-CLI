@@ -1,6 +1,6 @@
 # Configuration
 
-Most NBER-CLI runtime behavior uses built-in defaults. The feed cache also uses a small user config file to remember the SQLite database path selected by `nber-cli feed init` or `nber-cli feed migrate`.
+Most NBER-CLI runtime behavior uses built-in defaults. The local database also uses a small user config file to remember the SQLite database path selected by `nber-cli db init` or `nber-cli db migrate`.
 
 ## Runtime Defaults
 
@@ -23,45 +23,54 @@ The user config file is:
 ~/.nber-cli/config.json
 ```
 
-At the moment, the config file is used for feed cache settings:
+Current schema:
 
 ```json
 {
+  "schema_version": 2,
   "feed": {
-    "db-path": "/Users/name/.nber-cli/feed.db"
+    "db-path": "/Users/name/.nber-cli/nber.db"
   }
 }
 ```
 
-`feed.db-path` points to the SQLite database used by `nber-cli feed fetch` and `nber-cli feed clean`.
+`feed.db-path` points to the SQLite database used by `info`, `search`, `download`, and `feed`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
 
-## Feed Cache Database
+`schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
 
-Default feed cache database path:
+## Local Database
+
+Default database path:
 
 ```text
-~/.nber-cli/feed.db
+~/.nber-cli/nber.db
 ```
 
-Initialize the default cache:
+Initialize the default database:
 
 ```bash
-nber-cli feed init
+nber-cli db init
 ```
 
-Initialize a cache at a custom path:
+Initialize at a custom path:
 
 ```bash
-nber-cli feed init --db-path ~/data/nber-feed.db
+nber-cli db init --db-path ~/data/nber.db
 ```
 
-Move an existing cache and update the config:
+Move an existing database and update the config:
 
 ```bash
-nber-cli feed migrate ~/data/nber-feed.db
+nber-cli db migrate ~/data/nber.db
 ```
 
-The feed cache stores RSS items that have already been seen. `feed fetch` uses this cache to decide which items are new. `feed clean` deletes records from this local cache; if deleted records still appear in the RSS feed, they may be fetched again as new items.
+If you upgraded from 0.3.0 and still have `~/.nber-cli/feed.db`, NBER-CLI will keep using that legacy file when no `nber.db` is present. The schema is upgraded automatically on first invocation.
+
+The database holds:
+
+- `feed_items` and `feed_fetches`: RSS cache used by `feed fetch` and `feed clean`.
+- `info_cache`: paper metadata cache used by `info` and the MCP `get_paper_info` tool.
+- `query_log`, `download_log`, `info_log`: behavior logs for search keywords, download outcomes, and info lookups.
 
 ## Output Paths
 

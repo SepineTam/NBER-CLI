@@ -22,6 +22,7 @@ nber-cli [--version] <command> [options]
 | `download` | 下载一篇或多篇论文 PDF。 |
 | `info` | 显示单篇论文的元数据和摘要。 |
 | `search` | 搜索 NBER 工作论文。 |
+| `db` | 管理本地 SQLite 数据库。 |
 | `feed` | 管理 NBER 最新工作论文 RSS feed 的本地缓存。 |
 | `mcp-server` | 启动给 Agent 使用的 MCP server。 |
 
@@ -142,18 +143,7 @@ nber-cli search "inflation" -f json
 
 ## feed
 
-`feed` 用于处理 NBER 最新工作论文 RSS feed 和本地 SQLite 缓存。缓存会记录哪些 RSS 条目已经见过，因此 `feed fetch` 默认只显示新发现的论文。
-
-### feed init
-
-初始化 feed 缓存数据库，并把数据库路径写入用户配置：
-
-```bash
-nber-cli feed init
-nber-cli feed init --db-path ~/.nber-cli/feed.db
-```
-
-如果省略 `--db-path`，默认数据库路径是 `~/.nber-cli/feed.db`。
+`feed` 用于处理 NBER 最新工作论文 RSS feed 和本地 SQLite 数据库。数据库会记录哪些 RSS 条目已经见过，因此 `feed fetch` 默认只显示新发现的论文。
 
 ### feed fetch
 
@@ -184,16 +174,6 @@ nber-cli feed fetch --max-items 5
 nber-cli feed fetch --format json
 nber-cli feed fetch -f json
 ```
-
-### feed migrate
-
-移动 feed 缓存数据库到新路径，并更新用户配置：
-
-```bash
-nber-cli feed migrate ~/data/nber-feed.db
-```
-
-迁移会移动 SQLite 数据库文件，以及 `-wal`、`-shm`、`-journal` 等 SQLite sidecar 文件。目标路径不能已经存在。
 
 ### feed clean
 
@@ -235,15 +215,47 @@ Continue? [y/N]:
 
 | 子命令 | 选项 | 说明 |
 | --- | --- | --- |
-| `init` | `--db-path` | SQLite 缓存数据库路径，默认是 `~/.nber-cli/feed.db`。 |
 | `fetch` | `--display-all [true|false]` | 显示所有获取到的 RSS 条目，而不是只显示新条目。 |
 | `fetch` | `--format`, `-f` | 输出格式：`list` 或 `json`，默认是 `list`。 |
 | `fetch` | `--max-items` | 最多显示多少个 feed 条目。 |
-| `migrate` | `new_db_path` | 新的 SQLite 缓存数据库路径。 |
 | `clean` | `--days` | 清理这么多天没有再次出现的缓存记录，默认是 `30`。 |
 | `clean` | `--all` | 清理全部 feed 缓存记录。 |
 | `clean` | `--start-date` | 清理 last-seen 日期在该日期及之后的缓存记录，格式为 `YYYY-MM-DD`。 |
 | `clean` | `--end-date` | 清理 last-seen 日期在该日期及之前的缓存记录，格式为 `YYYY-MM-DD`。 |
+
+## db
+
+`db` 用于管理本地 SQLite 数据库，`info`、`search`、`download` 和 `feed` 会用这个数据库存放缓存和行为日志。
+
+### db init
+
+初始化数据库，并把数据库路径写入用户配置：
+
+```bash
+nber-cli db init
+nber-cli db init --db-path ~/.nber-cli/nber.db
+```
+
+如果省略 `--db-path`，默认数据库路径是 `~/.nber-cli/nber.db`。
+
+如果用户原来使用 0.3.0 留下的 `~/.nber-cli/feed.db`，并且还没有 `nber.db`，NBER-CLI 会沿用这个旧文件。首次使用时 schema 会自动从版本 1 升级到版本 2。
+
+### db migrate
+
+把数据库移到新路径并更新用户配置：
+
+```bash
+nber-cli db migrate ~/data/nber.db
+```
+
+迁移会移动 SQLite 数据库文件，以及 `-wal`、`-shm`、`-journal` 等 SQLite sidecar 文件。目标路径不能已经存在。
+
+### db 选项
+
+| 子命令 | 选项 | 说明 |
+| --- | --- | --- |
+| `init` | `--db-path` | SQLite 数据库路径，默认是 `~/.nber-cli/nber.db`。 |
+| `migrate` | `new_db_path` | 新的 SQLite 数据库路径。 |
 
 ## mcp-server
 

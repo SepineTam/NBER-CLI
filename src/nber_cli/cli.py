@@ -18,9 +18,10 @@ from pathlib import Path
 
 from aiohttp import ClientError, ClientResponseError
 
+from . import db
 from .core.models import DownloadBatchResult, NBERFeedCleanResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .feed import clean_feed_cache, fetch_feed, init_feed_database, migrate_feed_database
+from .feed import clean_feed_cache, fetch_feed
 from .fetcher import get_nber, search_nber
 from .formatters import (
     feed_results,
@@ -39,7 +40,7 @@ def _get_version() -> str:
     try:
         return get_version("nber-cli")
     except Exception:
-        return "0.3.0"
+        return "0.3.1"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -114,22 +115,25 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format (default: list).",
     )
 
-    feed_parser = subparsers.add_parser("feed", help="Manage the NBER working papers RSS feed.")
-    feed_subparsers = feed_parser.add_subparsers(dest="feed_command", required=True)
+    db_parser = subparsers.add_parser("db", help="Manage the local NBER database.")
+    db_subparsers = db_parser.add_subparsers(dest="db_command", required=True)
 
-    feed_init_parser = feed_subparsers.add_parser("init", help="Initialize the feed database.")
-    feed_init_parser.add_argument(
+    db_init_parser = db_subparsers.add_parser("init", help="Initialize the database.")
+    db_init_parser.add_argument(
         "--db-path",
         type=Path,
         default=None,
-        help="SQLite database path. Defaults to ~/.nber-cli/feed.db.",
+        help="SQLite database path. Defaults to ~/.nber-cli/nber.db.",
     )
 
-    feed_migrate_parser = feed_subparsers.add_parser(
+    db_migrate_parser = db_subparsers.add_parser(
         "migrate",
-        help="Move the feed database to a new path and update config.",
+        help="Move the database to a new path and update config.",
     )
-    feed_migrate_parser.add_argument("new_db_path", type=Path, help="New SQLite database path.")
+    db_migrate_parser.add_argument("new_db_path", type=Path, help="New SQLite database path.")
+
+    feed_parser = subparsers.add_parser("feed", help="Manage the NBER working papers RSS feed.")
+    feed_subparsers = feed_parser.add_subparsers(dest="feed_command", required=True)
 
     feed_clean_parser = feed_subparsers.add_parser(
         "clean",
@@ -290,17 +294,21 @@ def _run_single_download(paper_id: str, output_file: Path | None, save_base: Pat
         else:
             downloaded_file = asyncio.run(download_paper(paper_id, save_base))
     except (Exception, asyncio.CancelledError) as error:
+        db.record_download(None, paper_id, "failed", error=str(error))
         print(_format_download_error(paper_id, error), file=sys.stderr)
         raise SystemExit(1) from None
 
+    db.record_download(None, paper_id, "success", saved_path=str(downloaded_file))
     _print_download_success(paper_id, downloaded_file)
 
 
 def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[str]) -> None:
     for output_file in batch_result.paths:
+        db.record_download(None, output_file.stem, "success", saved_path=str(output_file))
         _print_download_success(output_file.stem, output_file)
 
     for failure in batch_result.failures:
+        db.record_download(None, failure.paper_id, "failed", error=str(failure.error))
         print(_format_download_error(failure.paper_id, failure.error), file=sys.stderr)
 
     if batch_result.failures:
@@ -397,7 +405,14 @@ def main() -> None:
         except ValueError:
             parser.error(f"invalid paper ID '{args.paper_id}'")
 
-        paper = asyncio.run(get_nber(nber_id))
+        paper = db.read_info_cache(None, nber_id)
+        if paper is None:
+            paper = asyncio.run(get_nber(nber_id))
+            db.write_info_cache(None, paper)
+        else:
+            db.touch_info_cache(None, nber_id)
+        db.record_info(None, nber_id)
+
         if args.output_format == "json":
             _print_json(_info_payload(paper, args.show_all))
         else:
@@ -417,29 +432,41 @@ def main() -> None:
             )
         except ValueError as error:
             parser.error(str(error))
+        db.record_query(
+            None,
+            keyword=args.query,
+            conditions={
+                "start_date": args.start_date,
+                "end_date": args.end_date,
+                "page": args.page,
+                "per_page": args.per_page,
+            },
+            result_count=len(results.results),
+        )
         if args.output_format == "json":
             _print_json(search_results(results))
         else:
             print(search_results_text(results))
         return
 
+    if args.command == "db":
+        if args.db_command == "init":
+            try:
+                db_path = db.init_database(args.db_path)
+            except ValueError as error:
+                parser.error(str(error))
+            print(f"Database initialized at {db_path}")
+            return
+
+        if args.db_command == "migrate":
+            try:
+                old_db_path, new_db_path = db.migrate_database(args.new_db_path)
+            except ValueError as error:
+                parser.error(str(error))
+            print(f"Database migrated from {old_db_path} to {new_db_path}")
+            return
+
     if args.command == "feed":
-        if args.feed_command == "init":
-            try:
-                db_path = init_feed_database(args.db_path)
-            except ValueError as error:
-                parser.error(str(error))
-            print(f"Feed database initialized at {db_path}")
-            return
-
-        if args.feed_command == "migrate":
-            try:
-                old_db_path, new_db_path = migrate_feed_database(args.new_db_path)
-            except ValueError as error:
-                parser.error(str(error))
-            print(f"Feed database migrated from {old_db_path} to {new_db_path}")
-            return
-
         if args.feed_command == "clean":
             clean_options = _feed_clean_options(args)
             try:

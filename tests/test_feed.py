@@ -104,7 +104,7 @@ class TestInitFeedDatabase:
         home = tmp_path / "home"
         db_path = tmp_path / "feed.sqlite"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             initialized_path = init_feed_database(db_path)
 
         config_path = home / ".nber-cli" / "config.json"
@@ -131,7 +131,7 @@ class TestMigrateFeedDatabase:
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             init_feed_database(old_db_path)
             old_path, new_path = migrate_feed_database(new_db_path)
 
@@ -148,7 +148,7 @@ class TestMigrateFeedDatabase:
         home = tmp_path / "home"
         new_db_path = tmp_path / "new" / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             default_db_path = home / ".nber-cli" / "feed.db"
             init_feed_database(default_db_path)
             (home / ".nber-cli" / "config.json").unlink()
@@ -165,7 +165,7 @@ class TestMigrateFeedDatabase:
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             init_feed_database(old_db_path)
             old_wal_path = tmp_path / "old" / "feed.db-wal"
             old_shm_path = tmp_path / "old" / "feed.db-shm"
@@ -183,7 +183,7 @@ class TestMigrateFeedDatabase:
         home = tmp_path / "home"
         new_db_path = tmp_path / "new" / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             with pytest.raises(ValueError, match="does not exist"):
                 migrate_feed_database(new_db_path)
 
@@ -192,7 +192,7 @@ class TestMigrateFeedDatabase:
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             init_feed_database(old_db_path)
             new_db_path.parent.mkdir(parents=True)
             new_db_path.write_text("existing")
@@ -207,7 +207,7 @@ class TestMigrateFeedDatabase:
         home = tmp_path / "home"
         db_path = tmp_path / "feed.db"
 
-        with patch("nber_cli.feed.Path.home", return_value=home):
+        with patch("nber_cli.db.Path.home", return_value=home):
             init_feed_database(db_path)
 
             with pytest.raises(ValueError, match="different"):
@@ -221,7 +221,7 @@ class TestCleanFeedCache:
         _insert_cached_feed_item(db_path, "w10001", "2026-04-30T00:00:00+00:00")
         _insert_cached_feed_item(db_path, "w10002", "2026-05-20T00:00:00+00:00")
 
-        with patch("nber_cli.feed._utc_now", return_value="2026-06-03T00:00:00+00:00"):
+        with patch("nber_cli.db._utc_now", return_value="2026-06-03T00:00:00+00:00"):
             result = clean_feed_cache(db_path=db_path)
 
         assert result.mode == "days"
@@ -235,7 +235,7 @@ class TestCleanFeedCache:
         init_feed_database(db_path)
         _insert_cached_feed_item(db_path, "w10001", "2026-04-30T00:00:00+00:00")
 
-        with patch("nber_cli.feed._utc_now", return_value="2026-06-03T00:00:00+00:00"):
+        with patch("nber_cli.db._utc_now", return_value="2026-06-03T00:00:00+00:00"):
             result = clean_feed_cache(db_path=db_path, dry_run=True)
 
         assert result.dry_run is True

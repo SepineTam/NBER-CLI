@@ -7,5 +7,17 @@
 # @Email  : sepinetam@gmail.com
 # @File   : conftest.py
 
+from unittest.mock import patch
+
+import pytest
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "slow: marks tests as slow")
+
+
+@pytest.fixture(autouse=True)
+def isolated_nber_home(tmp_path):
+    home = tmp_path / "home"
+    with patch("nber_cli.db.Path.home", return_value=home):
+        yield home

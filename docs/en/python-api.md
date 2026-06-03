@@ -92,14 +92,14 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-## Work with the Feed Cache
+## Work with the Local Database
 
-Initialize the default feed cache:
+Initialize the default database:
 
 ```python
-from nber_cli import init_feed_database
+from nber_cli import init_database
 
-db_path = init_feed_database()
+db_path = init_database()
 print(db_path)
 ```
 
@@ -123,14 +123,14 @@ from nber_cli import fetch_feed
 result = fetch_feed(display_all=True, max_items=5)
 ```
 
-Move the feed cache database:
+Move the database:
 
 ```python
 from pathlib import Path
 
-from nber_cli import migrate_feed_database
+from nber_cli import migrate_database
 
-old_path, new_path = migrate_feed_database(Path("~/data/nber-feed.db"))
+old_path, new_path = migrate_database(Path("~/data/nber.db"))
 ```
 
 Clean cached feed database records:
@@ -146,6 +146,20 @@ print(result.deleted_count)
 ```
 
 `clean_feed_cache` deletes local cache records only. If deleted records still appear in the RSS feed, a later `fetch_feed` call may return them as new items again.
+
+Read or write the paper metadata cache directly:
+
+```python
+from nber_cli import read_info_cache, write_info_cache
+from nber_cli import get_nber
+import asyncio
+
+paper = read_info_cache(None, "w25000")
+if paper is None:
+    paper = asyncio.run(get_nber(25000))
+    write_info_cache(None, paper)
+print(paper.title)
+```
 
 ## Data Models
 

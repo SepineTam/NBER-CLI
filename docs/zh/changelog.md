@@ -2,6 +2,21 @@
 
 这里记录项目的重要变更。
 
+## 0.3.1 - 2026-06-03
+
+### Added
+
+- 添加 `nber-cli db init` 和 `nber-cli db migrate`，用于初始化和迁移本地数据库，替代原先的 `feed init` 和 `feed migrate`。
+- 添加 `info_cache` 表，重复执行 `nber-cli info` 或 MCP `get_paper_info` 时直接从缓存返回。
+- 添加 `query_log`、`download_log`、`info_log` 表，记录搜索关键词、下载结果和 info 查询。
+- 在 `~/.nber-cli/config.json` 中写入 `schema_version` 字段，便于后续的 schema 升级。
+
+### Changed
+
+- 默认数据库文件从 `feed.db` 改名为 `nber.db`。已经安装了 `~/.nber-cli/feed.db` 的用户无需手动迁移。
+- 数据库 schema 从版本 1 升级到版本 2，下次启动时自动完成升级。
+- 公共数据库代码迁移到 `nber_cli.db`,原先的 `init_feed_database` 和 `migrate_feed_database` 作为薄薄的兼容层保留。
+
 ## 0.3.0 - 2026-06-03
 
 ### Added

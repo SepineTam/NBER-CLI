@@ -1,6 +1,6 @@
 # 配置
 
-NBER-CLI 的大多数运行时行为使用内置默认值。feed 缓存还会使用一个小型用户配置文件，用来记住 `nber-cli feed init` 或 `nber-cli feed migrate` 选择的 SQLite 数据库路径。
+NBER-CLI 的大多数运行时行为使用内置默认值。本地数据库还会使用一个小型用户配置文件，用来记住 `nber-cli db init` 或 `nber-cli db migrate` 选择的 SQLite 数据库路径。
 
 ## 运行时默认值
 
@@ -23,45 +23,54 @@ NBER-CLI 的大多数运行时行为使用内置默认值。feed 缓存还会使
 ~/.nber-cli/config.json
 ```
 
-目前配置文件用于 feed 缓存设置：
+当前结构：
 
 ```json
 {
+  "schema_version": 2,
   "feed": {
-    "db-path": "/Users/name/.nber-cli/feed.db"
+    "db-path": "/Users/name/.nber-cli/nber.db"
   }
 }
 ```
 
-`feed.db-path` 指向 `nber-cli feed fetch` 和 `nber-cli feed clean` 使用的 SQLite 数据库。
+`feed.db-path` 指向 `info`、`search`、`download` 和 `feed` 都会使用的 SQLite 数据库。`feed` 这个 key 名称保留以保持向后兼容，数据库本身是通用的。
 
-## Feed 缓存数据库
+`schema_version` 记录当前数据库 schema 的版本。NBER-CLI 在 `db init` 或 schema 升级后更新该字段。
 
-默认 feed 缓存数据库路径：
+## 本地数据库
+
+默认数据库路径：
 
 ```text
-~/.nber-cli/feed.db
+~/.nber-cli/nber.db
 ```
 
-初始化默认缓存：
+初始化默认数据库：
 
 ```bash
-nber-cli feed init
+nber-cli db init
 ```
 
 初始化到自定义路径：
 
 ```bash
-nber-cli feed init --db-path ~/data/nber-feed.db
+nber-cli db init --db-path ~/data/nber.db
 ```
 
-移动已有缓存并更新配置：
+移动已有数据库并更新配置：
 
 ```bash
-nber-cli feed migrate ~/data/nber-feed.db
+nber-cli db migrate ~/data/nber.db
 ```
 
-feed 缓存会存储已经见过的 RSS 条目。`feed fetch` 使用这个缓存判断哪些条目是新的。`feed clean` 删除的是本地缓存记录；如果被删除的记录仍然出现在 RSS feed 中，后续可能会再次作为新条目被获取。
+如果你从 0.3.0 升级过来,本地还存有 `~/.nber-cli/feed.db`,在没有 `nber.db` 的情况下 NBER-CLI 会继续使用这个旧文件。首次运行时会自动完成 schema 升级。
+
+数据库包含以下内容：
+
+- `feed_items` 和 `feed_fetches`：`feed fetch` 和 `feed clean` 使用的 RSS 缓存。
+- `info_cache`：`info` 和 MCP `get_paper_info` 工具使用的论文元数据缓存。
+- `query_log`、`download_log`、`info_log`：搜索关键词、下载结果和 info 查询的行为日志。
 
 ## 输出路径
 

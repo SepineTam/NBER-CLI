@@ -75,10 +75,10 @@ nber-cli info w25000 --all
 
 ## Follow New Papers with the Feed Cache
 
-Initialize the local RSS feed cache:
+Initialize the local database:
 
 ```bash
-nber-cli feed init
+nber-cli db init
 ```
 
 Fetch the NBER new working papers RSS feed:
