@@ -73,6 +73,36 @@ Use `--all` to include related fields and published-version information when NBE
 nber-cli info w25000 --all
 ```
 
+## Follow New Papers with the Feed Cache
+
+Initialize the local RSS feed cache:
+
+```bash
+nber-cli feed init
+```
+
+Fetch the NBER new working papers RSS feed:
+
+```bash
+nber-cli feed fetch
+```
+
+The first fetch stores the current RSS items in the cache and displays them as new. Later fetches show only items that were not already cached.
+
+Limit output while showing the latest fetched items:
+
+```bash
+nber-cli feed fetch --max-items 5
+```
+
+Clean old cache records:
+
+```bash
+nber-cli feed clean --days 30
+```
+
+`feed clean` asks for confirmation before deleting cached records.
+
 ## Download a PDF
 
 Download into the current directory:

@@ -2,6 +2,8 @@
 
 NBER-CLI 暴露了与 CLI 相同核心能力的 Python 函数。由于查询、搜索和下载都涉及网络 I/O，这些 API 是异步的。
 
+feed 缓存辅助函数是同步的，因为它们主要执行本地 SQLite 操作和同步 RSS 获取。
+
 ## 安装
 
 ```bash
@@ -90,6 +92,61 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
+## 使用 Feed 缓存
+
+初始化默认 feed 缓存：
+
+```python
+from nber_cli import init_feed_database
+
+db_path = init_feed_database()
+print(db_path)
+```
+
+获取 NBER RSS feed 并显示新的缓存条目：
+
+```python
+from nber_cli import feed_results, fetch_feed
+
+result = fetch_feed()
+payload = feed_results(result)
+print(payload["new_count"])
+for item in payload["results"]:
+    print(item["id"], item["title"])
+```
+
+显示所有获取到的 RSS 条目，并限制返回数量：
+
+```python
+from nber_cli import fetch_feed
+
+result = fetch_feed(display_all=True, max_items=5)
+```
+
+移动 feed 缓存数据库：
+
+```python
+from pathlib import Path
+
+from nber_cli import migrate_feed_database
+
+old_path, new_path = migrate_feed_database(Path("~/data/nber-feed.db"))
+```
+
+清理 feed 缓存数据库记录：
+
+```python
+from nber_cli import clean_feed_cache
+
+preview = clean_feed_cache(days=30, dry_run=True)
+print(preview.matched_count)
+
+result = clean_feed_cache(days=30)
+print(result.deleted_count)
+```
+
+`clean_feed_cache` 只会删除本地缓存记录。如果被删除的记录仍然出现在 RSS feed 中，后续调用 `fetch_feed` 时它们可能会再次作为新条目返回。
+
 ## 数据模型
 
 ### NBER
@@ -118,6 +175,43 @@ asyncio.run(main())
 | `start_date` | `str` 或 `None` | 已应用的开始日期。 |
 | `end_date` | `str` 或 `None` | 已应用的结束日期。 |
 
+### NBERFeedItem
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `paper_id` | `str` | 论文编号，例如 `w35254`。 |
+| `title` | `str` | 从 RSS 条目解析出的论文标题。 |
+| `authors` | `list[str]` | 从 RSS 标题解析出的作者姓名。 |
+| `abstract` | `str` | RSS 条目的 description。 |
+| `url` | `str` | 去掉 RSS fragment 后的 NBER 论文 URL。 |
+| `source_url` | `str` | RSS 条目中的原始 URL。 |
+| `guid` | `str` | RSS 条目的 GUID。 |
+
+### NBERFeedFetchResult
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `source_url` | `str` | RSS feed URL。 |
+| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `total_fetched` | `int` | 本次获取到的 RSS 条目数量。 |
+| `new_count` | `int` | 本次获取到且缓存中原本不存在的条目数量。 |
+| `display_all` | `bool` | 返回条目是否包含所有获取到的条目。 |
+| `items` | `list[NBERFeedItem]` | 选中用于展示或结构化输出的条目。 |
+| `max_items` | `int` 或 `None` | 提供时的展示数量限制。 |
+
+### NBERFeedCleanResult
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `matched_count` | `int` | 符合清理条件的缓存记录数量。 |
+| `deleted_count` | `int` | 已删除的缓存记录数量。 |
+| `mode` | `str` | 清理模式：`days`、`all` 或 `date-range`。 |
+| `days` | `int` 或 `None` | `days` 模式下的天数阈值。 |
+| `start_date` | `str` 或 `None` | `date-range` 模式下前后包含的开始日期。 |
+| `end_date` | `str` 或 `None` | `date-range` 模式下前后包含的结束日期。 |
+| `dry_run` | `bool` | 是否只统计匹配记录而不删除。 |
+
 ### DownloadFailure
 
 | 字段 | 类型 | 说明 |
@@ -137,12 +231,13 @@ asyncio.run(main())
 如果需要稳定的字典输出用于 JSON 或 MCP 风格响应，可以使用 formatter：
 
 ```python
-from nber_cli import info, related, search_results
+from nber_cli import feed_results, info, related, search_results
 ```
 
 - `info(paper)` 返回核心元数据。
 - `related(paper)` 返回可选相关字段。
 - `search_results(results)` 返回结构化搜索结果。
+- `feed_results(result)` 返回结构化 feed fetch 结果。
 
 如果需要适合人读的文本输出，可以使用文本格式化器：
 

@@ -8,6 +8,7 @@ NBER-CLI 聚焦 NBER 工作论文的常见研究流程：
 
 - 按关键词、作者、标题、摘要或论文编号搜索论文。
 - 查看论文标题、作者、日期、摘要、URL 和相关元数据。
+- 通过 NBER RSS feed 和本地缓存跟踪最新工作论文。
 - 通过论文编号下载 PDF。
 - 将多篇论文批量下载到指定目录。
 - 作为 MCP server 向 Agent 提供论文搜索、查询和下载能力。
@@ -19,6 +20,7 @@ NBER-CLI 聚焦 NBER 工作论文的常见研究流程：
 ```bash
 uvx nber-cli search "Labor Economic"
 uvx nber-cli info w25000
+uvx nber-cli feed fetch --max-items 5
 uvx nber-cli download w34567
 ```
 
@@ -28,6 +30,7 @@ uvx nber-cli download w34567
 uv tool install nber-cli
 nber-cli search "Labor Economic"
 nber-cli info w25000
+nber-cli feed fetch --max-items 5
 nber-cli download w34567
 ```
 

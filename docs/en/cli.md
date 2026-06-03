@@ -22,6 +22,7 @@ Running `nber-cli` without a subcommand prints the top-level help and exits succ
 | `download` | Download one or more paper PDFs. |
 | `info` | Show metadata and abstract for one paper. |
 | `search` | Search NBER working papers. |
+| `feed` | Manage the NBER new working papers RSS feed cache. |
 | `mcp-server` | Start the MCP server for agents. |
 
 ## download
@@ -139,6 +140,111 @@ nber-cli search "inflation" -f json
 
 When only `--start-date` is provided, NBER-CLI automatically uses the current date as the end date.
 
+## feed
+
+`feed` works with NBER's new working papers RSS feed and a local SQLite cache. The cache tracks which RSS items have already been seen, so `feed fetch` can show only newly discovered papers by default.
+
+### feed init
+
+Initialize the feed cache database and write the database path to the user config:
+
+```bash
+nber-cli feed init
+nber-cli feed init --db-path ~/.nber-cli/feed.db
+```
+
+If `--db-path` is omitted, the default database path is `~/.nber-cli/feed.db`.
+
+### feed fetch
+
+Fetch the RSS feed, store all fetched items in the cache, and display only new items by default:
+
+```bash
+nber-cli feed fetch
+```
+
+Display all fetched RSS items, including items already present in the cache:
+
+```bash
+nber-cli feed fetch --display-all true
+nber-cli feed fetch --display-all
+```
+
+Limit displayed output:
+
+```bash
+nber-cli feed fetch --max-items 5
+```
+
+When `--max-items` is provided and `--display-all` is omitted, `--display-all` defaults to `true`. This makes `nber-cli feed fetch --max-items 5` show the first five fetched RSS items instead of showing nothing when there are no new items.
+
+Return JSON:
+
+```bash
+nber-cli feed fetch --format json
+nber-cli feed fetch -f json
+```
+
+### feed migrate
+
+Move the feed cache database to a new path and update the user config:
+
+```bash
+nber-cli feed migrate ~/data/nber-feed.db
+```
+
+Migration moves the SQLite database file and any SQLite sidecar files such as `-wal`, `-shm`, and `-journal`. The target path must not already exist.
+
+### feed clean
+
+Clean cached feed database records. This deletes records from the local cache, not from NBER. Deleted cache records may be fetched again as new items if they still appear in the RSS feed.
+
+Clean records not seen for 30 days:
+
+```bash
+nber-cli feed clean
+nber-cli feed clean --days 30
+```
+
+Clean all cached records:
+
+```bash
+nber-cli feed clean --all
+```
+
+Clean records by last-seen date:
+
+```bash
+nber-cli feed clean --end-date 2026-05-31
+nber-cli feed clean --start-date 2026-05-01 --end-date 2026-05-31
+```
+
+`--end-date` without `--start-date` cleans from the earliest cached record through the end date. `--start-date` and `--end-date` are inclusive. Passing only `--start-date` is invalid.
+
+Before deleting anything, `feed clean` prints how many cached records match and asks for confirmation:
+
+```text
+This operation is irreversible.
+Deleted cache records may be fetched again as new items if they still appear in the RSS feed.
+Continue? [y/N]:
+```
+
+Only `y` or `Y` continues. Any other response aborts without deleting records.
+
+### feed Options
+
+| Subcommand | Option | Description |
+| --- | --- | --- |
+| `init` | `--db-path` | SQLite cache database path. Defaults to `~/.nber-cli/feed.db`. |
+| `fetch` | `--display-all [true|false]` | Display all fetched RSS items instead of only new items. |
+| `fetch` | `--format`, `-f` | Output format: `list` or `json`. Defaults to `list`. |
+| `fetch` | `--max-items` | Maximum number of feed items to display. |
+| `migrate` | `new_db_path` | New SQLite cache database path. |
+| `clean` | `--days` | Clean cached records not seen for this many days. Defaults to `30`. |
+| `clean` | `--all` | Clean all cached feed records. |
+| `clean` | `--start-date` | Clean cached records last seen on or after this date, formatted `YYYY-MM-DD`. |
+| `clean` | `--end-date` | Clean cached records last seen on or before this date, formatted `YYYY-MM-DD`. |
+
 ## mcp-server
 
 Start the default stdio MCP server:
@@ -172,4 +278,4 @@ For client configuration and tool details, see [MCP Server](mcp.md).
 
 ## Output Formats
 
-`info` and `search` default to `list`, a readable text format. Use `--format json` when piping output into scripts or agent workflows.
+`info`, `search`, and `feed fetch` default to `list`, a readable text format. Use `--format json` when piping output into scripts or agent workflows.

@@ -1,6 +1,6 @@
 # Configuration
 
-NBER-CLI currently uses built-in runtime defaults rather than a user configuration file. The defaults are intentionally conservative and work for both CLI and MCP usage.
+Most NBER-CLI runtime behavior uses built-in defaults. The feed cache also uses a small user config file to remember the SQLite database path selected by `nber-cli feed init` or `nber-cli feed migrate`.
 
 ## Runtime Defaults
 
@@ -14,6 +14,54 @@ NBER-CLI currently uses built-in runtime defaults rather than a user configurati
 | Search page sizes | `20`, `50`, `100` | Accepted values for `--per-page`. |
 
 These values live in `NBERCLIConfig` and `NBER_CLI_CONFIG`.
+
+## User Config File
+
+The user config file is:
+
+```text
+~/.nber-cli/config.json
+```
+
+At the moment, the config file is used for feed cache settings:
+
+```json
+{
+  "feed": {
+    "db-path": "/Users/name/.nber-cli/feed.db"
+  }
+}
+```
+
+`feed.db-path` points to the SQLite database used by `nber-cli feed fetch` and `nber-cli feed clean`.
+
+## Feed Cache Database
+
+Default feed cache database path:
+
+```text
+~/.nber-cli/feed.db
+```
+
+Initialize the default cache:
+
+```bash
+nber-cli feed init
+```
+
+Initialize a cache at a custom path:
+
+```bash
+nber-cli feed init --db-path ~/data/nber-feed.db
+```
+
+Move an existing cache and update the config:
+
+```bash
+nber-cli feed migrate ~/data/nber-feed.db
+```
+
+The feed cache stores RSS items that have already been seen. `feed fetch` uses this cache to decide which items are new. `feed clean` deletes records from this local cache; if deleted records still appear in the RSS feed, they may be fetched again as new items.
 
 ## Output Paths
 

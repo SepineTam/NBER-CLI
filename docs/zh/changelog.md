@@ -2,6 +2,16 @@
 
 这里记录项目的重要变更。
 
+## Unreleased
+
+### Added
+
+- 添加 `nber-cli feed init`，用于创建本地 SQLite feed 缓存。
+- 添加 `nber-cli feed fetch`，用于获取 NBER 最新工作论文 RSS feed 并显示新缓存的条目。
+- 添加 `nber-cli feed migrate`，用于移动 feed 缓存数据库并更新用户配置。
+- 添加 `nber-cli feed clean`，用于在确认后清理 feed 缓存数据库记录。
+- 补充 feed 缓存辅助函数和 feed 数据模型的 Python API 文档。
+
 ## 0.2.0 - 2026-05-27
 
 ### Changed

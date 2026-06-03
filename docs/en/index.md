@@ -8,6 +8,7 @@ NBER-CLI focuses on the common research loop around NBER working papers:
 
 - Search for papers by keyword, author, title, abstract, or paper number.
 - Inspect a paper's title, authors, date, abstract, URL, and related metadata.
+- Follow new working papers through NBER's RSS feed and a local cache.
 - Download a PDF by paper ID.
 - Run batch downloads into a target directory.
 - Serve paper search, lookup, and download operations as MCP tools.
@@ -19,6 +20,7 @@ Run without installing:
 ```bash
 uvx nber-cli search "Labor Economic"
 uvx nber-cli info w25000
+uvx nber-cli feed fetch --max-items 5
 uvx nber-cli download w34567
 ```
 
@@ -28,6 +30,7 @@ Install as a reusable command:
 uv tool install nber-cli
 nber-cli search "Labor Economic"
 nber-cli info w25000
+nber-cli feed fetch --max-items 5
 nber-cli download w34567
 ```
 

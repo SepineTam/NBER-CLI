@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here.
 
+## Unreleased
+
+### Added
+
+- Added `nber-cli feed init` for creating a local SQLite feed cache.
+- Added `nber-cli feed fetch` for fetching NBER's new working papers RSS feed and showing newly cached items.
+- Added `nber-cli feed migrate` for moving the feed cache database and updating user config.
+- Added `nber-cli feed clean` for cleaning cached feed database records with confirmation.
+- Added Python API documentation for feed cache helpers and feed data models.
+
 ## 0.2.0 - 2026-05-27
 
 ### Changed

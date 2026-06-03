@@ -73,6 +73,36 @@ nber-cli info 25000
 nber-cli info w25000 --all
 ```
 
+## 用 Feed 缓存跟踪新论文
+
+初始化本地 RSS feed 缓存：
+
+```bash
+nber-cli feed init
+```
+
+获取 NBER 最新工作论文 RSS feed：
+
+```bash
+nber-cli feed fetch
+```
+
+第一次获取会把当前 RSS 条目写入缓存，并显示为新条目。后续获取默认只显示缓存中还没有出现过的条目。
+
+限制输出数量，同时显示最新获取到的条目：
+
+```bash
+nber-cli feed fetch --max-items 5
+```
+
+清理旧缓存记录：
+
+```bash
+nber-cli feed clean --days 30
+```
+
+`feed clean` 删除缓存记录前会要求确认。
+
 ## 下载 PDF
 
 下载到当前目录：
