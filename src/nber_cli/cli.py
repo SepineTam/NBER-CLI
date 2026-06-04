@@ -18,11 +18,12 @@ from pathlib import Path
 
 from aiohttp import ClientError, ClientResponseError
 
+from . import config_store
 from . import db
-from .core.models import DownloadBatchResult, NBERFeedCleanResult
+from .core.models import DownloadBatchResult, NBERFeedCleanResult, NBERInfoCacheClearResult
 from .download import download_multiple_papers, download_paper, download_paper_to_file
 from .feed import clean_feed_cache, fetch_feed
-from .fetcher import get_nber, search_nber
+from .fetcher import search_nber
 from .formatters import (
     feed_results,
     feed_results_text,
@@ -32,6 +33,7 @@ from .formatters import (
     search_results,
     search_results_text,
 )
+from .info_cache import get_paper_with_info_cache
 
 _OUTPUT_FORMATS = ["list", "json"]
 
@@ -70,9 +72,21 @@ def _build_parser() -> argparse.ArgumentParser:
     download_parser.add_argument("--batch", "-b", nargs="+", dest="batch_ids", help="Batch paper IDs.")
 
     info_parser = subparsers.add_parser("info", help="Show information about an NBER paper.")
-    info_parser.add_argument("paper_id", help="Paper ID, e.g. w1234.")
+    info_parser.add_argument("paper_id", help="Paper ID, e.g. w1234, or 'cache' to manage cache.")
+    info_parser.add_argument(
+        "cache_action",
+        nargs="?",
+        choices=["clear", "clean", "status"],
+        help=argparse.SUPPRESS,
+    )
     info_parser.add_argument(
         "--all", "-a", action="store_true", dest="show_all", help="Show all fields including related."
+    )
+    info_parser.add_argument(
+        "--refresh",
+        action="store_true",
+        dest="refresh",
+        help="Refresh paper info from NBER and update the cache when enabled.",
     )
     info_parser.add_argument(
         "--format",
@@ -81,6 +95,42 @@ def _build_parser() -> argparse.ArgumentParser:
         default="list",
         dest="output_format",
         help="Output format (default: list).",
+    )
+    info_cache_group = info_parser.add_mutually_exclusive_group()
+    info_cache_group.add_argument(
+        "--turn-on",
+        action="store_true",
+        dest="cache_turn_on",
+        help="Enable the info cache globally.",
+    )
+    info_cache_group.add_argument(
+        "--turn-off",
+        action="store_true",
+        dest="cache_turn_off",
+        help="Disable the info cache globally.",
+    )
+    info_cache_group.add_argument(
+        "--set-refresh",
+        type=_parse_positive_int,
+        default=None,
+        dest="cache_ttl_days",
+        help="Set the info cache refresh interval in days.",
+    )
+    info_parser.add_argument(
+        "--days",
+        type=_parse_positive_int,
+        default=None,
+        help="Clear cached info records fetched more than this many days ago.",
+    )
+    info_parser.add_argument(
+        "--start-date",
+        dest="start_date",
+        help="Clear cached info records fetched on or after this date (YYYY-MM-DD).",
+    )
+    info_parser.add_argument(
+        "--end-date",
+        dest="end_date",
+        help="Clear cached info records fetched on or before this date (YYYY-MM-DD).",
     )
 
     search_parser = subparsers.add_parser("search", help="Search NBER working papers.")
@@ -346,6 +396,19 @@ def _feed_clean_options(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
+def _info_cache_clear_options(
+    args: argparse.Namespace,
+    *,
+    delete_all: bool,
+) -> dict[str, object]:
+    return {
+        "days": args.days,
+        "delete_all": delete_all,
+        "start_date": args.start_date,
+        "end_date": args.end_date,
+    }
+
+
 def _print_feed_clean_preview(result: NBERFeedCleanResult) -> None:
     print(f"Database: {result.database_path}")
     print(f"Matched cached records: {result.matched_count}")
@@ -358,9 +421,125 @@ def _print_feed_clean_preview(result: NBERFeedCleanResult) -> None:
     print("Deleted cache records may be fetched again as new items if they still appear in the RSS feed.")
 
 
+def _print_info_cache_clear_preview(result: NBERInfoCacheClearResult) -> None:
+    print(f"Database: {result.database_path}")
+    print(f"Matched cached records: {result.matched_count}")
+    print("")
+    if result.matched_count == 0:
+        print("No cached records matched.")
+        return
+
+    print("This operation is irreversible.")
+    print("Deleted info cache records may be fetched again from NBER.")
+
+
+def _print_info_cache_status() -> None:
+    settings = config_store.get_info_cache_settings()
+    cache_state = "on" if settings.cache_enabled else "off"
+    print(f"Cache: {cache_state}")
+    print(f"TTL: {settings.cache_ttl_days} days")
+    print(f"Cached rows: {db.count_info_cache()}")
+
+
 def _confirm_feed_clean() -> bool:
     print("Continue? [y/N]: ", end="")
     return input().strip() in {"y", "Y"}
+
+
+def _has_info_cache_clear_filter(args: argparse.Namespace) -> bool:
+    return (
+        args.show_all
+        or args.days is not None
+        or args.start_date is not None
+        or args.end_date is not None
+    )
+
+
+def _has_info_cache_only_option(args: argparse.Namespace) -> bool:
+    return (
+        args.cache_action is not None
+        or args.cache_turn_on
+        or args.cache_turn_off
+        or args.cache_ttl_days is not None
+        or args.days is not None
+        or args.start_date is not None
+        or args.end_date is not None
+    )
+
+
+def _run_info_cache_clear(
+    parser: argparse.ArgumentParser,
+    clear_options: dict[str, object],
+) -> None:
+    try:
+        preview = db.clear_info_cache(**clear_options, dry_run=True)
+    except ValueError as error:
+        parser.error(str(error))
+
+    _print_info_cache_clear_preview(preview)
+    if preview.matched_count == 0:
+        return
+    if not _confirm_feed_clean():
+        print("Aborted.")
+        return
+
+    try:
+        result = db.clear_info_cache(**clear_options)
+    except ValueError as error:
+        parser.error(str(error))
+    print(f"Deleted cached records: {result.deleted_count}")
+
+
+def _handle_info_cache_command(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if args.refresh:
+        parser.error("--refresh is only supported for paper info")
+    if args.output_format != "list":
+        parser.error("--format is only supported for paper info")
+
+    actions = [
+        args.cache_turn_on,
+        args.cache_turn_off,
+        args.cache_ttl_days is not None,
+        args.cache_action is not None,
+    ]
+    if sum(actions) > 1:
+        parser.error("choose only one info cache action")
+
+    if args.cache_action != "clear" and _has_info_cache_clear_filter(args):
+        parser.error("clear filters require 'info cache clear'")
+
+    if args.cache_turn_on:
+        config_store.set_info_cache_enabled(True)
+        print("Info cache enabled.")
+        return
+
+    if args.cache_turn_off:
+        config_store.set_info_cache_enabled(False)
+        print("Info cache disabled.")
+        return
+
+    if args.cache_ttl_days is not None:
+        try:
+            config_store.set_info_cache_ttl_days(args.cache_ttl_days)
+        except ValueError as error:
+            parser.error(str(error))
+        print(f"Info cache refresh interval set to {args.cache_ttl_days} days.")
+        return
+
+    if args.cache_action == "clear":
+        clear_options = _info_cache_clear_options(args, delete_all=args.show_all)
+        _run_info_cache_clear(parser, clear_options)
+        return
+
+    if args.cache_action == "clean":
+        clear_options = _info_cache_clear_options(args, delete_all=True)
+        _run_info_cache_clear(parser, clear_options)
+        return
+
+    _print_info_cache_status()
 
 
 def main() -> None:
@@ -400,17 +579,19 @@ def main() -> None:
         return
 
     if args.command == "info":
+        if args.paper_id == "cache":
+            _handle_info_cache_command(parser, args)
+            return
+
+        if _has_info_cache_only_option(args):
+            parser.error("info cache options require 'nber-cli info cache'")
+
         try:
             nber_id = _parse_paper_id(args.paper_id)
         except ValueError:
             parser.error(f"invalid paper ID '{args.paper_id}'")
 
-        paper = db.read_info_cache(None, nber_id)
-        if paper is None:
-            paper = asyncio.run(get_nber(nber_id))
-            db.write_info_cache(None, paper)
-        else:
-            db.touch_info_cache(None, nber_id)
+        paper = asyncio.run(get_paper_with_info_cache(nber_id, refresh=args.refresh))
         db.record_info(None, nber_id)
 
         if args.output_format == "json":

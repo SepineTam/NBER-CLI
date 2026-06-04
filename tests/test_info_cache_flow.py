@@ -1,0 +1,89 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : test_info_cache_flow.py
+
+import sqlite3
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from nber_cli import config_store, db
+from nber_cli.core.models import NBER
+from nber_cli.info_cache import get_paper_with_info_cache
+
+
+@pytest.fixture
+def db_path(tmp_path):
+    path = tmp_path / "nber.db"
+    db.init_database(path)
+    return path
+
+
+def _make_paper(title: str = "Remote Paper") -> NBER:
+    return NBER(
+        paper_id=1234,
+        title=title,
+        authors=["Author A"],
+        date="2024-01-15",
+        abstract="An abstract.",
+    )
+
+
+@pytest.mark.asyncio
+class TestGetPaperWithInfoCache:
+    async def test_cache_disabled_fetches_network_and_does_not_write(self, db_path):
+        config_store.set_info_cache_enabled(False)
+
+        with patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
+            mock_get_nber.return_value = _make_paper()
+
+            paper = await get_paper_with_info_cache(1234)
+
+        assert paper.title == "Remote Paper"
+        mock_get_nber.assert_called_once_with(1234)
+        assert db.count_info_cache(db_path) == 0
+
+    async def test_cache_hit_does_not_fetch_network_and_touches_row(self, db_path):
+        db.write_info_cache(db_path, _make_paper("Cached Paper"))
+
+        with patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
+            paper = await get_paper_with_info_cache(1234)
+
+        assert paper.title == "Cached Paper"
+        mock_get_nber.assert_not_called()
+        with sqlite3.connect(db_path) as connection:
+            row = connection.execute(
+                "SELECT fetch_count, last_fetched_at FROM info_cache WHERE paper_id = 'w1234'"
+            ).fetchone()
+        assert row[0] == 1
+        assert row[1] is not None
+
+    async def test_refresh_fetches_network_and_updates_cache_when_enabled(self, db_path):
+        db.write_info_cache(db_path, _make_paper("Cached Paper"))
+
+        with patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
+            mock_get_nber.return_value = _make_paper("Fresh Paper")
+
+            paper = await get_paper_with_info_cache(1234, refresh=True)
+
+        assert paper.title == "Fresh Paper"
+        mock_get_nber.assert_called_once_with(1234)
+        cached = db.read_info_cache(db_path, 1234)
+        assert cached is not None
+        assert cached.title == "Fresh Paper"
+
+    async def test_refresh_does_not_write_when_cache_disabled(self, db_path):
+        config_store.set_info_cache_enabled(False)
+
+        with patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
+            mock_get_nber.return_value = _make_paper("Fresh Paper")
+
+            await get_paper_with_info_cache(1234, refresh=True)
+
+        mock_get_nber.assert_called_once_with(1234)
+        assert db.count_info_cache(db_path) == 0

@@ -1,0 +1,154 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : config_store.py
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+NBER_CLI_DIR_NAME = ".nber-cli"
+NBER_CLI_CONFIG_NAME = "config.json"
+NBER_DB_NAME = "nber.db"
+LEGACY_DB_NAME = "feed.db"
+
+DEFAULT_INFO_CACHE_ENABLED = True
+DEFAULT_INFO_CACHE_TTL_DAYS = 30
+
+
+@dataclass(frozen=True, slots=True)
+class InfoCacheSettings:
+    cache_enabled: bool = DEFAULT_INFO_CACHE_ENABLED
+    cache_ttl_days: int = DEFAULT_INFO_CACHE_TTL_DAYS
+
+
+def default_config_path() -> Path:
+    return Path.home() / NBER_CLI_DIR_NAME / NBER_CLI_CONFIG_NAME
+
+
+def default_db_path() -> Path:
+    return Path.home() / NBER_CLI_DIR_NAME / NBER_DB_NAME
+
+
+def legacy_db_path() -> Path:
+    return Path.home() / NBER_CLI_DIR_NAME / LEGACY_DB_NAME
+
+
+def read_config(config_path: Path | None = None) -> dict[str, Any]:
+    resolved_path = config_path or default_config_path()
+    if not resolved_path.exists():
+        return {}
+
+    try:
+        config = json.loads(resolved_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    if not isinstance(config, dict):
+        return {}
+    return config
+
+
+def write_config(config: dict[str, Any], config_path: Path | None = None) -> None:
+    resolved_path = config_path or default_config_path()
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+
+
+def update_database_config(
+    db_path: Path,
+    schema_version: int,
+    config_path: Path | None = None,
+) -> None:
+    config = read_config(config_path)
+    config["schema_version"] = schema_version
+    feed_config = config.get("feed")
+    if not isinstance(feed_config, dict):
+        feed_config = {}
+    feed_config["db-path"] = str(db_path)
+    config["feed"] = feed_config
+    write_config(config, config_path)
+
+
+def get_configured_db_path(config_path: Path | None = None) -> Path | None:
+    config = read_config(config_path)
+    feed_config = config.get("feed")
+    if not isinstance(feed_config, dict):
+        return None
+
+    db_path = feed_config.get("db-path")
+    if isinstance(db_path, str) and db_path.strip():
+        return Path(db_path)
+    return None
+
+
+def get_info_cache_settings(config_path: Path | None = None) -> InfoCacheSettings:
+    config = read_config(config_path)
+    info_config = config.get("info")
+    if not isinstance(info_config, dict):
+        info_config = {}
+
+    cache_enabled = _coerce_bool(
+        info_config.get("cache_enabled"),
+        DEFAULT_INFO_CACHE_ENABLED,
+    )
+    cache_ttl_days = _coerce_positive_int(
+        info_config.get("cache_ttl_days"),
+        DEFAULT_INFO_CACHE_TTL_DAYS,
+    )
+    return InfoCacheSettings(
+        cache_enabled=cache_enabled,
+        cache_ttl_days=cache_ttl_days,
+    )
+
+
+def set_info_cache_enabled(
+    cache_enabled: bool,
+    config_path: Path | None = None,
+) -> InfoCacheSettings:
+    config = read_config(config_path)
+    info_config = _get_mutable_info_config(config)
+    info_config["cache_enabled"] = cache_enabled
+    write_config(config, config_path)
+    return get_info_cache_settings(config_path)
+
+
+def set_info_cache_ttl_days(
+    cache_ttl_days: int,
+    config_path: Path | None = None,
+) -> InfoCacheSettings:
+    if cache_ttl_days <= 0:
+        raise ValueError("cache_ttl_days must be a positive integer")
+
+    config = read_config(config_path)
+    info_config = _get_mutable_info_config(config)
+    info_config["cache_ttl_days"] = cache_ttl_days
+    write_config(config, config_path)
+    return get_info_cache_settings(config_path)
+
+
+def _get_mutable_info_config(config: dict[str, Any]) -> dict[str, Any]:
+    info_config = config.get("info")
+    if not isinstance(info_config, dict):
+        info_config = {}
+    config["info"] = info_config
+    return info_config
+
+
+def _coerce_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _coerce_positive_int(value: Any, default: int) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return default

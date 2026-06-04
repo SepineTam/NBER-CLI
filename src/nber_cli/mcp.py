@@ -13,9 +13,10 @@ from typing import Optional
 from mcp.server.fastmcp import FastMCP
 
 from . import db
-from .fetcher import get_nber, search_nber
+from .fetcher import search_nber
 from .formatters import info, related, search_results
 from .download import download_paper as download_paper_to_dir, download_paper_to_file
+from .info_cache import get_paper_with_info_cache
 
 nber_mcp = FastMCP("nber_mcp")
 
@@ -37,12 +38,7 @@ async def get_paper_info(paper_id: str, include_all: bool = True) -> dict:
         Dictionary containing paper metadata.
     """
     nber_id = _parse_paper_id(paper_id)
-    paper = db.read_info_cache(None, nber_id)
-    if paper is None:
-        paper = await get_nber(nber_id)
-        db.write_info_cache(None, paper)
-    else:
-        db.touch_info_cache(None, nber_id)
+    paper = await get_paper_with_info_cache(nber_id)
     db.record_info(None, nber_id)
 
     result = info(paper)

@@ -9,6 +9,7 @@
 
 import argparse
 import json
+import sqlite3
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -96,6 +97,28 @@ class TestBuildParser:
         assert args.paper_id == "w1234"
         assert args.show_all is True
         assert args.output_format == "json"
+
+    def test_info_subcommand_with_refresh_flag(self):
+        parser = _build_parser()
+        args = parser.parse_args(["info", "w1234", "--refresh"])
+        assert args.command == "info"
+        assert args.paper_id == "w1234"
+        assert args.refresh is True
+
+    def test_info_cache_turn_on_command(self):
+        parser = _build_parser()
+        args = parser.parse_args(["info", "cache", "--turn-on"])
+        assert args.command == "info"
+        assert args.paper_id == "cache"
+        assert args.cache_turn_on is True
+
+    def test_info_cache_clear_command(self):
+        parser = _build_parser()
+        args = parser.parse_args(["info", "cache", "clear", "--days", "7"])
+        assert args.command == "info"
+        assert args.paper_id == "cache"
+        assert args.cache_action == "clear"
+        assert args.days == 7
 
     def test_info_subcommand_without_args(self):
         parser = _build_parser()
@@ -499,7 +522,7 @@ class TestMainEntrypoint:
 
 
 class TestMainEntrypointInfo:
-    @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_basic_output(self, mock_get_nber, capsys):
         from nber_cli.core.models import NBER
         mock_get_nber.return_value = NBER(
@@ -517,7 +540,7 @@ class TestMainEntrypointInfo:
         assert "Author A" in captured.out
         assert "Test abstract." in captured.out
 
-    @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_with_all_flag(self, mock_get_nber, capsys):
         from nber_cli.core.models import NBER
         mock_get_nber.return_value = NBER(
@@ -534,7 +557,7 @@ class TestMainEntrypointInfo:
         assert "Test Title" in captured.out
         assert "Published in Journal." in captured.out
 
-    @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_json_output(self, mock_get_nber, capsys):
         from nber_cli.core.models import NBER
         mock_get_nber.return_value = NBER(
@@ -550,7 +573,7 @@ class TestMainEntrypointInfo:
         assert payload["id"] == "w1234"
         assert payload["title"] == "Test Title"
 
-    @patch("nber_cli.cli.get_nber", new_callable=AsyncMock)
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_without_w_prefix(self, mock_get_nber, capsys):
         from nber_cli.core.models import NBER
         mock_get_nber.return_value = NBER(
@@ -566,9 +589,211 @@ class TestMainEntrypointInfo:
         captured = capsys.readouterr()
         assert "No Prefix" in captured.out
 
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
+    def test_info_cache_hit_skips_network(self, mock_get_nber, tmp_path, capsys):
+        from nber_cli import db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
+            main()
+
+        mock_get_nber.assert_not_called()
+        captured = capsys.readouterr()
+        assert "Cached Title" in captured.out
+        with sqlite3.connect(db_path) as connection:
+            count = connection.execute(
+                "SELECT fetch_count FROM info_cache WHERE paper_id = 'w1234'"
+            ).fetchone()[0]
+        assert count == 1
+
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
+    def test_info_refresh_fetches_network_and_updates_cache(self, mock_get_nber, tmp_path, capsys):
+        from nber_cli import db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+        mock_get_nber.return_value = NBER(
+            paper_id=1234,
+            title="Fresh Title",
+            authors=["Author A"],
+            date="2024/01/01",
+            abstract="Fresh abstract.",
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--refresh"]):
+            main()
+
+        mock_get_nber.assert_called_once_with(1234)
+        assert "Fresh Title" in capsys.readouterr().out
+        cached = db.read_info_cache(db_path, 1234)
+        assert cached is not None
+        assert cached.title == "Fresh Title"
+
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
+    def test_info_cache_off_fetches_network_and_does_not_write(self, mock_get_nber, tmp_path, capsys):
+        from nber_cli import config_store, db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+        config_store.set_info_cache_enabled(False)
+        mock_get_nber.return_value = NBER(
+            paper_id=1234,
+            title="Remote Title",
+            authors=["Author A"],
+            date="2024/01/01",
+            abstract="Remote abstract.",
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
+            main()
+
+        mock_get_nber.assert_called_once_with(1234)
+        assert "Remote Title" in capsys.readouterr().out
+        with sqlite3.connect(db_path) as connection:
+            row = connection.execute(
+                "SELECT title, fetch_count FROM info_cache WHERE paper_id = 'w1234'"
+            ).fetchone()
+        assert row == ("Cached Title", 0)
+
     def test_info_invalid_paper_id(self):
         with pytest.raises(SystemExit) as exc_info:
             with patch.object(sys, "argv", ["nber-cli", "info", "abc"]):
+                main()
+        assert exc_info.value.code == 2
+
+    def test_info_cache_option_on_paper_command_exits_2(self):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--days", "7"]):
+                main()
+        assert exc_info.value.code == 2
+
+
+class TestMainEntrypointInfoCache:
+    def test_info_cache_turn_on_writes_config(self, isolated_nber_home, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "info", "cache", "--turn-on"]):
+            main()
+
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config = json.loads(config_path.read_text())
+        assert config["info"]["cache_enabled"] is True
+        assert "Info cache enabled." in capsys.readouterr().out
+
+    def test_info_cache_turn_off_writes_config(self, isolated_nber_home, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "info", "cache", "--turn-off"]):
+            main()
+
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config = json.loads(config_path.read_text())
+        assert config["info"]["cache_enabled"] is False
+        assert "Info cache disabled." in capsys.readouterr().out
+
+    def test_info_cache_set_refresh_writes_config(self, isolated_nber_home, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "info", "cache", "--set-refresh", "30"]):
+            main()
+
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config = json.loads(config_path.read_text())
+        assert config["info"]["cache_ttl_days"] == 30
+        assert "30 days" in capsys.readouterr().out
+
+    def test_info_cache_status_outputs_current_config(self, tmp_path, capsys):
+        from nber_cli import config_store, db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        config_store.set_info_cache_ttl_days(12)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "cache", "status"]):
+            main()
+
+        captured = capsys.readouterr()
+        assert "Cache: on" in captured.out
+        assert "TTL: 12 days" in captured.out
+        assert "Cached rows: 1" in captured.out
+
+    def test_info_cache_clean_matches_clear_all(self, tmp_path, capsys):
+        from nber_cli import db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        paper = NBER(
+            paper_id=1234,
+            title="Cached Title",
+            authors=["Author A"],
+            date="2024/01/01",
+            abstract="Cached abstract.",
+        )
+
+        db.write_info_cache(db_path, paper)
+        with (
+            patch("builtins.input", return_value="y"),
+            patch.object(sys, "argv", ["nber-cli", "info", "cache", "clear", "--all"]),
+        ):
+            main()
+        clear_output = capsys.readouterr().out
+        assert db.count_info_cache(db_path) == 0
+
+        db.write_info_cache(db_path, paper)
+        with (
+            patch("builtins.input", return_value="y"),
+            patch.object(sys, "argv", ["nber-cli", "info", "cache", "clean"]),
+        ):
+            main()
+        clean_output = capsys.readouterr().out
+
+        assert clean_output == clear_output
+        assert db.count_info_cache(db_path) == 0
+
+    def test_info_cache_clean_rejects_filters(self):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "cache", "clean", "--days", "7"]):
                 main()
         assert exc_info.value.code == 2
 

@@ -13,16 +13,17 @@ import json
 import shutil
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from .core.models import NBER
+from . import config_store
+from .core.models import NBER, NBERInfoCacheClearResult
 
-NBER_CLI_DIR_NAME = ".nber-cli"
-NBER_CLI_CONFIG_NAME = "config.json"
-NBER_DB_NAME = "nber.db"
-LEGACY_DB_NAME = "feed.db"
+NBER_CLI_DIR_NAME = config_store.NBER_CLI_DIR_NAME
+NBER_CLI_CONFIG_NAME = config_store.NBER_CLI_CONFIG_NAME
+NBER_DB_NAME = config_store.NBER_DB_NAME
+LEGACY_DB_NAME = config_store.LEGACY_DB_NAME
 SCHEMA_VERSION = 2
 
 
@@ -229,25 +230,13 @@ def _read_user_version(connection: sqlite3.Connection) -> int:
 
 
 def _write_config(db_path: Path, schema_version: int) -> None:
-    config_path = _default_config_path()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config = _read_config(config_path)
-    config["schema_version"] = schema_version
-    feed_config = config.get("feed")
-    if not isinstance(feed_config, dict):
-        feed_config = {}
-    feed_config["db-path"] = str(db_path)
-    config["feed"] = feed_config
-    config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+    config_store.update_database_config(db_path, schema_version, _default_config_path())
 
 
 def _configured_db_path() -> Path:
-    config = _read_config(_default_config_path())
-    feed_config = config.get("feed")
-    if isinstance(feed_config, dict):
-        db_path = feed_config.get("db-path")
-        if isinstance(db_path, str) and db_path.strip():
-            return Path(db_path)
+    configured_db_path = config_store.get_configured_db_path(_default_config_path())
+    if configured_db_path is not None:
+        return configured_db_path
 
     default = _default_db_path()
     if default.exists():
@@ -260,15 +249,7 @@ def _configured_db_path() -> Path:
 
 
 def _read_config(config_path: Path) -> dict[str, Any]:
-    if not config_path.exists():
-        return {}
-    try:
-        config = json.loads(config_path.read_text())
-    except json.JSONDecodeError as error:
-        raise ValueError(f"invalid config file: {config_path}") from error
-    if not isinstance(config, dict):
-        raise ValueError(f"invalid config file: {config_path}")
-    return config
+    return config_store.read_config(config_path)
 
 
 def _default_config_path() -> Path:
@@ -372,7 +353,20 @@ def record_info(
 def read_info_cache(
     db_path: Path | str | None,
     paper_id: str | int,
+    *,
+    cache_enabled: bool | None = None,
+    ttl_days: int | None = None,
 ) -> NBER | None:
+    if cache_enabled is None or ttl_days is None:
+        settings = config_store.get_info_cache_settings()
+        if cache_enabled is None:
+            cache_enabled = settings.cache_enabled
+        if ttl_days is None:
+            ttl_days = settings.cache_ttl_days
+
+    if not cache_enabled:
+        return None
+
     try:
         resolved = get_database_path(db_path)
         if not resolved.exists():
@@ -382,7 +376,7 @@ def read_info_cache(
             row = connection.execute(
                 """
                 SELECT paper_id, title, authors_json, date, abstract,
-                       url, published_version, topic, programs
+                       url, published_version, topic, programs, last_fetched_at
                 FROM info_cache WHERE paper_id = ?
                 """,
                 (normalized,),
@@ -391,6 +385,9 @@ def read_info_cache(
         return None
 
     if row is None:
+        return None
+
+    if is_info_cache_expired(row[9], ttl_days):
         return None
 
     authors = json.loads(row[2]) if row[2] else []
@@ -405,6 +402,35 @@ def read_info_cache(
         topic=row[7],
         programs=row[8],
     )
+
+
+def is_info_cache_enabled() -> bool:
+    return config_store.get_info_cache_settings().cache_enabled
+
+
+def get_info_cache_ttl_days() -> int:
+    return config_store.get_info_cache_settings().cache_ttl_days
+
+
+def is_info_cache_expired(
+    last_fetched_at: str,
+    ttl_days: int | None = None,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    effective_ttl_days = config_store.DEFAULT_INFO_CACHE_TTL_DAYS if ttl_days is None else ttl_days
+    if effective_ttl_days <= 0:
+        return True
+
+    fetched_at = _parse_cached_datetime(last_fetched_at)
+    if fetched_at is None:
+        return True
+
+    current_time = now or datetime.now(timezone.utc)
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(tzinfo=timezone.utc)
+
+    return fetched_at < current_time - timedelta(days=effective_ttl_days)
 
 
 def write_info_cache(db_path: Path | str | None, paper: NBER) -> None:
@@ -468,6 +494,134 @@ def touch_info_cache(db_path: Path | str | None, paper_id: str | int) -> None:
             )
     except Exception as exc:
         _log_warning("touch_info_cache", exc)
+
+
+def count_info_cache(db_path: Path | str | None = None) -> int:
+    try:
+        resolved = get_database_path(db_path)
+        if not resolved.exists():
+            return 0
+        with sqlite3.connect(resolved) as connection:
+            row = connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()
+    except (sqlite3.DatabaseError, OSError):
+        return 0
+    return int(row[0]) if row else 0
+
+
+def clear_info_cache(
+    *,
+    days: int | None = None,
+    delete_all: bool = False,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    dry_run: bool = False,
+    db_path: Path | str | None = None,
+) -> NBERInfoCacheClearResult:
+    resolved_db_path = get_database_path(db_path)
+    if not resolved_db_path.exists():
+        raise ValueError(f"info cache database does not exist: {resolved_db_path}")
+
+    condition, parameters, mode = _build_info_cache_clear_condition(
+        days=days,
+        delete_all=delete_all,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    _ensure_full_schema(resolved_db_path)
+
+    with sqlite3.connect(resolved_db_path) as connection:
+        matched_count = connection.execute(
+            f"SELECT COUNT(*) FROM info_cache WHERE {condition}",
+            parameters,
+        ).fetchone()[0]
+
+        deleted_count = 0
+        if not dry_run and matched_count:
+            cursor = connection.execute(
+                f"DELETE FROM info_cache WHERE {condition}",
+                parameters,
+            )
+            deleted_count = cursor.rowcount if cursor.rowcount >= 0 else matched_count
+
+    return NBERInfoCacheClearResult(
+        database_path=resolved_db_path,
+        matched_count=matched_count,
+        deleted_count=deleted_count,
+        mode=mode,
+        days=(config_store.DEFAULT_INFO_CACHE_TTL_DAYS if days is None else days)
+        if mode == "days"
+        else None,
+        start_date=start_date if mode == "date-range" else None,
+        end_date=end_date if mode == "date-range" else None,
+        dry_run=dry_run,
+    )
+
+
+def _build_info_cache_clear_condition(
+    *,
+    days: int | None,
+    delete_all: bool,
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[str, tuple[str, ...], str]:
+    has_date_filter = start_date is not None or end_date is not None
+    mode_count = sum((days is not None, delete_all, has_date_filter))
+    if mode_count > 1:
+        raise ValueError("choose only one info cache clear mode")
+
+    if delete_all:
+        return "1 = 1", (), "all"
+
+    if has_date_filter:
+        return _build_info_cache_date_condition(start_date, end_date)
+
+    clear_days = config_store.DEFAULT_INFO_CACHE_TTL_DAYS if days is None else days
+    if clear_days <= 0:
+        raise ValueError("days must be a positive integer")
+    cutoff_datetime = datetime.fromisoformat(_utc_now()) - timedelta(days=clear_days)
+    return "last_fetched_at < ?", (cutoff_datetime.isoformat(timespec="seconds"),), "days"
+
+
+def _build_info_cache_date_condition(
+    start_date: str | None,
+    end_date: str | None,
+) -> tuple[str, tuple[str, ...], str]:
+    if start_date is not None and end_date is None:
+        raise ValueError("end-date is required when start-date is provided")
+    if end_date is None:
+        raise ValueError("end-date is required for date range clear mode")
+
+    parsed_start_date = _parse_cache_date(start_date) if start_date else None
+    parsed_end_date = _parse_cache_date(end_date)
+    if parsed_start_date and parsed_start_date > parsed_end_date:
+        raise ValueError("start-date must be on or before end-date")
+
+    if start_date is None:
+        return "substr(last_fetched_at, 1, 10) <= ?", (end_date,), "date-range"
+
+    return (
+        "substr(last_fetched_at, 1, 10) >= ? AND substr(last_fetched_at, 1, 10) <= ?",
+        (start_date, end_date),
+        "date-range",
+    )
+
+
+def _parse_cache_date(value: str) -> datetime:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError(f"invalid date '{value}', expected YYYY-MM-DD") from error
+
+
+def _parse_cached_datetime(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _utc_now() -> str:
