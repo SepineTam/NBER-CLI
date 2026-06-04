@@ -42,7 +42,7 @@ def _get_version() -> str:
     try:
         return get_version("nber-cli")
     except Exception:
-        return "0.3.1"
+        return "0.4.0"
 
 
 def _build_parser() -> argparse.ArgumentParser:
