@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-06-04
+
+### Added
+- `nber-cli info --refresh` skips the local `info_cache` and re-fetches the paper from NBER. The new data is written back to the cache when the cache is enabled.
+- `nber-cli info cache --turn-on` / `--turn-off` toggle the `info_cache` lookup globally and persist the state to `~/.nber-cli/config.json`.
+- `nber-cli info cache --set-refresh <N>` sets the cache refresh interval in days. The value is persisted to `~/.nber-cli/config.json` and used as the TTL for every subsequent `info` call. Defaults to `30` days.
+- `nber-cli info cache clear` with `--days`, `--all`, `--start-date`, or `--end-date` mirrors the `feed clean` parameter set, using `last_fetched_at` from the `info_cache` table. `nber-cli info cache clean` is a convenience alias for `clear --all`.
+- `nber-cli info cache` (no sub-action) prints the current cache state, TTL, and cached row count.
+- New `nber_cli.config_store` module: centralised read and write of `~/.nber-cli/config.json` plus the `InfoCacheSettings` dataclass and helpers (`get_info_cache_settings`, `set_info_cache_enabled`, `set_info_cache_ttl_days`).
+- New `nber_cli.info_cache.get_paper_with_info_cache_result` async helper that returns an `InfoCacheLookupResult` carrying the `NBER` paper and a `from_cache` flag, so callers (CLI and MCP) can surface a "loaded from cache" hint.
+- Public Python API exports: `InfoCacheSettings`, `InfoCacheLookupResult`, `clear_info_cache`, `count_info_cache`, `get_info_cache_settings`, `get_info_cache_ttl_days`, `is_info_cache_enabled`, `is_info_cache_expired`, `set_info_cache_enabled`, `set_info_cache_ttl_days`, `NBERInfoCacheClearResult`.
+
+### Changed
+- `~/.nber-cli/config.json` now carries an `info` section: `info.cache_enabled` (default `true`) and `info.cache_ttl_days` (default `30`). Missing or malformed fields fall back to defaults.
+- `info` now prints a one-line stderr hint when the paper was served from the local cache, pointing to `nber-cli info <id> --refresh` for a fresh fetch.
+
 ## [0.3.1] - 2026-06-03
 
 ### Added

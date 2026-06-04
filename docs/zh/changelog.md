@@ -2,6 +2,24 @@
 
 这里记录项目的重要变更。
 
+## 0.4.0 - 2026-06-04
+
+### Added
+
+- 新增 `nber-cli info --refresh`，跳过本地 `info_cache` 并直接从 NBER 重新拉取论文元数据。缓存开启时，新数据会写回缓存。
+- 新增 `nber-cli info cache --turn-on` 和 `--turn-off`，全局开关 `info_cache` 读取行为，状态会持久化到 `~/.nber-cli/config.json`。
+- 新增 `nber-cli info cache --set-refresh <N>`，设置缓存刷新间隔（天）。该值会持久化到 `~/.nber-cli/config.json`，并在后续每次 `info` 调用中作为 TTL 生效，默认 `30` 天。
+- 新增 `nber-cli info cache clear`，参数集与 `feed clean` 一致：`--days`、`--all`、`--start-date`、`--end-date`，使用 `info_cache` 表的 `last_fetched_at` 字段过滤。`nber-cli info cache clean` 是 `clear --all` 的便利别名。
+- 新增 `nber-cli info cache`（不带子动作），用于打印当前缓存状态、TTL 和已缓存行数。
+- 新增 `nber_cli.config_store` 模块，集中处理 `~/.nber-cli/config.json` 的读写，包含 `InfoCacheSettings` 数据类及 `get_info_cache_settings`、`set_info_cache_enabled`、`set_info_cache_ttl_days` 等辅助函数。
+- 新增 `nber_cli.info_cache.get_paper_with_info_cache_result` 异步辅助函数，返回包含 `NBER` 论文对象和 `from_cache` 标志的 `InfoCacheLookupResult`。
+- 新增 info cache 相关辅助函数和 `NBERInfoCacheClearResult` 数据模型的 Python API 导出。
+
+### Changed
+
+- `~/.nber-cli/config.json` 现在携带 `info` 段：`info.cache_enabled`（默认 `true`）和 `info.cache_ttl_days`（默认 `30`）。字段缺失或类型错误时回退到默认值。
+- `info` 命令在从本地缓存命中时，会通过 stderr 打印一行提示，并指向 `nber-cli info <id> --refresh` 用于强制刷新。
+
 ## 0.3.1 - 2026-06-03
 
 ### Added

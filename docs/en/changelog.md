@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented here.
 
+## 0.4.0 - 2026-06-04
+
+### Added
+
+- Added `nber-cli info --refresh` to bypass the local `info_cache` and re-fetch paper metadata from NBER. The fresh data is written back to the cache when the cache is enabled.
+- Added `nber-cli info cache --turn-on` and `--turn-off` to toggle the `info_cache` lookup globally. The setting is persisted to `~/.nber-cli/config.json`.
+- Added `nber-cli info cache --set-refresh <N>` to set the cache refresh interval in days. The value is persisted to `~/.nber-cli/config.json` and applied as the TTL for every subsequent `info` call. Defaults to `30` days.
+- Added `nber-cli info cache clear` with the same parameter set as `feed clean`: `--days`, `--all`, `--start-date`, and `--end-date`. Filtering uses `last_fetched_at` from the `info_cache` table. `nber-cli info cache clean` is a convenience alias for `clear --all`.
+- Added `nber-cli info cache` (no sub-action) to print the current cache state, TTL, and cached row count.
+- Added `nber_cli.config_store` module with `InfoCacheSettings` and helpers (`get_info_cache_settings`, `set_info_cache_enabled`, `set_info_cache_ttl_days`) for reading and writing `~/.nber-cli/config.json`.
+- Added `nber_cli.info_cache.get_paper_with_info_cache_result` async helper that returns an `InfoCacheLookupResult` carrying the `NBER` paper and a `from_cache` flag.
+- Added public Python API exports for the new info cache helpers and `NBERInfoCacheClearResult` model.
+
+### Changed
+
+- `~/.nber-cli/config.json` now stores an `info` section: `info.cache_enabled` (default `true`) and `info.cache_ttl_days` (default `30`). Missing or malformed fields fall back to defaults.
+- `info` now prints a one-line stderr hint when the paper was served from the local cache, pointing to `nber-cli info <id> --refresh` for a fresh fetch.
+
 ## 0.3.1 - 2026-06-03
 
 ### Added
