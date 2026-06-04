@@ -14,7 +14,7 @@ import pytest
 
 from nber_cli import config_store, db
 from nber_cli.core.models import NBER
-from nber_cli.info_cache import get_paper_with_info_cache
+from nber_cli.info_cache import get_paper_with_info_cache, get_paper_with_info_cache_result
 
 
 @pytest.fixture
@@ -63,15 +63,25 @@ class TestGetPaperWithInfoCache:
         assert row[0] == 1
         assert row[1] is not None
 
+    async def test_cache_hit_result_marks_source(self, db_path):
+        db.write_info_cache(db_path, _make_paper("Cached Paper"))
+
+        result = await get_paper_with_info_cache_result(1234)
+
+        assert result.paper.title == "Cached Paper"
+        assert result.from_cache is True
+
     async def test_refresh_fetches_network_and_updates_cache_when_enabled(self, db_path):
         db.write_info_cache(db_path, _make_paper("Cached Paper"))
 
         with patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
             mock_get_nber.return_value = _make_paper("Fresh Paper")
 
-            paper = await get_paper_with_info_cache(1234, refresh=True)
+            result = await get_paper_with_info_cache_result(1234, refresh=True)
 
+        paper = result.paper
         assert paper.title == "Fresh Paper"
+        assert result.from_cache is False
         mock_get_nber.assert_called_once_with(1234)
         cached = db.read_info_cache(db_path, 1234)
         assert cached is not None

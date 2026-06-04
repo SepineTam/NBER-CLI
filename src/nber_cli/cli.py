@@ -33,7 +33,7 @@ from .formatters import (
     search_results,
     search_results_text,
 )
-from .info_cache import get_paper_with_info_cache
+from .info_cache import get_paper_with_info_cache_result
 
 _OUTPUT_FORMATS = ["list", "json"]
 
@@ -387,6 +387,15 @@ def _info_payload(paper, include_all: bool) -> dict:
     return result
 
 
+def _print_info_cache_hit_hint(paper_id: int) -> None:
+    normalized_paper_id = f"w{paper_id}"
+    print(
+        "Loaded from info cache. "
+        f"To fetch the latest version, run: nber-cli info {normalized_paper_id} --refresh",
+        file=sys.stderr,
+    )
+
+
 def _feed_clean_options(args: argparse.Namespace) -> dict[str, object]:
     return {
         "days": args.days,
@@ -591,8 +600,13 @@ def main() -> None:
         except ValueError:
             parser.error(f"invalid paper ID '{args.paper_id}'")
 
-        paper = asyncio.run(get_paper_with_info_cache(nber_id, refresh=args.refresh))
+        info_cache_result = asyncio.run(
+            get_paper_with_info_cache_result(nber_id, refresh=args.refresh)
+        )
+        paper = info_cache_result.paper
         db.record_info(None, nber_id)
+        if info_cache_result.from_cache:
+            _print_info_cache_hit_hint(nber_id)
 
         if args.output_format == "json":
             _print_json(_info_payload(paper, args.show_all))

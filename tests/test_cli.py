@@ -613,11 +613,41 @@ class TestMainEntrypointInfo:
         mock_get_nber.assert_not_called()
         captured = capsys.readouterr()
         assert "Cached Title" in captured.out
+        assert "Loaded from info cache." in captured.err
+        assert "nber-cli info w1234 --refresh" in captured.err
         with sqlite3.connect(db_path) as connection:
             count = connection.execute(
                 "SELECT fetch_count FROM info_cache WHERE paper_id = 'w1234'"
             ).fetchone()[0]
         assert count == 1
+
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
+    def test_info_json_cache_hit_keeps_stdout_json(self, mock_get_nber, tmp_path, capsys):
+        from nber_cli import db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
+            main()
+
+        mock_get_nber.assert_not_called()
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        assert payload["title"] == "Cached Title"
+        assert "Loaded from info cache." in captured.err
+        assert "nber-cli info w1234 --refresh" in captured.err
 
     @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_refresh_fetches_network_and_updates_cache(self, mock_get_nber, tmp_path, capsys):
@@ -648,7 +678,9 @@ class TestMainEntrypointInfo:
             main()
 
         mock_get_nber.assert_called_once_with(1234)
-        assert "Fresh Title" in capsys.readouterr().out
+        captured = capsys.readouterr()
+        assert "Fresh Title" in captured.out
+        assert "Loaded from info cache." not in captured.err
         cached = db.read_info_cache(db_path, 1234)
         assert cached is not None
         assert cached.title == "Fresh Title"
@@ -683,7 +715,9 @@ class TestMainEntrypointInfo:
             main()
 
         mock_get_nber.assert_called_once_with(1234)
-        assert "Remote Title" in capsys.readouterr().out
+        captured = capsys.readouterr()
+        assert "Remote Title" in captured.out
+        assert "Loaded from info cache." not in captured.err
         with sqlite3.connect(db_path) as connection:
             row = connection.execute(
                 "SELECT title, fetch_count FROM info_cache WHERE paper_id = 'w1234'"
