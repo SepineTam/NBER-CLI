@@ -30,6 +30,10 @@ Current schema:
   "schema_version": 2,
   "feed": {
     "db-path": "/Users/name/.nber-cli/nber.db"
+  },
+  "info": {
+    "cache_enabled": true,
+    "cache_ttl_days": 30
   }
 }
 ```
@@ -37,6 +41,12 @@ Current schema:
 `feed.db-path` points to the SQLite database used by `info`, `search`, `download`, and `feed`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
+
+`info.cache_enabled` controls the `info_cache` lookup globally. Set to `false` to force every `info` call (and the MCP `get_paper_info` tool) to go straight to NBER. Defaults to `true`.
+
+`info.cache_ttl_days` sets the refresh interval in days. Cached entries older than this threshold are treated as cache misses and re-fetched on the next `info` call. Must be a positive integer. Defaults to `30`.
+
+Both `info` keys are managed by `nber-cli info cache --turn-on/--off/--set-refresh <N>`. Missing or malformed fields fall back to defaults and never cause NBER-CLI to fail.
 
 ## Local Database
 
@@ -69,7 +79,7 @@ If you upgraded from 0.3.0 and still have `~/.nber-cli/feed.db`, NBER-CLI will k
 The database holds:
 
 - `feed_items` and `feed_fetches`: RSS cache used by `feed fetch` and `feed clean`.
-- `info_cache`: paper metadata cache used by `info` and the MCP `get_paper_info` tool.
+- `info_cache`: paper metadata cache used by `info` and the MCP `get_paper_info` tool. Cache reads are gated by `info.cache_enabled` and respect the `info.cache_ttl_days` TTL.
 - `query_log`, `download_log`, `info_log`: behavior logs for search keywords, download outcomes, and info lookups.
 
 ## Output Paths

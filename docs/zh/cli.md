@@ -100,6 +100,85 @@ nber-cli info w25000 -f json
 | `paper_id` | 必填论文编号，可以带 `w` 前缀，也可以不带。 |
 | `--all`, `-a` | 如果可用，包含相关字段和 published-version 信息。 |
 | `--format`, `-f` | 输出格式：`list` 或 `json`，默认是 `list`。 |
+| `--refresh` | 跳过本地 `info_cache` 并直接从 NBER 重新拉取。缓存开启时，新数据会写回缓存。 |
+
+当缓存开启且缓存条目尚未超过配置的 TTL 时，重复执行 `info` 会从本地数据库返回。TTL 到期后的第一次 `info` 调用，或任何携带 `--refresh` 的调用，都会执行实时网络拉取。
+
+MCP 的 `get_paper_info` 工具遵循相同的缓存行为，也支持 `--refresh`。
+
+## info cache
+
+管理 `info_cache` 的读取行为并清理缓存记录。
+
+显示当前缓存状态、TTL 和已缓存行数：
+
+```bash
+nber-cli info cache
+```
+
+全局开关缓存：
+
+```bash
+nber-cli info cache --turn-on
+nber-cli info cache --turn-off
+```
+
+设置缓存刷新间隔（天）：
+
+```bash
+nber-cli info cache --set-refresh 7
+nber-cli info cache --set-refresh 30
+```
+
+`--set-refresh` 必须是正整数。新值会写入 `~/.nber-cli/config.json`，并在后续每次 `info` 调用中作为 TTL 生效。
+
+清理 30 天内没有刷新的缓存记录：
+
+```bash
+nber-cli info cache clear
+nber-cli info cache clear --days 30
+```
+
+清理全部缓存记录：
+
+```bash
+nber-cli info cache clear --all
+nber-cli info cache clean
+```
+
+`info cache clean` 是 `info cache clear --all` 的便利别名。
+
+按 `last_fetched_at` 日期清理缓存记录：
+
+```bash
+nber-cli info cache clear --end-date 2026-06-01
+nber-cli info cache clear --start-date 2026-05-01 --end-date 2026-06-01
+```
+
+只提供 `--end-date` 时，会从最早的缓存记录清理到该结束日期。`--start-date` 和 `--end-date` 都是前后包含的。只提供 `--start-date` 是无效的。
+
+删除前，`info cache clear` 会先打印匹配到的缓存记录数量，并要求确认：
+
+```text
+This operation is irreversible.
+Deleted info cache records may be fetched again from NBER.
+Continue? [y/N]:
+```
+
+只有输入 `y` 或 `Y` 才会继续。其他输入都会中止，不删除记录。
+
+### info cache 选项
+
+| 子命令 | 选项 | 说明 |
+| --- | --- | --- |
+| (无) | `--turn-on` | 全局启用 info cache。 |
+| (无) | `--turn-off` | 全局禁用 info cache。 |
+| (无) | `--set-refresh` | 设置 info cache 刷新间隔（天），必须是正整数。 |
+| `clear` | `--days` | 清理这么多天没有刷新的缓存记录，默认是 `30`。 |
+| `clear` | `--all` | 清理全部 info cache 记录。 |
+| `clear` | `--start-date` | 清理 `last_fetched_at` 在该日期及之后的缓存记录，格式为 `YYYY-MM-DD`。 |
+| `clear` | `--end-date` | 清理 `last_fetched_at` 在该日期及之前的缓存记录，格式为 `YYYY-MM-DD`。 |
+| `clean` | — | `clear --all` 的别名。 |
 
 ## search
 

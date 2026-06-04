@@ -100,6 +100,85 @@ nber-cli info w25000 -f json
 | `paper_id` | Required paper ID, with or without the `w` prefix. |
 | `--all`, `-a` | Include related fields and published-version information when available. |
 | `--format`, `-f` | Output format: `list` or `json`. Defaults to `list`. |
+| `--refresh` | Bypass the local `info_cache` and re-fetch from NBER. The new data is written back to the cache when the cache is enabled. |
+
+When the cache is enabled and the cached entry has not yet passed the configured TTL, repeated `info` calls are served from the local database. The first `info` call after a TTL expiry, or any call with `--refresh`, performs a live fetch.
+
+The MCP `get_paper_info` tool follows the same cache behavior, including the `--refresh` flag.
+
+## info cache
+
+Manage the `info_cache` lookup behavior and clear cached records.
+
+Show the current cache state, TTL, and row count:
+
+```bash
+nber-cli info cache
+```
+
+Toggle the cache globally:
+
+```bash
+nber-cli info cache --turn-on
+nber-cli info cache --turn-off
+```
+
+Set the cache refresh interval in days:
+
+```bash
+nber-cli info cache --set-refresh 7
+nber-cli info cache --set-refresh 30
+```
+
+`--set-refresh` requires a positive integer. The new value is written to `~/.nber-cli/config.json` and used as the TTL for every subsequent `info` call.
+
+Clean cached records not refreshed in the last 30 days:
+
+```bash
+nber-cli info cache clear
+nber-cli info cache clear --days 30
+```
+
+Clean all cached records:
+
+```bash
+nber-cli info cache clear --all
+nber-cli info cache clean
+```
+
+`info cache clean` is a convenience alias for `info cache clear --all`.
+
+Clean cached records by `last_fetched_at` date:
+
+```bash
+nber-cli info cache clear --end-date 2026-06-01
+nber-cli info cache clear --start-date 2026-05-01 --end-date 2026-06-01
+```
+
+`--end-date` without `--start-date` cleans from the earliest cached record through the end date. `--start-date` and `--end-date` are inclusive. Passing only `--start-date` is invalid.
+
+Before deleting anything, `info cache clear` prints how many cached records match and asks for confirmation:
+
+```text
+This operation is irreversible.
+Deleted info cache records may be fetched again from NBER.
+Continue? [y/N]:
+```
+
+Only `y` or `Y` continues. Any other response aborts without deleting records.
+
+### info cache Options
+
+| Subcommand | Option | Description |
+| --- | --- | --- |
+| (none) | `--turn-on` | Enable the info cache globally. |
+| (none) | `--turn-off` | Disable the info cache globally. |
+| (none) | `--set-refresh` | Set the info cache refresh interval in days. Must be a positive integer. |
+| `clear` | `--days` | Clean cached records not refreshed for this many days. Defaults to `30`. |
+| `clear` | `--all` | Clean all cached records. |
+| `clear` | `--start-date` | Clean cached records refreshed on or after this date, formatted `YYYY-MM-DD`. |
+| `clear` | `--end-date` | Clean cached records refreshed on or before this date, formatted `YYYY-MM-DD`. |
+| `clean` | — | Alias for `clear --all`. |
 
 ## search
 

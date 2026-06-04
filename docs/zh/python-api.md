@@ -161,6 +161,70 @@ if paper is None:
 print(paper.title)
 ```
 
+通过高层辅助函数读取论文元数据缓存，该函数会遵守用户配置中的 TTL 和全局缓存开关：
+
+```python
+import asyncio
+
+from nber_cli import get_paper_with_info_cache_result
+
+
+async def main() -> None:
+    result = await get_paper_with_info_cache_result(25000)
+    if result.from_cache:
+        print("Served from local info cache")
+    print(result.paper.title)
+
+
+asyncio.run(main())
+```
+
+`refresh=True` 跳过缓存读取，重新从 NBER 拉取，并在缓存开启时写回：
+
+```python
+import asyncio
+
+from nber_cli import get_paper_with_info_cache_result
+
+
+async def main() -> None:
+    result = await get_paper_with_info_cache_result(25000, refresh=True)
+    print(result.paper.title)
+
+
+asyncio.run(main())
+```
+
+管理用户配置（`~/.nber-cli/config.json`）：
+
+```python
+from nber_cli import (
+    get_info_cache_settings,
+    set_info_cache_enabled,
+    set_info_cache_ttl_days,
+)
+
+print(get_info_cache_settings())
+set_info_cache_enabled(False)
+set_info_cache_ttl_days(7)
+```
+
+清理论文元数据缓存：
+
+```python
+from nber_cli import clear_info_cache, count_info_cache
+
+print(f"Cached rows: {count_info_cache()}")
+
+preview = clear_info_cache(days=30, dry_run=True)
+print(f"Matched: {preview.matched_count}")
+
+result = clear_info_cache(days=30)
+print(f"Deleted: {result.deleted_count}")
+```
+
+`clear_info_cache` 同时支持 `delete_all=True` 以及 `start_date` / `end_date` 过滤，与 `clean_feed_cache` 的语义一致。
+
 ## 数据模型
 
 ### NBER
@@ -225,6 +289,33 @@ print(paper.title)
 | `start_date` | `str` 或 `None` | `date-range` 模式下前后包含的开始日期。 |
 | `end_date` | `str` 或 `None` | `date-range` 模式下前后包含的结束日期。 |
 | `dry_run` | `bool` | 是否只统计匹配记录而不删除。 |
+
+### NBERInfoCacheClearResult
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `matched_count` | `int` | 符合清理条件的缓存记录数量。 |
+| `deleted_count` | `int` | 已删除的缓存记录数量。 |
+| `mode` | `str` | 清理模式：`days`、`all` 或 `date-range`。 |
+| `days` | `int` 或 `None` | `days` 模式下的天数阈值。 |
+| `start_date` | `str` 或 `None` | `date-range` 模式下前后包含的开始日期。 |
+| `end_date` | `str` 或 `None` | `date-range` 模式下前后包含的结束日期。 |
+| `dry_run` | `bool` | 是否只统计匹配记录而不删除。 |
+
+### InfoCacheSettings
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `cache_enabled` | `bool` | `info_cache` 读取的全局开关。 |
+| `cache_ttl_days` | `int` | 缓存刷新间隔（天）。 |
+
+### InfoCacheLookupResult
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `paper` | `NBER` | 查询返回的论文对象。 |
+| `from_cache` | `bool` | 当论文来自本地 `info_cache` 时为 `True`。 |
 
 ### DownloadFailure
 

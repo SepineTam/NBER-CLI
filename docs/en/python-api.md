@@ -161,6 +161,70 @@ if paper is None:
 print(paper.title)
 ```
 
+Read the paper metadata cache through the high-level helper, which respects the user-config TTL and the global cache toggle:
+
+```python
+import asyncio
+
+from nber_cli import get_paper_with_info_cache_result
+
+
+async def main() -> None:
+    result = await get_paper_with_info_cache_result(25000)
+    if result.from_cache:
+        print("Served from local info cache")
+    print(result.paper.title)
+
+
+asyncio.run(main())
+```
+
+`refresh=True` skips the cache lookup and re-fetches from NBER before optionally writing back:
+
+```python
+import asyncio
+
+from nber_cli import get_paper_with_info_cache_result
+
+
+async def main() -> None:
+    result = await get_paper_with_info_cache_result(25000, refresh=True)
+    print(result.paper.title)
+
+
+asyncio.run(main())
+```
+
+Manage the user config (`~/.nber-cli/config.json`):
+
+```python
+from nber_cli import (
+    get_info_cache_settings,
+    set_info_cache_enabled,
+    set_info_cache_ttl_days,
+)
+
+print(get_info_cache_settings())
+set_info_cache_enabled(False)
+set_info_cache_ttl_days(7)
+```
+
+Clean cached paper metadata:
+
+```python
+from nber_cli import clear_info_cache, count_info_cache
+
+print(f"Cached rows: {count_info_cache()}")
+
+preview = clear_info_cache(days=30, dry_run=True)
+print(f"Matched: {preview.matched_count}")
+
+result = clear_info_cache(days=30)
+print(f"Deleted: {result.deleted_count}")
+```
+
+The same `clear_info_cache` function also supports `delete_all=True` and `start_date` / `end_date` filters that mirror `clean_feed_cache`.
+
 ## Data Models
 
 ### NBER
@@ -225,6 +289,33 @@ print(paper.title)
 | `start_date` | `str` or `None` | Inclusive start date for `date-range` mode. |
 | `end_date` | `str` or `None` | Inclusive end date for `date-range` mode. |
 | `dry_run` | `bool` | Whether the operation only counted matching records. |
+
+### NBERInfoCacheClearResult
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `database_path` | `Path` | SQLite cache database path. |
+| `matched_count` | `int` | Number of cache records matching the clean criteria. |
+| `deleted_count` | `int` | Number of cache records deleted. |
+| `mode` | `str` | Clean mode: `days`, `all`, or `date-range`. |
+| `days` | `int` or `None` | Day threshold for `days` mode. |
+| `start_date` | `str` or `None` | Inclusive start date for `date-range` mode. |
+| `end_date` | `str` or `None` | Inclusive end date for `date-range` mode. |
+| `dry_run` | `bool` | Whether the operation only counted matching records. |
+
+### InfoCacheSettings
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `cache_enabled` | `bool` | Global toggle for the `info_cache` lookup. |
+| `cache_ttl_days` | `int` | Cache refresh interval in days. |
+
+### InfoCacheLookupResult
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `paper` | `NBER` | The paper returned by the lookup. |
+| `from_cache` | `bool` | `True` when the paper was served from the local `info_cache`. |
 
 ### DownloadFailure
 
