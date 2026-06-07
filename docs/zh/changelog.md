@@ -2,6 +2,8 @@
 
 这里记录项目的重要变更。
 
+本页是仓库根 `CHANGELOG.md` 的中文镜像，英文镜像在 `docs/en/changelog.md`。每次发布提交都会同步更新三份内容。
+
 ## 0.4.0 - 2026-06-04
 
 ### Added
@@ -12,8 +14,8 @@
 - 新增 `nber-cli info cache clear`，参数集与 `feed clean` 一致：`--days`、`--all`、`--start-date`、`--end-date`，使用 `info_cache` 表的 `last_fetched_at` 字段过滤。`nber-cli info cache clean` 是 `clear --all` 的便利别名。
 - 新增 `nber-cli info cache`（不带子动作），用于打印当前缓存状态、TTL 和已缓存行数。
 - 新增 `nber_cli.config_store` 模块，集中处理 `~/.nber-cli/config.json` 的读写，包含 `InfoCacheSettings` 数据类及 `get_info_cache_settings`、`set_info_cache_enabled`、`set_info_cache_ttl_days` 等辅助函数。
-- 新增 `nber_cli.info_cache.get_paper_with_info_cache_result` 异步辅助函数，返回包含 `NBER` 论文对象和 `from_cache` 标志的 `InfoCacheLookupResult`。
-- 新增 info cache 相关辅助函数和 `NBERInfoCacheClearResult` 数据模型的 Python API 导出。
+- 新增 `nber_cli.info_cache.get_paper_with_info_cache_result` 异步辅助函数（位于 `nber_cli.info_cache` 模块），返回包含 `NBER` 论文对象和 `from_cache` 标志的 `InfoCacheLookupResult`。
+- 新增包顶层的 Python API 导出：`InfoCacheSettings`、`clear_info_cache`、`count_info_cache`、`get_info_cache_settings`、`get_info_cache_ttl_days`、`is_info_cache_enabled`、`is_info_cache_expired`、`set_info_cache_enabled`、`set_info_cache_ttl_days`、`NBERInfoCacheClearResult`。`InfoCacheLookupResult` 和 `get_paper_with_info_cache_result` 由 `nber_cli.info_cache` 模块导出，而不是从包顶层；导入路径是 `from nber_cli.info_cache import ...`。
 
 ### Changed
 
@@ -51,7 +53,7 @@
 - 添加 `~/.nber-cli/config.json` 和 `feed.db-path` 的用户配置文档。
 - 扩展中英文 CLI、快速开始、配置和 Python API 页面中的 feed 缓存文档。
 
-## 0.2.0 - 2026-05-27
+## 0.2.0 - 2026-05-31
 
 ### Changed
 

@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented in this file.
 
+This file is the canonical release history. The English mirror at `docs/en/changelog.md` and the Chinese mirror at `docs/zh/changelog.md` are generated from the same source content and must stay in lock-step. Any release commit updates all three together.
+
 ## [0.4.0] - 2026-06-04
 
 ### Added
@@ -11,8 +13,8 @@ All notable changes to this project will be documented in this file.
 - `nber-cli info cache clear` with `--days`, `--all`, `--start-date`, or `--end-date` mirrors the `feed clean` parameter set, using `last_fetched_at` from the `info_cache` table. `nber-cli info cache clean` is a convenience alias for `clear --all`.
 - `nber-cli info cache` (no sub-action) prints the current cache state, TTL, and cached row count.
 - New `nber_cli.config_store` module: centralised read and write of `~/.nber-cli/config.json` plus the `InfoCacheSettings` dataclass and helpers (`get_info_cache_settings`, `set_info_cache_enabled`, `set_info_cache_ttl_days`).
-- New `nber_cli.info_cache.get_paper_with_info_cache_result` async helper that returns an `InfoCacheLookupResult` carrying the `NBER` paper and a `from_cache` flag, so callers (CLI and MCP) can surface a "loaded from cache" hint.
-- Public Python API exports: `InfoCacheSettings`, `InfoCacheLookupResult`, `clear_info_cache`, `count_info_cache`, `get_info_cache_settings`, `get_info_cache_ttl_days`, `is_info_cache_enabled`, `is_info_cache_expired`, `set_info_cache_enabled`, `set_info_cache_ttl_days`, `NBERInfoCacheClearResult`.
+- New `nber_cli.info_cache.get_paper_with_info_cache_result` async helper (in the `nber_cli.info_cache` module) that returns an `InfoCacheLookupResult` carrying the `NBER` paper and a `from_cache` flag, so callers (CLI and MCP) can surface a "loaded from cache" hint.
+- Public Python API exports from the package top level: `InfoCacheSettings`, `clear_info_cache`, `count_info_cache`, `get_info_cache_settings`, `get_info_cache_ttl_days`, `is_info_cache_enabled`, `is_info_cache_expired`, `set_info_cache_enabled`, `set_info_cache_ttl_days`, `NBERInfoCacheClearResult`. `InfoCacheLookupResult` and `get_paper_with_info_cache_result` are exposed from the `nber_cli.info_cache` module rather than the package top level; import them as `from nber_cli.info_cache import ...`.
 
 ### Changed
 - `~/.nber-cli/config.json` now carries an `info` section: `info.cache_enabled` (default `true`) and `info.cache_ttl_days` (default `30`). Missing or malformed fields fall back to defaults.

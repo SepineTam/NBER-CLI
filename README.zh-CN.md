@@ -15,8 +15,13 @@
 - 按标题、论文编号、作者、摘要或关键词搜索 NBER 工作论文。
 - 通过 `w25000` 这样的论文编号获取结构化元数据和摘要。
 - 下载单篇或批量论文 PDF。
+- 通过本地 RSS feed 缓存追踪 NBER 新发布的工作论文（`nber-cli feed fetch` / `feed clean`）。
+- 本地缓存论文元数据（`nber-cli info` 会写入 `info_cache`），采用滑动 TTL；同时为 `search`、`download` 和 `info` 查询记录行为日志。
+- 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`（路径可通过 `nber-cli db init` / `db migrate` 配置）。
 - 通过 MCP 工具把核心能力暴露给 AI Agent。
 - 默认输出适合阅读的文本，也支持 JSON 输出用于自动化流程。
+
+完整可配置项和本地数据库结构请见[配置](docs/zh/configuration.md)，默认写入磁盘的内容请见[使用政策](docs/zh/policy.md)。
 
 ## 快速开始
 

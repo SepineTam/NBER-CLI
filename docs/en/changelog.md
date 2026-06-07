@@ -2,6 +2,8 @@
 
 All notable changes to this project will be documented here.
 
+This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chinese mirror at `docs/zh/changelog.md` carries the same content. Any release commit updates all three together.
+
 ## 0.4.0 - 2026-06-04
 
 ### Added
@@ -13,7 +15,7 @@ All notable changes to this project will be documented here.
 - Added `nber-cli info cache` (no sub-action) to print the current cache state, TTL, and cached row count.
 - Added `nber_cli.config_store` module with `InfoCacheSettings` and helpers (`get_info_cache_settings`, `set_info_cache_enabled`, `set_info_cache_ttl_days`) for reading and writing `~/.nber-cli/config.json`.
 - Added `nber_cli.info_cache.get_paper_with_info_cache_result` async helper that returns an `InfoCacheLookupResult` carrying the `NBER` paper and a `from_cache` flag.
-- Added public Python API exports for the new info cache helpers and `NBERInfoCacheClearResult` model.
+- Added public Python API exports from the package top level: `InfoCacheSettings`, `clear_info_cache`, `count_info_cache`, `get_info_cache_settings`, `get_info_cache_ttl_days`, `is_info_cache_enabled`, `is_info_cache_expired`, `set_info_cache_enabled`, `set_info_cache_ttl_days`, `NBERInfoCacheClearResult`. `InfoCacheLookupResult` and `get_paper_with_info_cache_result` are exposed from the `nber_cli.info_cache` module rather than the package top level; import them as `from nber_cli.info_cache import ...`.
 
 ### Changed
 
@@ -51,7 +53,7 @@ All notable changes to this project will be documented here.
 - Added user config documentation for `~/.nber-cli/config.json` and `feed.db-path`.
 - Expanded English and Chinese feed cache documentation across CLI, getting started, configuration, and Python API pages.
 
-## 0.2.0 - 2026-05-27
+## 0.2.0 - 2026-05-31
 
 ### Changed
 
