@@ -33,7 +33,7 @@
 支持 skill 的 Agent 应读取 NBER-CLI skill：
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 这个 skill 会告诉 Agent 什么时候使用 NBER-CLI、如何运行 `uvx nber-cli ...`、如何配置 MCP，以及如何解释访问错误。

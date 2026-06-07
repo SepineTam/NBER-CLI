@@ -12,8 +12,15 @@ NBER-CLI is a command-line and MCP utility for searching NBER working papers, re
 
 ## Project Boundaries
 
-- **No project-side storage**: NBER-CLI does not operate servers, caches, mirrors, databases, CDNs, or other infrastructure for storing NBER papers or metadata. Requests go directly from the user's machine or agent runtime to NBER's website. Runtime data is transient unless the user explicitly asks the tool to write output locally.
-- **User-controlled local files**: When a user runs a download command, any PDF is saved only to the local path selected by that user. The project does not receive, retain, index, or redistribute that file.
+- **No project-side storage**: NBER-CLI does not operate servers, caches, mirrors, CDNs, or other infrastructure for storing NBER papers or metadata. Requests go directly from the user's machine or agent runtime to NBER's website.
+- **Default local persistence on the user machine**: NBER-CLI does keep a local SQLite database at `~/.nber-cli/nber.db` (or the path configured by `nber-cli db init` / `db migrate`) and a user config file at `~/.nber-cli/config.json`. By default the following commands and tools write to that database without any extra user input:
+  - `nber-cli search` records every query, including the keyword, the applied filters, and the result count, in the `query_log` table.
+  - `nber-cli download` records every attempt, including the paper ID, success or failure status, the saved PDF path, and the error message when relevant, in the `download_log` table. Single download and batch download both write one row per attempt.
+  - `nber-cli info` and the MCP `get_paper_info` tool each write a row to the `info_log` table for the looked-up paper.
+  - `nber-cli info` and the MCP `get_paper_info` tool, when the `info_cache` is enabled, also write and refresh the `info_cache` table (see [Configuration](configuration.md)).
+  - `nber-cli feed fetch` writes every fetched RSS item to `feed_items` and appends a fetch summary to `feed_fetches`.
+- **Cleaning up local data**: the `feed clean` and `info cache clear` commands delete cache rows after an interactive confirmation. The `query_log`, `download_log`, and `info_log` tables currently have no CLI cleanup command; the only ways to remove them today are `nber-cli db migrate` to a new database, manual `sqlite3` operations, or deleting `nber.db`. `feed clean --all` deletes `feed_items` only and never touches the accumulating `feed_fetches` history.
+- **User-controlled PDF files**: When a user runs a download command, any PDF is saved only to the local path selected by that user. The project does not receive, retain, index, or redistribute that file.
 - **No access circumvention**: NBER-CLI does not bypass subscriptions, paywalls, account requirements, IP-based authorization, first-week or recent-paper restrictions, access limits, or other controls imposed by NBER. If NBER returns a denial, error, redirect, or unavailable response, the tool treats that response as authoritative.
 - **No traffic masking**: NBER-CLI uses standard Python HTTP libraries and ordinary request headers. It does not provide proxy pools, IP rotation, credential sharing, CAPTCHA bypass, request-signature manipulation, or other evasion mechanisms.
 - **No redistribution rights**: Installing or using NBER-CLI does not grant any license to repost, mirror, sell, sublicense, train on, or otherwise reuse NBER content beyond what NBER, the relevant authors, and applicable law allow.

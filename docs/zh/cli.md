@@ -72,6 +72,17 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 - 如果没有传入 `--file` 或 `--save-base`，PDF 会保存到当前工作目录。
 - 如果论文不可下载，NBER-CLI 会以退出码 `1` 退出，并打印可读错误信息。
 
+### download 文件系统行为
+
+- **已有文件会被覆盖。** 目标 PDF 路径已经存在时，NBER-CLI 会把新字节直接写入并覆盖原文件。没有“较新则跳过”或“失败时保留旧文件”的模式。
+- **不会做原子 rename。** 下载会先把整段响应体读入内存，再通过一次 `write_bytes` 调用写入目标路径。进程被杀掉、宿主机断电或磁盘在写入过程中写满，目标路径上都可能留下空文件、被截断的文件或只有部分字节的文件。失败路径上不会保留原来的旧文件。
+- **父目录会自动创建。** 解析后的输出路径的父目录会用 `mkdir(parents=True, exist_ok=True)` 创建。中间目录缺失不会导致失败，但进程需要对最深的已存在祖先目录有写权限。
+- **路径按字面值解析。** 传给 `--file` 的字符串（或者由 `--save-base` 推导出的 `<paper_id>.pdf`）会按字面值使用。相对路径相对于当前工作目录解析。`~` **不会** 被展开；如果需要 `~` 相对路径，请让 shell 先做展开。
+- **单篇下载是全内存的。** 在任何磁盘写入发生之前，PDF 的完整内容会先被缓冲进内存，因此单篇下载在传输过程中始终把整篇 PDF 放在内存里。非常大的 PDF 可能短暂占用数百 MB 内存。
+- **Python API 调用方负责自己传入的 session。** 当你用自定义 `session=...` 调用 `download_paper` / `download_paper_to_file` / `download_multiple_papers` 时，底层的 `ClientSession`（或 `RetryClient`）、它的超时、连接器限制和重试行为都由调用方负责。NBER-CLI 不会把你的 session 再包一层 retry 客户端。默认的 `NBER_CLI_CONFIG` 超时和重试设置只在函数自己创建 session 时生效。
+
+Python API 部分请参见 [Python API — 下载 PDF](python-api.md#pdf)。
+
 ## info
 
 显示论文元数据：
@@ -104,7 +115,9 @@ nber-cli info w25000 -f json
 
 当缓存开启且缓存条目尚未超过配置的 TTL 时，重复执行 `info` 会从本地数据库返回。TTL 到期后的第一次 `info` 调用，或任何携带 `--refresh` 的调用，都会执行实时网络拉取。
 
-MCP 的 `get_paper_info` 工具遵循相同的缓存行为，也支持 `--refresh`。
+TTL 是**滑动**的：每次缓存命中都会更新 `last_fetched_at` 并把 `fetch_count` 加 1，所以被反复查询的论文，其缓存副本会从“最近一次命中”起继续保留至少 `cache_ttl_days` 天。因此“最近一次拉取时间”指的是“最近一次本地命中”，而不是“最近一次从 NBER 网络拉取”。`--refresh` 会无条件跳过缓存并写入一条新记录。
+
+MCP 的 `get_paper_info` 工具遵循相同的缓存行为，但不接受每次调用的 `--refresh` 参数。该工具始终遵守当前的 `info_cache` 开关和 TTL 设置；需要强制刷新的 Agent 应先关闭缓存、调用 `get_paper_info`，再重新打开缓存（或者依赖 TTL 到期后的下一次调用）。
 
 ## info cache
 
@@ -114,7 +127,10 @@ MCP 的 `get_paper_info` 工具遵循相同的缓存行为，也支持 `--refres
 
 ```bash
 nber-cli info cache
+nber-cli info cache status
 ```
+
+`info cache` 和 `info cache status` 等价——两者都打印同一份状态视图（缓存启用/禁用、当前 TTL、已缓存行数）。提供显式 `status` 子动作是为了和 `clear`/`clean` 保持对称，也是为了让偏好明确形式的脚本更易读。
 
 全局开关缓存：
 
@@ -174,6 +190,7 @@ Continue? [y/N]:
 | (无) | `--turn-on` | 全局启用 info cache。 |
 | (无) | `--turn-off` | 全局禁用 info cache。 |
 | (无) | `--set-refresh` | 设置 info cache 刷新间隔（天），必须是正整数。 |
+| `status` | — | 打印当前缓存状态、TTL 和已缓存行数；与不带子动作的 `info cache` 等价。 |
 | `clear` | `--days` | 清理这么多天没有刷新的缓存记录，默认是 `30`。 |
 | `clear` | `--all` | 清理全部 info cache 记录。 |
 | `clear` | `--start-date` | 清理 `last_fetched_at` 在该日期及之后的缓存记录，格式为 `YYYY-MM-DD`。 |
@@ -239,6 +256,8 @@ nber-cli feed fetch --display-all true
 nber-cli feed fetch --display-all
 ```
 
+`--display-all` 接受布尔值。解析器会识别（不区分大小写、允许前后空格）`true`、`false`、`1`、`0`、`yes`、`no`、`y`、`n`、`on`、`off`。不传值（只写 `--display-all`）时默认为 `true`。任何其他取值都会被 argparse 拒绝，并以退出码 `2` 退出。
+
 限制输出数量：
 
 ```bash
@@ -294,7 +313,7 @@ Continue? [y/N]:
 
 | 子命令 | 选项 | 说明 |
 | --- | --- | --- |
-| `fetch` | `--display-all [true|false]` | 显示所有获取到的 RSS 条目，而不是只显示新条目。 |
+| `fetch` | `--display-all [true\|false]` | 显示所有获取到的 RSS 条目，而不是只显示新条目。可接受 `true`/`false`/`1`/`0`/`yes`/`no`/`y`/`n`/`on`/`off`（不区分大小写）。不传值时默认为 `true`。 |
 | `fetch` | `--format`, `-f` | 输出格式：`list` 或 `json`，默认是 `list`。 |
 | `fetch` | `--max-items` | 最多显示多少个 feed 条目。 |
 | `clean` | `--days` | 清理这么多天没有再次出现的缓存记录，默认是 `30`。 |
@@ -364,9 +383,24 @@ nber-cli mcp-server --transport streamable_http --port 8000
 | 退出码 | 含义 |
 | --- | --- |
 | `0` | 命令成功完成，或帮助信息已打印。 |
-| `1` | 运行时失败，例如下载失败。 |
-| `2` | 命令行参数无效。 |
+| `1` | 运行时失败，例如下载失败、网络错误、解析错误或其它未处理异常。 |
+| `2` | 命令行参数无效。argparse 会抛出 `SystemExit(2)` 并把 usage 打印到 stderr。 |
+
+下面是一些容易漏掉的细节：
+
+- 单篇 `download` 失败会以退出码 `1` 退出。成功时的 `Successfully downloaded <id> to <path>` 行写到 stdout，失败时的 `Failed to download <id>: <reason>` 行写到 stderr。`download_log` 中的日志行在失败信息打印之前写入。
+- 批量 `download` 会跑完所有请求的论文，只有在最后存在失败论文时才以退出码 `1` 退出。成功的文件路径写到 stdout（`Successfully downloaded ...`），失败和每条失败原因写到 stderr。**只有全部成功** 时退出码才是 `0`。
+- `db init`、`db migrate`、`info cache clear` 和 `feed clean` 会向 stderr 打印确认提示。用户在确认提示中拒绝时（`Abort.` 会被打印到 stderr）命令以退出码 `0` 中止。确认后真正执行删除时，成功完成会以 `0` 退出。
+- 数据库记录失败（`record_query`、`record_download`、`record_info`、`touch_info_cache`、`write_info_cache`）会向 stderr 打印一行 `warning: failed to ...`，**不会**抛出异常，主命令的退出码也不受影响。
+- 下载模块先把整段 PDF 读入内存，再一次性写入磁盘。发生在网络读取和磁盘写入之间的失败（进程被 kill、磁盘写满、权限被收回）通常以 Python 异常的形式抛出；用户会在 stderr 上看到 traceback，进程以退出码 `1` 退出。这里**没有**原子 rename 保证，目标文件在这种失败下可能留下空文件或只写了一半的内容。
 
 ## 输出格式
 
 `info`、`search` 和 `feed fetch` 默认使用 `list`，这是一种适合人阅读的文本格式。需要把输出交给脚本或 Agent 工作流时，请使用 `--format json`。
+
+脚本可参考的简单规则：
+
+- **stdout** 承载人类可读的输出，或 `--format json` 时的 JSON 负载。
+- **stderr** 承载缓存命中提示、每条论文的错误信息、与主负载无关的每条成功信息、后台日志失败时的 `warning: ...` 行，以及破坏性命令的确认提示。
+
+也就是说，想要 JSON 负载的脚本可以用 `2>/dev/null`（或 `2>&-`）屏蔽 stderr；只想要错误信息的脚本可以用 `2>&1 >/dev/null` 把 stderr 提取出来。

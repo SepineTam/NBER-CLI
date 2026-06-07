@@ -24,7 +24,7 @@
 如果 OpenClaw 支持导入 skill 或指令文件，读取：
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 这个 skill 包含使用策略、命令示例、JSON 输出建议，以及常见错误解释。

@@ -10,7 +10,14 @@ NBER-CLI 是一个命令行与 MCP 工具，用于帮助用户搜索 NBER 工作
 
 ## 项目边界
 
-- **不进行项目侧存储**：NBER-CLI 不运营用于存储 NBER 论文或元数据的服务器、缓存、镜像、数据库、CDN 或其他基础设施。请求直接从用户的设备或 Agent 运行环境发往 NBER 网站。除非用户明确要求把结果写入本地文件，运行时数据仅作临时处理。
+- **不进行项目侧存储**：NBER-CLI 不运营用于存储 NBER 论文或元数据的服务器、缓存、镜像、CDN 或其他基础设施。请求直接从用户的设备或 Agent 运行环境发往 NBER 网站。
+- **用户机器上的默认本地持久化**：NBER-CLI 会在用户机器上保留一个本地 SQLite 数据库，默认位于 `~/.nber-cli/nber.db`（或 `nber-cli db init` / `db migrate` 配置的路径），并保留一个用户配置文件 `~/.nber-cli/config.json`。下列命令和工具会在没有额外用户输入的情况下默认写入该数据库：
+  - `nber-cli search` 会把每次查询的关键词、筛选条件和结果数量记录到 `query_log` 表。
+  - `nber-cli download` 会把每次下载尝试的论文编号、成功或失败状态、保存的 PDF 路径以及失败时的错误信息记录到 `download_log` 表。单篇下载和批量下载都会按尝试次数逐条写入。
+  - `nber-cli info` 与 MCP `get_paper_info` 工具会把每次查询的论文编号写入 `info_log` 表。
+  - `nber-cli info` 与 MCP `get_paper_info` 工具在 `info_cache` 开启时还会写入并刷新 `info_cache` 表（详见 [配置](configuration.md)）。
+  - `nber-cli feed fetch` 会把所有获取到的 RSS 条目写入 `feed_items`，并把一次抓取的摘要写入 `feed_fetches`。
+- **本地数据清理**：`feed clean` 和 `info cache clear` 在交互式确认后会删除缓存记录。`query_log`、`download_log`、`info_log` 表目前没有专门的 CLI 清理命令；目前只能通过 `nber-cli db migrate` 切到新数据库、手动 `sqlite3` 操作，或直接删除 `nber.db` 来清空这些日志。`feed clean --all` 只删除 `feed_items`，不会动会持续累积的 `feed_fetches` 历史。
 - **本地文件由用户控制**：当用户执行下载命令时，PDF 只会保存到用户选择的本地路径。本项目不会接收、保留、索引或再分发该文件。
 - **不绕过访问限制**：NBER-CLI 不绕过订阅、付费墙、账号要求、基于 IP 的授权、新近论文或首周访问限制、访问额度，或 NBER 设置的其他控制措施。如果 NBER 返回拒绝、错误、跳转或不可用响应，本工具会将该响应视为有效结果。
 - **不隐藏或伪装流量**：NBER-CLI 使用标准 Python HTTP 库和常规请求头，不提供代理池、IP 轮换、凭据共享、验证码绕过、请求签名篡改或其他规避机制。

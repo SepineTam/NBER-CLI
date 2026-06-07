@@ -35,6 +35,22 @@ pipx install nber-cli
 nber-cli --version
 ```
 
+## 以 Python 模块方式运行
+
+包还提供了模块入口。当 `nber-cli` console script 不在你的 `PATH` 上时（例如从 checkout 的工作区直接运行，或者在没生成 wrapper 脚本的虚拟环境里）这个入口会很有用：
+
+```bash
+python -m nber_cli --version
+python -m nber_cli search "labor economics"
+python -m nber_cli info w25000
+```
+
+`python -m nber_cli` 与 `nber-cli` 命令在功能上完全一致——同样的参数、同样的退出码、同样的 stdout/stderr 合同。在工作区中你也可以通过 `uv` 跑它：
+
+```bash
+uv run python -m nber_cli --version
+```
+
 ## 第一次搜索
 
 ```bash

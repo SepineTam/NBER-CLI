@@ -20,7 +20,7 @@ Add this MCP server:
 Then load or paste the skill from:
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 ## If MCP Is Not Supported

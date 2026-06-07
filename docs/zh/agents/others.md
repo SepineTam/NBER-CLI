@@ -20,7 +20,7 @@
 然后加载或粘贴这个 skill：
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 ## 如果不支持 MCP

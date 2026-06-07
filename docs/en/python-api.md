@@ -4,6 +4,16 @@ NBER-CLI exposes the same core functionality as importable Python functions. The
 
 Feed cache helpers are synchronous because they perform local SQLite work and a synchronous RSS fetch.
 
+## API Boundaries
+
+NBER-CLI has three layers, and the stability contract is different for each:
+
+- **Top-level public API**: the names listed in `nber_cli.__all__`. Importing them from the `nber_cli` package is the supported way to use the package. This is the only layer with a stability promise. Removing or renaming a name in `__all__` is treated as a breaking change.
+- **Module-level helpers**: non-underscore names defined in modules such as `nber_cli.formatters`, `nber_cli.fetcher`, `nber_cli.config_store`, and `nber_cli.cli`. These are usable directly and useful for advanced callers, but they are not part of the public top-level contract and may change between minor versions.
+- **Compatibility wrappers**: a few names exist only for backward compatibility with callers written against earlier versions. The `feed` module re-exports `init_feed_database`, `migrate_feed_database`, and `get_feed_database_path`, which now forward to the database layer. They are kept for one minor release after their replacement ships and may be removed later.
+
+`__all__` is the source of truth for what is "officially exported" from the package. If a name is not in `__all__` and not documented as a module-level helper, treat it as private even if it is not underscore-prefixed.
+
 ## Install
 
 ```bash
@@ -166,7 +176,7 @@ Read the paper metadata cache through the high-level helper, which respects the 
 ```python
 import asyncio
 
-from nber_cli import get_paper_with_info_cache_result
+from nber_cli.info_cache import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -184,7 +194,7 @@ asyncio.run(main())
 ```python
 import asyncio
 
-from nber_cli import get_paper_with_info_cache_result
+from nber_cli.info_cache import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -224,6 +234,50 @@ print(f"Deleted: {result.deleted_count}")
 ```
 
 The same `clear_info_cache` function also supports `delete_all=True` and `start_date` / `end_date` filters that mirror `clean_feed_cache`.
+
+## Database and Logging Helpers
+
+These helpers are part of the top-level public API and are safe to call from user code. They wrap the SQLite layer that `info`, `search`, `download`, and `feed` use internally. Logging and cache writers fail soft: when a database error occurs, the helper prints a one-line warning to `stderr` and returns `None` (for recorders) instead of raising, so they do not break the calling command. Cache readers return `None` or `0` on partial database errors. Callers that need stronger guarantees should talk to SQLite directly.
+
+### `get_database_path(db_path=None) -> Path`
+
+Return the resolved SQLite database path. When `db_path` is `None`, NBER-CLI uses the path configured in `~/.nber-cli/config.json`, or falls back to the default `~/.nber-cli/nber.db`, or the legacy `~/.nber-cli/feed.db` file when present. The returned path is always absolute. The database file is **not** required to exist.
+
+### `get_schema_version(db_path=None) -> int`
+
+Return the current `PRAGMA user_version` of the database. Returns `0` when the file does not exist. The package sets the user version to `2` after `init_database` or an automatic v1-to-v2 upgrade.
+
+### `record_query(db_path, keyword, conditions, result_count)`
+
+Append a row to `query_log`. `conditions` is a JSON-serialisable `dict` describing the filters actually applied to the call. Failures (for example a read-only filesystem or a corrupted database) print `warning: failed to record_query: ...` to `stderr` and return without raising.
+
+### `record_download(db_path, paper_id, status, saved_path=None, error=None)`
+
+Append a row to `download_log`. `status` is typically `"success"` or `"failed"`. Failures are swallowed and printed to `stderr`; the calling download command still exits with its normal code.
+
+### `record_info(db_path, paper_id)`
+
+Append a row to `info_log` for the looked-up paper. `paper_id` may be an `int` or a string with or without the `w` prefix. Failures are swallowed and reported to `stderr` only.
+
+### `is_info_cache_enabled() -> bool`
+
+Return the current global `info_cache` toggle, as configured in `~/.nber-cli/config.json`.
+
+### `get_info_cache_ttl_days() -> int`
+
+Return the current `info_cache` refresh interval in days, as configured in `~/.nber-cli/config.json`. Defaults to `30` when the field is missing or non-positive.
+
+### `is_info_cache_expired(last_fetched_at, ttl_days=None, *, now=None) -> bool`
+
+Return `True` when the timestamp string `last_fetched_at` is older than `ttl_days` (or the configured TTL when `ttl_days` is `None`). `ttl_days <= 0` is treated as "always expired". Malformed timestamps are treated as expired. `now` is for testing and accepts a `datetime`.
+
+### `touch_info_cache(db_path, paper_id)`
+
+Update the `info_cache` row for `paper_id`: set `last_fetched_at` to the current UTC time and increment `fetch_count`. Because this is invoked on every cache hit, the TTL check uses the touch time, not the original write time. This is what makes the cache a **sliding** TTL rather than a fixed window from the first write. The function is a no-op when the row does not exist or the database is missing. Errors are logged to `stderr` and otherwise ignored.
+
+### `parse_feed_xml(xml_text) -> list[NBERFeedItem]`
+
+Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a `link` or `guid` that matches `r"/papers/(w\d+)"`; when neither field contains a paper ID, `parse_feed_xml` raises `ValueError("NBER RSS item is missing a paper ID")`. Malformed XML raises `ValueError("invalid NBER RSS XML")`. The function performs no network I/O and never touches the database; `feed.fetch_feed` wraps it to persist items and write a `feed_fetches` summary.
 
 ## Data Models
 
@@ -344,11 +398,67 @@ from nber_cli import feed_results, info, related, search_results
 - `search_results(results)` returns a structured search payload.
 - `feed_results(result)` returns a structured feed fetch payload.
 
-For human-readable text output, use the text formatters:
+For human-readable text output, use the text formatters from `nber_cli.formatters`:
 
 ```python
-from nber_cli import info_text, search_results_text
+from nber_cli.formatters import feed_results_text, info_text, search_results_text
 ```
 
 - `info_text(paper, include_all=False)` returns a formatted text string with paper details. Set `include_all=True` to include topic, programs, and published version.
 - `search_results_text(results)` returns a formatted text string with search results.
+- `feed_results_text(result)` returns a formatted text string with feed items.
+
+## JSON Output Structures
+
+`--format json` for `info`, `search`, and `feed fetch` produces the same dictionaries that the matching `*_results` formatters build. The JSON payload is always written to **stdout**, while the cache hit hint (for `info`) and any error message are written to **stderr**. This split lets scripts capture the payload with `>` redirection or pipes without picking up hint or error text.
+
+### `info --format json`
+
+Produced by `info(paper)` plus, when `--all` is set, `related(paper)` and a conditional `published_version` field:
+
+| Field | Type | Always present | Notes |
+| --- | --- | --- | --- |
+| `id` | `str` | yes | `paper_id` formatted as `wNNNN`. |
+| `title` | `str` | yes | Empty string when NBER does not expose one. |
+| `authors` | `list[str]` | yes | Empty list when NBER does not expose any. |
+| `date` | `str` | yes | Publication date as exposed by NBER; may be empty. |
+| `abstract` | `str` | yes | Empty string when NBER does not expose an abstract. |
+| `url` | `str` | no | Present only when the paper has a non-empty NBER URL. |
+| `topic` | `str` | only with `--all` | `None`-able; emitted as `null` when unknown. |
+| `programs` | `str` | only with `--all` | `None`-able; emitted as `null` when unknown. |
+| `published_version` | `str` | only with `--all` and truthy | Omitted entirely when NBER does not expose one. |
+
+### `search --format json`
+
+Produced by `search_results(results)`:
+
+| Field | Type | Always present | Notes |
+| --- | --- | --- | --- |
+| `query` | `str` | yes | The original query. |
+| `total_results` | `int` | yes | NBER-reported total. |
+| `page` | `int` | yes | Current page. |
+| `per_page` | `int` | yes | Page size, one of `20`, `50`, `100`. |
+| `start_date` | `str` | no | Present only when the call applied a start date. |
+| `end_date` | `str` | no | Present only when the call applied an end date. |
+| `results` | `list[object]` | yes | Per-paper dictionaries with the same fields as `search_result(paper)`. |
+
+Each entry in `results` carries `id`, `title`, `authors`, `date`, `abstract`, and `url`. Unlike `info`, `url` is always emitted (possibly empty).
+
+### `feed fetch --format json`
+
+Produced by `feed_results(result)`:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `source_url` | `str` | The RSS feed URL that was fetched. |
+| `database_path` | `str` | Absolute path of the SQLite database the items were written to. |
+| `total_fetched` | `int` | Total items parsed from the feed. |
+| `new_count` | `int` | Items that were not already in the local cache. |
+| `display_all` | `bool` | `true` when `results` includes all fetched items, `false` when limited to new ones. |
+| `max_items` | `int` or `null` | The cap from `--max-items` when provided. |
+| `displayed_count` | `int` | Number of items actually included in `results`. |
+| `results` | `list[object]` | Per-item dictionaries: `id`, `title`, `authors`, `abstract`, `url`, `source_url`, `guid`. |
+
+### Compatibility Notes
+
+The JSON structures are the published output contract used by both the CLI and the MCP tools. Additive fields (new optional keys) may appear in a minor version. Renaming or removing an existing key, or changing the type of an existing field, is treated as a breaking change. Scripts that consume `--format json` should treat unknown keys as ignored data rather than asserting on the full key set.

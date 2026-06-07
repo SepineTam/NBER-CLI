@@ -72,6 +72,17 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 - If neither `--file` nor `--save-base` is passed, PDFs are saved in the current working directory.
 - If a paper is unavailable, NBER-CLI exits with code `1` and prints a readable error message.
 
+### download Filesystem Behavior
+
+- **Existing files are overwritten.** When the target PDF path already exists, NBER-CLI writes the new bytes in place and overwrites the previous file. There is no "skip if newer" or "preserve on error" mode.
+- **No atomic rename.** The download is read fully into memory and then written to the target path in a single `write_bytes` call. If the process is killed, the host loses power, or the disk fills up mid-write, the file at the target path can be left empty, truncated, or partially written. The previous file (when it existed) is not preserved on the failure path.
+- **Parent directories are auto-created.** The parent of the resolved output path is created with `mkdir(parents=True, exist_ok=True)`. Missing intermediate directories do not cause a failure, but the process needs write permission on the deepest existing ancestor.
+- **Path resolution is literal.** The string passed to `--file` (or `<paper_id>.pdf` derived from `--save-base`) is used verbatim. Relative paths resolve against the current working directory. Tilde expansion (`~`) is **not** performed; if you want `~`-relative paths, your shell needs to expand them.
+- **Single download is fully in-memory.** The full PDF body is buffered before any disk write, so a single download holds the entire PDF in memory for the duration of the transfer. Very large PDFs may briefly use several hundred MB of RAM.
+- **Python API callers own their session.** When you call `download_paper` / `download_paper_to_file` / `download_multiple_papers` with a custom `session=...`, you own the underlying `ClientSession` (or `RetryClient`), its timeouts, its connector limits, and any retry behavior. NBER-CLI does not wrap your session in a retry client. The default NBER_CLI_CONFIG timeout and retry settings only apply when the function creates its own session.
+
+For the Python API, see [Python API — Download PDF](python-api.md#download-a-pdf).
+
 ## info
 
 Show paper metadata:
@@ -104,7 +115,9 @@ nber-cli info w25000 -f json
 
 When the cache is enabled and the cached entry has not yet passed the configured TTL, repeated `info` calls are served from the local database. The first `info` call after a TTL expiry, or any call with `--refresh`, performs a live fetch.
 
-The MCP `get_paper_info` tool follows the same cache behavior, including the `--refresh` flag.
+The TTL is **sliding**: every cache hit updates `last_fetched_at` and increments `fetch_count`, so frequently consulted papers keep their cached copy until at least `cache_ttl_days` have passed since the most recent hit. "Last fetched" therefore means "last local hit", not "last network fetch from NBER". `--refresh` always bypasses the cache and writes a fresh row.
+
+The MCP `get_paper_info` tool follows the same cache behavior, but it does not accept a per-call `--refresh` argument. The tool always honors the current `info_cache` toggle and TTL; agents that need a forced refresh must toggle the cache off, call `get_paper_info`, and toggle the cache back on (or rely on the next call after a TTL-driven re-fetch).
 
 ## info cache
 
@@ -114,7 +127,10 @@ Show the current cache state, TTL, and row count:
 
 ```bash
 nber-cli info cache
+nber-cli info cache status
 ```
+
+`info cache` and `info cache status` are equivalent — both print the same status view (cache enabled/disabled, current TTL, and row count). The explicit `status` sub-action is provided for symmetry with `clear`/`clean` and for scripts that prefer an unambiguous form.
 
 Toggle the cache globally:
 
@@ -174,6 +190,7 @@ Only `y` or `Y` continues. Any other response aborts without deleting records.
 | (none) | `--turn-on` | Enable the info cache globally. |
 | (none) | `--turn-off` | Disable the info cache globally. |
 | (none) | `--set-refresh` | Set the info cache refresh interval in days. Must be a positive integer. |
+| `status` | — | Print the current cache state, TTL, and row count. Equivalent to running `info cache` with no sub-action. |
 | `clear` | `--days` | Clean cached records not refreshed for this many days. Defaults to `30`. |
 | `clear` | `--all` | Clean all cached records. |
 | `clear` | `--start-date` | Clean cached records refreshed on or after this date, formatted `YYYY-MM-DD`. |
@@ -239,6 +256,8 @@ nber-cli feed fetch --display-all true
 nber-cli feed fetch --display-all
 ```
 
+`--display-all` accepts a boolean value. The parser recognises (case-insensitive, whitespace tolerated) `true`, `false`, `1`, `0`, `yes`, `no`, `y`, `n`, `on`, `off`. When the flag is passed with no value (`--display-all` on its own) it defaults to `true`. Any other value is rejected with exit code `2`.
+
 Limit displayed output:
 
 ```bash
@@ -294,7 +313,7 @@ Only `y` or `Y` continues. Any other response aborts without deleting records.
 
 | Subcommand | Option | Description |
 | --- | --- | --- |
-| `fetch` | `--display-all [true|false]` | Display all fetched RSS items instead of only new items. |
+| `fetch` | `--display-all [true\|false]` | Display all fetched RSS items instead of only new items. Accepts `true`/`false`/`1`/`0`/`yes`/`no`/`y`/`n`/`on`/`off` (case-insensitive). When passed without a value, defaults to `true`. |
 | `fetch` | `--format`, `-f` | Output format: `list` or `json`. Defaults to `list`. |
 | `fetch` | `--max-items` | Maximum number of feed items to display. |
 | `clean` | `--days` | Clean cached records not seen for this many days. Defaults to `30`. |
@@ -364,9 +383,24 @@ For client configuration and tool details, see [MCP Server](mcp.md).
 | Code | Meaning |
 | --- | --- |
 | `0` | Command completed successfully, or help was printed. |
-| `1` | Runtime failure such as a failed download. |
-| `2` | Invalid command-line arguments. |
+| `1` | Runtime failure such as a failed download, a network error, a parse error, or any other unhandled exception. |
+| `2` | Invalid command-line arguments. Argparse raises `SystemExit(2)` and prints a usage message to stderr. |
+
+A few extra rules that are easy to miss:
+
+- A single `download` failure exits `1`. The successful `Successfully downloaded <id> to <path>` line goes to stdout; the `Failed to download <id>: <reason>` line goes to stderr. The download log row in `download_log` is written before the failure is printed.
+- A batch `download` runs every requested paper and only exits `1` at the end if at least one paper failed. Successful files are written to stdout (`Successfully downloaded ...`), failures and the per-failure reasons go to stderr. The exit code is `0` only when every paper succeeded.
+- `db init`, `db migrate`, `info cache clear`, and `feed clean` print a confirmation prompt to stderr. The command aborts with exit code `0` if the user declines (`Abort.` is printed to stderr). The actual deletion (when confirmed) exits `0` on success.
+- Database record-keeping failures (`record_query`, `record_download`, `record_info`, `touch_info_cache`, `write_info_cache`) print a one-line `warning: failed to ...` to stderr but do **not** raise. The main command's exit code is unaffected.
+- The download module reads the entire PDF body into memory and then writes it in one call. A failure that occurs between the network read and the disk write (process kill, disk full, permission revoked) typically surfaces as a Python exception on the way out; the user sees the traceback on stderr and the process exits `1`. There is no atomic-rename guarantee, so a target file may be left empty or partially written when this happens.
 
 ## Output Formats
 
 `info`, `search`, and `feed fetch` default to `list`, a readable text format. Use `--format json` when piping output into scripts or agent workflows.
+
+The rule of thumb for scripting:
+
+- **stdout** carries the human-readable output or the JSON payload (with `--format json`).
+- **stderr** carries the cache-hit hint, every per-paper error message, every per-paper success line that is incidental to the main payload, the `warning: ...` line for failed background logging, and the confirmation prompts for destructive commands.
+
+This means a script that wants the JSON payload can capture stdout with `2>/dev/null` (or simply `2>&-`), and a script that wants only errors can capture stderr with `2>&1 >/dev/null`.

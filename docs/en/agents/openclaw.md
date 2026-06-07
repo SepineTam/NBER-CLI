@@ -24,7 +24,7 @@ This runs the published `nber-cli` package with `uvx`, so a checked-out copy of 
 If OpenClaw supports skill or instruction imports, load:
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 The skill gives the agent the usage policy, command examples, JSON output guidance, and common error interpretation.

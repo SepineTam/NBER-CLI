@@ -35,6 +35,22 @@ pipx install nber-cli
 nber-cli --version
 ```
 
+## Run as a Python Module
+
+The package also exposes a module entry point. This is useful when the `nber-cli` console script is not on your `PATH` (for example, when running from a checked-out working tree or inside a virtual environment where the wrapper was not generated):
+
+```bash
+python -m nber_cli --version
+python -m nber_cli search "labor economics"
+python -m nber_cli info w25000
+```
+
+`python -m nber_cli` is functionally identical to the `nber-cli` command — same arguments, same exit codes, same stdout/stderr contracts. From a working tree you can also run it through `uv`:
+
+```bash
+uv run python -m nber_cli --version
+```
+
 ## First Search
 
 ```bash

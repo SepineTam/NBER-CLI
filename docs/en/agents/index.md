@@ -33,7 +33,7 @@ Agents that support MCP can run NBER-CLI without a checked-out repository:
 Agents that support skills should load the NBER-CLI skill from:
 
 ```text
-plugins/nber-cli/skills/nber-cli/SKILL.md
+plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
 The skill tells the agent when to use NBER-CLI, how to run `uvx nber-cli ...`, how to configure MCP, and how to interpret access errors.
