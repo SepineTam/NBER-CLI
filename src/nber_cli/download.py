@@ -127,12 +127,16 @@ async def download_multiple_papers(
     save_base: Path,
     *,
     restrict_dir: bool = True,
+    concurrency: int | None = None,
 ) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
     for pid in paper_ids:
         _validate_paper_id(pid)
     if restrict_dir:
         _validate_download_path(save_base / "x.pdf")
+
+    max_concurrency = concurrency if concurrency is not None else NBER_CLI_CONFIG.download_concurrency
+    semaphore = asyncio.Semaphore(max_concurrency)
 
     connector = _create_connector()
     timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
@@ -141,13 +145,17 @@ async def download_multiple_papers(
         timeout=timeout, connector=connector, headers=headers
     ) as base_session:
         async with _create_retry_client(base_session) as retry_client:
+            async def _download_limited(paper_id: str) -> Path:
+                async with semaphore:
+                    return await download_paper(
+                        paper_id=paper_id,
+                        save_base=save_base,
+                        session=retry_client,
+                        restrict_dir=restrict_dir,
+                    )
+
             tasks = [
-                download_paper(
-                    paper_id=paper_id,
-                    save_base=save_base,
-                    session=retry_client,
-                    restrict_dir=restrict_dir,
-                )
+                _download_limited(paper_id)
                 for paper_id in paper_ids
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)

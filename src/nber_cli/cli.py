@@ -77,6 +77,14 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="restrict",
         help="Restrict downloads to the current directory (default: true).",
     )
+    download_parser.add_argument(
+        "--concurrency",
+        "-c",
+        type=_parse_positive_int,
+        default=None,
+        dest="concurrency",
+        help="Maximum concurrent downloads. Overrides config value.",
+    )
 
     info_parser = subparsers.add_parser("info", help="Show information about an NBER paper.")
     info_parser.add_argument("paper_id", help="Paper ID, e.g. w1234, or 'cache' to manage cache.")
@@ -613,7 +621,14 @@ def main() -> None:
             return
 
         if args.batch_ids is not None:
-            batch_result = asyncio.run(download_multiple_papers(paper_ids, args.save_base, restrict_dir=restrict_dir))
+            batch_result = asyncio.run(
+                download_multiple_papers(
+                    paper_ids,
+                    args.save_base,
+                    restrict_dir=restrict_dir,
+                    concurrency=args.concurrency,
+                )
+            )
             _handle_download_errors(batch_result, paper_ids)
             if batch_result.failures:
                 raise SystemExit(1)

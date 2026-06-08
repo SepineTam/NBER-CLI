@@ -25,7 +25,7 @@ DEFAULT_INFO_CACHE_TTL_DAYS = 30
 
 _DEFAULT_CONFIG: dict[str, Any] = {
     "info": {"cache_enabled": DEFAULT_INFO_CACHE_ENABLED, "cache_ttl_days": DEFAULT_INFO_CACHE_TTL_DAYS},
-    "download": {"restrict_dir": True},
+    "download": {"restrict_dir": True, "concurrency": 3},
 }
 
 

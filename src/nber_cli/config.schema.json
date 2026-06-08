@@ -35,12 +35,18 @@
     },
     "download": {
       "type": "object",
-      "description": "Download security settings",
+      "description": "Download settings",
       "properties": {
         "restrict_dir": {
           "type": "boolean",
           "default": true,
           "description": "Restrict downloads to current working directory and its subdirectories"
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Maximum concurrent downloads"
         }
       }
     }

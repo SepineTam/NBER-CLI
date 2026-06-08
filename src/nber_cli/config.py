@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from . import config_store
 
@@ -22,6 +23,7 @@ class NBERCLIConfig:
     download_connection_limit_per_host: int = 10
     search_page_sizes: tuple[int, ...] = (20, 50, 100)
     restrict_dir: bool = True
+    download_concurrency: int = 3
 
     @property
     def request_attempts(self) -> int:
@@ -30,10 +32,14 @@ class NBERCLIConfig:
     @classmethod
     def from_config_file(cls) -> NBERCLIConfig:
         config = config_store.read_config()
+        kwargs: dict[str, Any] = {}
         restrict_dir = config_store.get_config_value(config, "download.restrict_dir")
         if isinstance(restrict_dir, bool):
-            return cls(restrict_dir=restrict_dir)
-        return cls()
+            kwargs["restrict_dir"] = restrict_dir
+        concurrency = config_store.get_config_value(config, "download.concurrency")
+        if isinstance(concurrency, int) and not isinstance(concurrency, bool):
+            kwargs["download_concurrency"] = concurrency
+        return cls(**kwargs)
 
 
 NBER_CLI_CONFIG = NBERCLIConfig.from_config_file()

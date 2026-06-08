@@ -382,7 +382,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True)
+        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True, concurrency=None)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
@@ -421,7 +421,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "w5678", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234", "w5678"], Path("/tmp"), restrict_dir=True)
+        mock_download.assert_called_once_with(["w1234", "w5678"], Path("/tmp"), restrict_dir=True, concurrency=None)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
         assert "Successfully downloaded w5678 to /tmp/w5678.pdf" in captured.out
@@ -443,7 +443,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True)
+        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True, concurrency=None)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
