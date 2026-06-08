@@ -124,7 +124,7 @@ class TestLoadTextSyncRetry:
 
         calls = [URLError("temporary failure"), URLError("temporary failure"), FakeResponse("ok")]
 
-        def fake_urlopen(request, timeout):
+        def fake_urlopen(request, timeout, context=None):
             result = calls.pop(0)
             if isinstance(result, Exception):
                 raise result

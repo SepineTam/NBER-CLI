@@ -13,6 +13,7 @@ import asyncio
 import html
 import json
 import re
+import ssl
 import time
 from datetime import date
 from typing import Any
@@ -99,11 +100,13 @@ def _load_json_sync(url: str, params: dict[str, Any]) -> dict[str, Any]:
 
 def _load_text_sync(url: str) -> str:
     request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    ssl_context = ssl.create_default_context()
+    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
     last_error: BaseException | None = None
 
     for attempt in range(NBER_CLI_CONFIG.request_attempts):
         try:
-            with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
+            with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS, context=ssl_context) as response:
                 encoding = response.headers.get_content_charset("utf-8")
                 return response.read().decode(encoding)
         except HTTPError as error:
