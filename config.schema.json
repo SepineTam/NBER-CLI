@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NBER-CLI Configuration",
+  "description": "Configuration schema for nber-cli",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "description": "Database schema version"
+    },
+    "info": {
+      "type": "object",
+      "description": "Info cache settings",
+      "properties": {
+        "cache_enabled": {
+          "type": "boolean",
+          "description": "Whether info cache is enabled"
+        },
+        "cache_ttl_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Info cache TTL in days"
+        }
+      }
+    },
+    "feed": {
+      "type": "object",
+      "description": "Feed database settings",
+      "properties": {
+        "db-path": {
+          "type": "string",
+          "description": "Path to the feed SQLite database"
+        }
+      }
+    },
+    "download": {
+      "type": "object",
+      "description": "Download security settings",
+      "properties": {
+        "restrict_dir": {
+          "type": "boolean",
+          "default": true,
+          "description": "Restrict downloads to current working directory and its subdirectories"
+        }
+      }
+    }
+  }
+}
