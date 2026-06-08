@@ -1235,10 +1235,10 @@ class TestConfigCommand:
         assert "expected boolean" in capsys.readouterr().err
 
 
-class TestDownloadNoRestrict:
+class TestDownloadRestrict:
     @patch("nber_cli.cli.download_paper_to_file", new_callable=AsyncMock)
-    def test_no_restrict_allows_outside_cwd(self, mock_download, capsys):
+    def test_restrict_false_allows_outside_cwd(self, mock_download, capsys):
         mock_download.return_value = Path("/tmp/w1234.pdf")
-        with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/w1234.pdf", "--no-restrict"]):
+        with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/w1234.pdf", "--restrict", "false"]):
             main()
         mock_download.assert_called_once_with("w1234", Path("/tmp/w1234.pdf"), restrict_dir=False)

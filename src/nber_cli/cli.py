@@ -71,10 +71,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     download_parser.add_argument("--batch", "-b", nargs="+", dest="batch_ids", help="Batch paper IDs.")
     download_parser.add_argument(
-        "--no-restrict",
-        action="store_true",
-        dest="no_restrict",
-        help="Allow downloading outside the current directory.",
+        "--restrict",
+        type=_parse_bool,
+        default=True,
+        dest="restrict",
+        help="Restrict downloads to the current directory (default: true).",
     )
 
     info_parser = subparsers.add_parser("info", help="Show information about an NBER paper.")
@@ -605,7 +606,7 @@ def main() -> None:
         if len(paper_ids) > 1 and args.file_path is not None:
             parser.error("--file/-f is only supported for single downloads, not for --batch or multiple IDs.")
 
-        restrict_dir = not args.no_restrict
+        restrict_dir = args.restrict
 
         if args.file_path is not None:
             _run_single_download(paper_ids[0], args.file_path, args.save_base, restrict_dir=restrict_dir)
