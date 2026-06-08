@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import html
 import sqlite3
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
+from defusedxml.common import EntitiesForbidden
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urldefrag
@@ -115,7 +116,7 @@ def fetch_feed(
 def parse_feed_xml(xml_text: str) -> list[NBERFeedItem]:
     try:
         root = ET.fromstring(xml_text)
-    except ET.ParseError as error:
+    except (ET.ParseError, EntitiesForbidden) as error:
         raise ValueError("invalid NBER RSS XML") from error
 
     items: list[NBERFeedItem] = []

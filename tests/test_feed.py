@@ -98,6 +98,46 @@ class TestParseFeedXml:
         assert items[0].url == "https://www.nber.org/papers/w35254"
         assert items[0].source_url == "https://www.nber.org/papers/w35254#fromrss"
 
+    def test_rejects_xml_with_external_entities(self):
+        malicious_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rss [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<rss version="2.0">
+<channel>
+<item>
+<title>Test -- by A</title>
+<description>&xxe;</description>
+<link>https://www.nber.org/papers/w00001#fromrss</link>
+<guid>https://www.nber.org/papers/w00001#fromrss</guid>
+</item>
+</channel>
+</rss>
+"""
+        with pytest.raises(ValueError, match="invalid NBER RSS XML"):
+            parse_feed_xml(malicious_xml)
+
+    def test_rejects_xml_with_billion_laughs(self):
+        malicious_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rss [
+  <!ENTITY lol "lol">
+  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+  <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+]>
+<rss version="2.0">
+<channel>
+<item>
+<title>Test -- by A</title>
+<description>&lol3;</description>
+<link>https://www.nber.org/papers/w00001#fromrss</link>
+<guid>https://www.nber.org/papers/w00001#fromrss</guid>
+</item>
+</channel>
+</rss>
+"""
+        with pytest.raises(ValueError, match="invalid NBER RSS XML"):
+            parse_feed_xml(malicious_xml)
+
 
 class TestInitFeedDatabase:
     def test_initializes_database_and_writes_config(self, tmp_path):
