@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +22,11 @@ LEGACY_DB_NAME = "feed.db"
 
 DEFAULT_INFO_CACHE_ENABLED = True
 DEFAULT_INFO_CACHE_TTL_DAYS = 30
+
+_DEFAULT_CONFIG: dict[str, Any] = {
+    "info": {"cache_enabled": DEFAULT_INFO_CACHE_ENABLED, "cache_ttl_days": DEFAULT_INFO_CACHE_TTL_DAYS},
+    "download": {"restrict_dir": True},
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,18 +47,88 @@ def legacy_db_path() -> Path:
     return Path.home() / NBER_CLI_DIR_NAME / LEGACY_DB_NAME
 
 
+def _inject_defaults(config: dict[str, Any]) -> None:
+    for key, default_value in _DEFAULT_CONFIG.items():
+        if key not in config:
+            config[key] = copy.deepcopy(default_value)
+            continue
+        if isinstance(default_value, dict) and isinstance(config.get(key), dict):
+            for sub_key, sub_default in default_value.items():
+                if sub_key not in config[key]:
+                    config[key][sub_key] = copy.deepcopy(sub_default)
+
+
+def get_config_value(config: dict[str, Any], dot_path: str) -> Any:
+    keys = dot_path.split(".")
+    current: Any = config
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return current
+
+
+def set_config_value(config: dict[str, Any], dot_path: str, value: Any) -> None:
+    keys = dot_path.split(".")
+    current = config
+    for key in keys[:-1]:
+        if key not in current or not isinstance(current[key], dict):
+            current[key] = {}
+        current = current[key]
+    current[keys[-1]] = value
+
+
+def validate_config(config: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    schema = _load_schema()
+    if schema is None:
+        return errors
+    _validate_against_schema(config, schema, "", errors)
+    return errors
+
+
+def _load_schema() -> dict[str, Any] | None:
+    import importlib.resources
+
+    try:
+        schema_text = importlib.resources.files("nber_cli").joinpath("config.schema.json").read_text()
+        return json.loads(schema_text)
+    except (OSError, json.JSONDecodeError, ImportError):
+        return None
+
+
+def _validate_against_schema(
+    value: Any,
+    schema: dict[str, Any],
+    path: str,
+    errors: list[str],
+) -> None:
+    schema_type = schema.get("type")
+    if schema_type == "object" and isinstance(value, dict):
+        properties = schema.get("properties", {})
+        for key, prop_schema in properties.items():
+            if key in value:
+                _validate_against_schema(value[key], prop_schema, f"{path}.{key}" if path else key, errors)
+    elif schema_type == "integer" and value is not None and not isinstance(value, int):
+        errors.append(f"{path}: expected integer, got {type(value).__name__}")
+    elif schema_type == "boolean" and value is not None and not isinstance(value, bool):
+        errors.append(f"{path}: expected boolean, got {type(value).__name__}")
+    elif schema_type == "string" and value is not None and not isinstance(value, str):
+        errors.append(f"{path}: expected string, got {type(value).__name__}")
+
+
 def read_config(config_path: Path | None = None) -> dict[str, Any]:
     resolved_path = config_path or default_config_path()
     if not resolved_path.exists():
-        return {}
+        config: dict[str, Any] = {}
+    else:
+        try:
+            loaded = json.loads(resolved_path.read_text())
+        except (OSError, json.JSONDecodeError):
+            loaded = None
+        config = loaded if isinstance(loaded, dict) else {}
 
-    try:
-        config = json.loads(resolved_path.read_text())
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-    if not isinstance(config, dict):
-        return {}
+    _inject_defaults(config)
     return config
 
 

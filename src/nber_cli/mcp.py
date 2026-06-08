@@ -86,14 +86,22 @@ async def download_paper(paper_id: str, output_path: Optional[str] = None) -> bo
 
     Args:
         paper_id: Paper ID, e.g. 'w1234' or '1234'
-        output_path: Explicit output file path. If not provided, saves as <paper_id>.pdf in current directory.
+        output_path: Explicit output file path, must be within the current directory. If not provided, saves as <paper_id>.pdf in current directory.
 
     Returns:
         True if download succeeds. On failure, an exception is raised and propagated to the caller.
     """
+    nber_id = _parse_paper_id(paper_id)
+    normalized_id = f"w{nber_id}"
+
     if output_path:
-        await download_paper_to_file(paper_id, Path(output_path))
+        target = Path(output_path)
+        try:
+            target.absolute().relative_to(Path.cwd().absolute())
+        except ValueError:
+            raise ValueError("MCP download only allows paths within the current directory")
+        await download_paper_to_file(normalized_id, target, restrict_dir=True)
     else:
-        await download_paper_to_dir(paper_id, Path.cwd())
+        await download_paper_to_dir(normalized_id, Path.cwd(), restrict_dir=True)
 
     return True

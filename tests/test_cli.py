@@ -381,7 +381,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234"], Path("/tmp"))
+        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
@@ -390,7 +390,7 @@ class TestMainEntrypoint:
         mock_download.return_value = Path("/tmp/paper.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/paper.pdf"]):
             main()
-        mock_download.assert_called_once_with("w1234", Path("/tmp/paper.pdf"))
+        mock_download.assert_called_once_with("w1234", Path("/tmp/paper.pdf"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/paper.pdf" in captured.out
 
@@ -399,7 +399,7 @@ class TestMainEntrypoint:
         mock_download.return_value = Path("/tmp/w1234.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with("w1234", Path("/tmp"))
+        mock_download.assert_called_once_with("w1234", Path("/tmp"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
@@ -408,7 +408,7 @@ class TestMainEntrypoint:
         mock_download.return_value = Path("/tmp/custom.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/custom.pdf"]):
             main()
-        mock_download.assert_called_once_with("w1234", Path("/tmp/custom.pdf"))
+        mock_download.assert_called_once_with("w1234", Path("/tmp/custom.pdf"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/custom.pdf" in captured.out
 
@@ -420,7 +420,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "w5678", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234", "w5678"], Path("/tmp"))
+        mock_download.assert_called_once_with(["w1234", "w5678"], Path("/tmp"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
         assert "Successfully downloaded w5678 to /tmp/w5678.pdf" in captured.out
@@ -430,7 +430,7 @@ class TestMainEntrypoint:
         mock_download.return_value = Path("/tmp/w1234.pdf")
         with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with("w1234", Path("/tmp"))
+        mock_download.assert_called_once_with("w1234", Path("/tmp"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
@@ -442,7 +442,7 @@ class TestMainEntrypoint:
         mock_download.return_value = mock_result
         with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "--save-base", "/tmp"]):
             main()
-        mock_download.assert_called_once_with(["w1234"], Path("/tmp"))
+        mock_download.assert_called_once_with(["w1234"], Path("/tmp"), restrict_dir=True)
         captured = capsys.readouterr()
         assert "Successfully downloaded w1234 to /tmp/w1234.pdf" in captured.out
 
@@ -771,6 +771,7 @@ class TestMainEntrypointInfoCache:
 
         db_path = tmp_path / "nber.db"
         db.init_database(db_path)
+        config_store.set_info_cache_enabled(True)
         config_store.set_info_cache_ttl_days(12)
         db.write_info_cache(
             db_path,
@@ -1189,3 +1190,55 @@ class TestMainEntrypointSearch:
                 main()
 
         assert exc_info.value.code == 2
+
+
+class TestConfigCommand:
+    def test_config_show_prints_json(self, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "config", "show"]):
+            main()
+        output = capsys.readouterr().out
+        config = json.loads(output)
+        assert "info" in config
+        assert "download" in config
+
+    def test_config_get_returns_value(self, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "config", "get", "download.restrict_dir"]):
+            main()
+        assert capsys.readouterr().out.strip() == "true"
+
+    def test_config_set_writes_to_file(self, isolated_nber_home, capsys):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with patch.object(sys, "argv", ["nber-cli", "config", "set", "download.restrict_dir", "false"]):
+            main()
+
+        assert "Set download.restrict_dir = False" in capsys.readouterr().out
+        config = json.loads(config_path.read_text())
+        assert config["download"]["restrict_dir"] is False
+
+    def test_config_verify_passes(self, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+            main()
+        assert "Configuration is valid." in capsys.readouterr().out
+
+    def test_config_verify_fails_on_bad_type(self, isolated_nber_home, capsys):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(json.dumps({"info": {"cache_enabled": "bad"}}))
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+                main()
+
+        assert exc_info.value.code == 1
+        assert "expected boolean" in capsys.readouterr().err
+
+
+class TestDownloadNoRestrict:
+    @patch("nber_cli.cli.download_paper_to_file", new_callable=AsyncMock)
+    def test_no_restrict_allows_outside_cwd(self, mock_download, capsys):
+        mock_download.return_value = Path("/tmp/w1234.pdf")
+        with patch.object(sys, "argv", ["nber-cli", "download", "w1234", "--file", "/tmp/w1234.pdf", "--no-restrict"]):
+            main()
+        mock_download.assert_called_once_with("w1234", Path("/tmp/w1234.pdf"), restrict_dir=False)

@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import ssl
 from pathlib import Path
 from typing import cast
@@ -23,6 +24,24 @@ from .config import NBER_CLI_CONFIG
 from .core.models import DownloadBatchResult, DownloadFailure
 
 _USER_AGENT = UserAgent()
+
+
+def _is_within_cwd(path: Path) -> bool:
+    try:
+        path.absolute().relative_to(Path.cwd().absolute())
+        return True
+    except ValueError:
+        return False
+
+
+def _validate_paper_id(paper_id: str) -> None:
+    if not re.fullmatch(r"w?\d+", paper_id):
+        raise ValueError(f"invalid paper ID: {paper_id}")
+
+
+def _validate_download_path(path: Path) -> None:
+    if not _is_within_cwd(path):
+        raise ValueError(f"download path {path} is outside the current directory")
 
 
 def _create_connector() -> TCPConnector:
@@ -43,13 +62,21 @@ def _create_retry_client(session: ClientSession) -> RetryClient:
 
 
 async def download_paper_to_file(
-    paper_id: str, output_file: Path, session: ClientSession | RetryClient | None = None
+    paper_id: str,
+    output_file: Path,
+    session: ClientSession | RetryClient | None = None,
+    *,
+    restrict_dir: bool = True,
 ) -> Path:
     """Download a single NBER paper to an explicit output file path.
 
     If *session* is provided, it is reused. Otherwise a new session is created
     and closed before the function returns.
     """
+    _validate_paper_id(paper_id)
+    if restrict_dir:
+        _validate_download_path(output_file)
+
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
@@ -75,22 +102,38 @@ async def download_paper_to_file(
 
 
 async def download_paper(
-    paper_id: str, save_base: Path, session: ClientSession | RetryClient | None = None
+    paper_id: str,
+    save_base: Path,
+    session: ClientSession | RetryClient | None = None,
+    *,
+    restrict_dir: bool = True,
 ) -> Path:
     """Download a single paper into a base directory using <paper_id>.pdf naming.
 
     If *session* is provided, it is reused. Otherwise a new session is created
     and closed before the function returns.
     """
+    _validate_paper_id(paper_id)
+    output_file = save_base / f"{paper_id}.pdf"
+    if restrict_dir:
+        _validate_download_path(output_file)
     return await download_paper_to_file(
-        paper_id, save_base / f"{paper_id}.pdf", session=session
+        paper_id, output_file, session=session, restrict_dir=restrict_dir
     )
 
 
 async def download_multiple_papers(
-    paper_ids: list[str], save_base: Path
+    paper_ids: list[str],
+    save_base: Path,
+    *,
+    restrict_dir: bool = True,
 ) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
+    for pid in paper_ids:
+        _validate_paper_id(pid)
+    if restrict_dir:
+        _validate_download_path(save_base / "x.pdf")
+
     connector = _create_connector()
     timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
     headers = {"User-Agent": _USER_AGENT.random}
@@ -99,7 +142,12 @@ async def download_multiple_papers(
     ) as base_session:
         async with _create_retry_client(base_session) as retry_client:
             tasks = [
-                download_paper(paper_id=paper_id, save_base=save_base, session=retry_client)
+                download_paper(
+                    paper_id=paper_id,
+                    save_base=save_base,
+                    session=retry_client,
+                    restrict_dir=restrict_dir,
+                )
                 for paper_id in paper_ids
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)

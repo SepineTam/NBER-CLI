@@ -70,6 +70,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Target directory to save PDF files. Defaults to current working directory.",
     )
     download_parser.add_argument("--batch", "-b", nargs="+", dest="batch_ids", help="Batch paper IDs.")
+    download_parser.add_argument(
+        "--no-restrict",
+        action="store_true",
+        dest="no_restrict",
+        help="Allow downloading outside the current directory.",
+    )
 
     info_parser = subparsers.add_parser("info", help="Show information about an NBER paper.")
     info_parser.add_argument("paper_id", help="Paper ID, e.g. w1234, or 'cache' to manage cache.")
@@ -258,6 +264,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Port for streamable_http transport (default: 8000).",
     )
 
+    config_parser = subparsers.add_parser("config", help="Manage configuration.")
+    config_subparsers = config_parser.add_subparsers(dest="config_command")
+
+    config_subparsers.add_parser("show", help="Print current configuration.")
+
+    config_get_parser = config_subparsers.add_parser("get", help="Get a configuration value.")
+    config_get_parser.add_argument("key", help="Dot-separated key, e.g. download.restrict_dir")
+
+    config_set_parser = config_subparsers.add_parser("set", help="Set a configuration value.")
+    config_set_parser.add_argument("key", help="Dot-separated key, e.g. download.restrict_dir")
+    config_set_parser.add_argument("value", help="Value to set.")
+
+    config_subparsers.add_parser("verify", help="Validate configuration against schema.")
+
     return parser
 
 
@@ -306,6 +326,18 @@ def _parse_positive_int(value: str) -> int:
     return parsed
 
 
+def _infer_config_value(value: str) -> bool | int | str:
+    lowered = value.strip().lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
 def _print_download_success(paper_id: str, output_file: Path) -> None:
     print(f"Successfully downloaded {paper_id} to {output_file}")
 
@@ -337,12 +369,12 @@ def _format_download_error(paper_id: str, error: BaseException) -> str:
     return f"Failed to download {paper_id}: {error_message}"
 
 
-def _run_single_download(paper_id: str, output_file: Path | None, save_base: Path) -> None:
+def _run_single_download(paper_id: str, output_file: Path | None, save_base: Path, *, restrict_dir: bool = True) -> None:
     try:
         if output_file is not None:
-            downloaded_file = asyncio.run(download_paper_to_file(paper_id, output_file))
+            downloaded_file = asyncio.run(download_paper_to_file(paper_id, output_file, restrict_dir=restrict_dir))
         else:
-            downloaded_file = asyncio.run(download_paper(paper_id, save_base))
+            downloaded_file = asyncio.run(download_paper(paper_id, save_base, restrict_dir=restrict_dir))
     except (Exception, asyncio.CancelledError) as error:
         db.record_download(None, paper_id, "failed", error=str(error))
         print(_format_download_error(paper_id, error), file=sys.stderr)
@@ -573,18 +605,20 @@ def main() -> None:
         if len(paper_ids) > 1 and args.file_path is not None:
             parser.error("--file/-f is only supported for single downloads, not for --batch or multiple IDs.")
 
+        restrict_dir = not args.no_restrict
+
         if args.file_path is not None:
-            _run_single_download(paper_ids[0], args.file_path, args.save_base)
+            _run_single_download(paper_ids[0], args.file_path, args.save_base, restrict_dir=restrict_dir)
             return
 
         if args.batch_ids is not None:
-            batch_result = asyncio.run(download_multiple_papers(paper_ids, args.save_base))
+            batch_result = asyncio.run(download_multiple_papers(paper_ids, args.save_base, restrict_dir=restrict_dir))
             _handle_download_errors(batch_result, paper_ids)
             if batch_result.failures:
                 raise SystemExit(1)
             return
 
-        _run_single_download(paper_ids[0], None, args.save_base)
+        _run_single_download(paper_ids[0], None, args.save_base, restrict_dir=restrict_dir)
         return
 
     if args.command == "info":
@@ -697,6 +731,41 @@ def main() -> None:
                 _print_json(feed_results(result))
             else:
                 print(feed_results_text(result))
+            return
+
+    if args.command == "config":
+        if args.config_command == "show" or args.config_command is None:
+            config = config_store.read_config()
+            print(json.dumps(config, ensure_ascii=False, indent=2))
+            return
+        if args.config_command == "get":
+            config = config_store.read_config()
+            value = config_store.get_config_value(config, args.key)
+            if value is None:
+                print("")
+                return
+            if isinstance(value, bool):
+                print(str(value).lower())
+            elif isinstance(value, (str, int)):
+                print(value)
+            else:
+                print(json.dumps(value, ensure_ascii=False))
+            return
+        if args.config_command == "set":
+            config = config_store.read_config()
+            typed_value = _infer_config_value(args.value)
+            config_store.set_config_value(config, args.key, typed_value)
+            config_store.write_config(config)
+            print(f"Set {args.key} = {typed_value}")
+            return
+        if args.config_command == "verify":
+            config = config_store.read_config()
+            errors = config_store.validate_config(config)
+            if errors:
+                for error in errors:
+                    print(error, file=sys.stderr)
+                raise SystemExit(1)
+            print("Configuration is valid.")
             return
 
     if args.command == "mcp-server":

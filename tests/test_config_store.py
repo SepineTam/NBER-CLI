@@ -86,3 +86,80 @@ class TestInfoCacheSettings:
     def test_set_info_cache_ttl_days_rejects_non_positive_value(self):
         with pytest.raises(ValueError, match="positive"):
             config_store.set_info_cache_ttl_days(0)
+
+
+class TestNestedConfigOperations:
+    def test_get_nested_value(self):
+        config = {"download": {"restrict_dir": True}}
+        assert config_store.get_config_value(config, "download.restrict_dir") is True
+        assert config_store.get_config_value(config, "download") == {"restrict_dir": True}
+
+    def test_get_missing_returns_none(self):
+        config = {"download": {"restrict_dir": True}}
+        assert config_store.get_config_value(config, "download.missing") is None
+        assert config_store.get_config_value(config, "nonexistent.key") is None
+
+    def test_set_nested_value_creates_intermediate_dicts(self):
+        config: dict = {}
+        config_store.set_config_value(config, "a.b.c", 42)
+        assert config == {"a": {"b": {"c": 42}}}
+
+    def test_set_overwrites_existing_value(self):
+        config = {"download": {"restrict_dir": True}}
+        config_store.set_config_value(config, "download.restrict_dir", False)
+        assert config["download"]["restrict_dir"] is False
+
+
+class TestInjectDefaults:
+    def test_injects_missing_top_level_keys(self):
+        config: dict = {}
+        config_store._inject_defaults(config)
+        assert "info" in config
+        assert "download" in config
+        assert config["download"]["restrict_dir"] is True
+
+    def test_injects_missing_nested_keys_without_overwriting(self):
+        config = {"info": {"cache_enabled": False}}
+        config_store._inject_defaults(config)
+        assert config["info"]["cache_enabled"] is False
+        assert config["info"]["cache_ttl_days"] == 30
+
+    def test_deep_copy_prevents_pollution(self):
+        config1: dict = {}
+        config_store._inject_defaults(config1)
+        config1["info"]["cache_enabled"] = False
+
+        config2: dict = {}
+        config_store._inject_defaults(config2)
+        assert config2["info"]["cache_enabled"] is True
+
+
+class TestValidateConfig:
+    def test_valid_config_passes(self):
+        config = {
+            "schema_version": 2,
+            "info": {"cache_enabled": True, "cache_ttl_days": 30},
+            "feed": {"db-path": "/tmp/nber.db"},
+            "download": {"restrict_dir": True},
+        }
+        errors = config_store.validate_config(config)
+        assert errors == []
+
+    def test_detects_wrong_types(self):
+        config = {
+            "info": {"cache_enabled": "yes", "cache_ttl_days": "thirty"},
+            "feed": {"db-path": 123},
+        }
+        errors = config_store.validate_config(config)
+        assert len(errors) == 3
+        assert any("info.cache_enabled: expected boolean" in e for e in errors)
+        assert any("info.cache_ttl_days: expected integer" in e for e in errors)
+        assert any("feed.db-path: expected string" in e for e in errors)
+
+    def test_empty_config_passes(self):
+        errors = config_store.validate_config({})
+        assert errors == []
+
+    def test_returns_empty_when_config_is_valid(self):
+        errors = config_store.validate_config({"info": {"cache_enabled": True}})
+        assert errors == []

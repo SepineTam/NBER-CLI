@@ -6,9 +6,14 @@ from .cli import main
 from .config import NBER_CLI_CONFIG, NBERCLIConfig
 from .config_store import (
     InfoCacheSettings,
+    get_config_value,
     get_info_cache_settings,
+    read_config,
+    set_config_value,
     set_info_cache_enabled,
     set_info_cache_ttl_days,
+    validate_config,
+    write_config,
 )
 from .core.models import (
     DownloadBatchResult,
@@ -68,6 +73,7 @@ __all__ = [
     "download_paper_to_file",
     "feed_results",
     "fetch_feed",
+    "get_config_value",
     "get_database_path",
     "get_info_cache_settings",
     "get_info_cache_ttl_days",
@@ -82,6 +88,7 @@ __all__ = [
     "migrate_database",
     "migrate_feed_database",
     "parse_feed_xml",
+    "read_config",
     "read_info_cache",
     "record_download",
     "record_info",
@@ -89,8 +96,11 @@ __all__ = [
     "related",
     "search_nber",
     "search_results",
+    "set_config_value",
     "set_info_cache_enabled",
     "set_info_cache_ttl_days",
     "touch_info_cache",
+    "validate_config",
+    "write_config",
     "write_info_cache",
 ]

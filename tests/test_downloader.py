@@ -115,7 +115,7 @@ class TestDownloadPaperToFile:
             with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
-                    result = await download_paper_to_file("w1234", output_file)
+                    result = await download_paper_to_file("w1234", output_file, restrict_dir=False)
 
         assert result == output_file
         assert output_file.read_bytes() == b"pdf bytes"
@@ -131,7 +131,7 @@ class TestDownloadPaperToFile:
             with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
-                    result = await download_paper_to_file("w1234", output_file)
+                    result = await download_paper_to_file("w1234", output_file, restrict_dir=False)
 
         assert result == output_file
         assert output_file.exists()
@@ -149,7 +149,7 @@ class TestDownloadPaperToFile:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
-                        await download_paper_to_file("w1234", output_file)
+                        await download_paper_to_file("w1234", output_file, restrict_dir=False)
                     assert exc_info.value.status == 404
 
     @pytest.mark.asyncio
@@ -165,7 +165,7 @@ class TestDownloadPaperToFile:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
-                        await download_paper_to_file("w1234", output_file)
+                        await download_paper_to_file("w1234", output_file, restrict_dir=False)
                     assert exc_info.value.status == 500
 
     @pytest.mark.asyncio
@@ -180,7 +180,7 @@ class TestDownloadPaperToFile:
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(asyncio.TimeoutError):
-                        await download_paper_to_file("w1234", output_file)
+                        await download_paper_to_file("w1234", output_file, restrict_dir=False)
 
     @pytest.mark.asyncio
     async def test_read_error(self, tmp_path):
@@ -194,7 +194,7 @@ class TestDownloadPaperToFile:
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(ConnectionError):
-                        await download_paper_to_file("w1234", output_file)
+                        await download_paper_to_file("w1234", output_file, restrict_dir=False)
 
     @pytest.mark.asyncio
     async def test_url_construction(self, tmp_path):
@@ -207,7 +207,7 @@ class TestDownloadPaperToFile:
             with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
-                    await download_paper_to_file("w9999", output_file)
+                    await download_paper_to_file("w9999", output_file, restrict_dir=False)
 
         assert len(fake_session.get_calls) == 1
         assert fake_session.get_calls[0] == "https://www.nber.org/papers/w9999.pdf"
@@ -223,7 +223,7 @@ class TestDownloadPaperToFile:
             with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "TestAgent/1.0"
-                    await download_paper_to_file("w1234", output_file)
+                    await download_paper_to_file("w1234", output_file, restrict_dir=False)
 
         mock_client_session.assert_called_once()
         call_kwargs = mock_client_session.call_args.kwargs
@@ -237,7 +237,7 @@ class TestDownloadPaperToFile:
 
         with patch("nber_cli.download._USER_AGENT") as mock_ua:
             mock_ua.random = "Mozilla/5.0"
-            result = await download_paper_to_file("w1234", output_file, session=fake_session)
+            result = await download_paper_to_file("w1234", output_file, session=fake_session, restrict_dir=False)
 
         assert result == output_file
         assert output_file.read_bytes() == b"session pdf"
@@ -248,18 +248,18 @@ class TestDownloadPaper:
     async def test_download_paper_uses_correct_filename(self, tmp_path):
         with patch("nber_cli.download.download_paper_to_file") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
-            result = await download_paper("w1234", tmp_path)
+            result = await download_paper("w1234", tmp_path, restrict_dir=False)
             assert result == tmp_path / "w1234.pdf"
-            mock_download.assert_called_once_with("w1234", tmp_path / "w1234.pdf", session=None)
+            mock_download.assert_called_once_with("w1234", tmp_path / "w1234.pdf", session=None, restrict_dir=False)
 
     @pytest.mark.asyncio
     async def test_download_paper_with_session(self, tmp_path):
         fake_session = MagicMock()
         with patch("nber_cli.download.download_paper_to_file") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
-            result = await download_paper("w1234", tmp_path, session=fake_session)
+            result = await download_paper("w1234", tmp_path, session=fake_session, restrict_dir=False)
             assert result == tmp_path / "w1234.pdf"
-            mock_download.assert_called_once_with("w1234", tmp_path / "w1234.pdf", session=fake_session)
+            mock_download.assert_called_once_with("w1234", tmp_path / "w1234.pdf", session=fake_session, restrict_dir=False)
 
 
 class TestDownloadMultiplePapers:
@@ -270,7 +270,7 @@ class TestDownloadMultiplePapers:
                 tmp_path / "w1234.pdf",
                 tmp_path / "w5678.pdf",
             ]
-            result = await download_multiple_papers(["w1234", "w5678"], tmp_path)
+            result = await download_multiple_papers(["w1234", "w5678"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 2
             assert len(result.failures) == 0
             assert result.paths == [tmp_path / "w1234.pdf", tmp_path / "w5678.pdf"]
@@ -282,7 +282,7 @@ class TestDownloadMultiplePapers:
                 Exception("network error"),
                 Exception("timeout"),
             ]
-            result = await download_multiple_papers(["w1234", "w5678"], tmp_path)
+            result = await download_multiple_papers(["w1234", "w5678"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 0
             assert len(result.failures) == 2
             assert result.failures[0].paper_id == "w1234"
@@ -295,7 +295,7 @@ class TestDownloadMultiplePapers:
                 tmp_path / "w1234.pdf",
                 Exception("not found"),
             ]
-            result = await download_multiple_papers(["w1234", "w5678"], tmp_path)
+            result = await download_multiple_papers(["w1234", "w5678"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 1
             assert len(result.failures) == 1
             assert result.paths[0] == tmp_path / "w1234.pdf"
@@ -306,13 +306,13 @@ class TestDownloadMultiplePapers:
     async def test_single_paper(self, tmp_path):
         with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.return_value = tmp_path / "w1234.pdf"
-            result = await download_multiple_papers(["w1234"], tmp_path)
+            result = await download_multiple_papers(["w1234"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 1
             assert len(result.failures) == 0
 
     @pytest.mark.asyncio
     async def test_empty_list(self, tmp_path):
-        result = await download_multiple_papers([], tmp_path)
+        result = await download_multiple_papers([], tmp_path, restrict_dir=False)
         assert len(result.paths) == 0
         assert len(result.failures) == 0
 
@@ -323,7 +323,7 @@ class TestDownloadMultiplePapers:
                 tmp_path / "w1234.pdf",
                 asyncio.CancelledError("task cancelled"),
             ]
-            result = await download_multiple_papers(["w1234", "w5678"], tmp_path)
+            result = await download_multiple_papers(["w1234", "w5678"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 1
             assert len(result.failures) == 1
             assert result.failures[0].paper_id == "w5678"
@@ -333,13 +333,13 @@ class TestDownloadMultiplePapers:
     async def test_concurrent_execution(self, tmp_path):
         call_order = []
 
-        async def slow_download(paper_id, save_base, session=None):
+        async def slow_download(paper_id, save_base, session=None, *, restrict_dir=True):
             call_order.append(paper_id)
             await asyncio.sleep(0.01)
             return save_base / f"{paper_id}.pdf"
 
         with patch("nber_cli.download.download_paper", side_effect=slow_download):
-            result = await download_multiple_papers(["w1", "w2", "w3"], tmp_path)
+            result = await download_multiple_papers(["w1", "w2", "w3"], tmp_path, restrict_dir=False)
             assert len(result.paths) == 3
             assert len(result.failures) == 0
 
@@ -356,6 +356,57 @@ class TestDownloadBatchResult:
         result = DownloadBatchResult(paths=[], failures=[])
         assert result.paths == []
         assert result.failures == []
+
+
+class TestPathValidation:
+    def test_validate_paper_id_accepts_w_prefix(self):
+        from nber_cli.download import _validate_paper_id
+        _validate_paper_id("w1234")  # should not raise
+
+    def test_validate_paper_id_accepts_bare_digits(self):
+        from nber_cli.download import _validate_paper_id
+        _validate_paper_id("1234")  # should not raise
+
+    def test_validate_paper_id_rejects_path_traversal(self):
+        from nber_cli.download import _validate_paper_id
+        with pytest.raises(ValueError, match="invalid paper ID"):
+            _validate_paper_id("w1234/../etc")
+
+    def test_validate_download_path_rejects_outside_cwd(self):
+        from nber_cli.download import _validate_download_path
+        with pytest.raises(ValueError, match="outside the current directory"):
+            _validate_download_path(Path("/tmp/outside.pdf"))
+
+    def test_validate_download_path_allows_cwd_subdir(self):
+        from nber_cli.download import _validate_download_path
+        _validate_download_path(Path("sub") / "dir" / "w1234.pdf")  # should not raise
+
+    def test_download_paper_to_file_restricts_by_default(self, tmp_path):
+        output_file = tmp_path / "w1234.pdf"
+        with pytest.raises(ValueError, match="outside the current directory"):
+            asyncio.run(download_paper_to_file("w1234", output_file))
+
+    def test_download_paper_to_file_allows_any_path_with_restrict_false(self, tmp_path):
+        output_file = tmp_path / "w1234.pdf"
+        fake_response = FakeResponse(status=200, content=b"pdf bytes")
+        fake_session = FakeClientSession(response=fake_response)
+
+        with patch("nber_cli.download.ClientSession", return_value=fake_session):
+            with patch("nber_cli.download._create_retry_client") as mock_retry:
+                mock_retry.return_value = FakeRetryClient(fake_session)
+                with patch("nber_cli.download._USER_AGENT") as mock_ua:
+                    mock_ua.random = "Mozilla/5.0"
+                    result = asyncio.run(download_paper_to_file("w1234", output_file, restrict_dir=False))
+
+        assert result == output_file
+
+    def test_download_paper_restricts_by_default(self, tmp_path):
+        with pytest.raises(ValueError, match="outside the current directory"):
+            asyncio.run(download_paper("w1234", tmp_path))
+
+    def test_download_multiple_papers_restricts_by_default(self, tmp_path):
+        with pytest.raises(ValueError, match="outside the current directory"):
+            asyncio.run(download_multiple_papers(["w1234"], tmp_path))
 
 
 class TestDownloadFailure:
