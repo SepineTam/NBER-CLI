@@ -5,7 +5,8 @@
 [![Lint](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml)
 [![Docs](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/docs.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-
+[![PyPI version](https://img.shields.io/pypi/v/nber-cli.svg)](https://pypi.org/project/nber-cli/)
+[![PyPI Downloads](https://static.pepy.tech/badge/nber-cli)](https://pepy.tech/projects/nber-cli)
 [English](README.md) | [中文文档](docs/zh/index.md)
 
 > **NBER** 是 [美国国家经济研究局](https://www.nber.org)（National Bureau of Economic Research）的注册商标。本项目是独立的开源工具，与美国国家经济研究局**不存在任何附属、认可或赞助关系**。使用本项目即视为同意[使用政策](docs/zh/policy.md)。
