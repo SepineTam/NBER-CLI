@@ -21,6 +21,7 @@ from nber_cli.feed import (
     parse_feed_xml,
 )
 
+
 SAMPLE_FEED_XML = """<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
@@ -141,7 +142,7 @@ class TestParseFeedXml:
 
 class TestInitFeedDatabase:
     def test_initializes_database_and_writes_config(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         db_path = tmp_path / "feed.sqlite"
 
         with patch("nber_cli.db.Path.home", return_value=home):
@@ -167,7 +168,7 @@ class TestInitFeedDatabase:
 
 class TestMigrateFeedDatabase:
     def test_migrates_configured_database_and_updates_config(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
@@ -185,7 +186,7 @@ class TestMigrateFeedDatabase:
         assert config["feed"]["db-path"] == str(new_db_path)
 
     def test_migrates_default_database_when_config_is_missing(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         new_db_path = tmp_path / "new" / "feed.db"
 
         with patch("nber_cli.db.Path.home", return_value=home):
@@ -201,7 +202,7 @@ class TestMigrateFeedDatabase:
         assert new_db_path.exists()
 
     def test_migrates_sqlite_sidecar_files(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
@@ -220,7 +221,7 @@ class TestMigrateFeedDatabase:
         assert (tmp_path / "new" / "feed.db-shm").read_text() == "shm"
 
     def test_rejects_missing_source_database(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         new_db_path = tmp_path / "new" / "feed.db"
 
         with patch("nber_cli.db.Path.home", return_value=home):
@@ -228,7 +229,7 @@ class TestMigrateFeedDatabase:
                 migrate_feed_database(new_db_path)
 
     def test_rejects_existing_target_database(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         old_db_path = tmp_path / "old" / "feed.db"
         new_db_path = tmp_path / "new" / "feed.db"
 
@@ -244,7 +245,7 @@ class TestMigrateFeedDatabase:
         assert new_db_path.read_text() == "existing"
 
     def test_rejects_same_database_path(self, tmp_path):
-        home = tmp_path / "home"
+        home = tmp_path
         db_path = tmp_path / "feed.db"
 
         with patch("nber_cli.db.Path.home", return_value=home):

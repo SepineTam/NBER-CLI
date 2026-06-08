@@ -16,6 +16,13 @@ import pytest
 from nber_cli import db
 
 
+@pytest.fixture(autouse=True)
+def mock_home_for_db(tmp_path):
+    with patch("nber_cli.db.Path.home", return_value=tmp_path):
+        yield
+
+
+
 @pytest.fixture
 def db_path(tmp_path):
     path = tmp_path / "nber.db"

@@ -30,6 +30,7 @@ from nber_cli.cli import (
 )
 
 
+
 class TestGetVersion:
     def test_returns_version_when_package_installed(self):
         with patch("nber_cli.cli.get_version", return_value="0.3.0"):

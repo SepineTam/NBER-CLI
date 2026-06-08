@@ -27,8 +27,18 @@ LEGACY_DB_NAME = config_store.LEGACY_DB_NAME
 SCHEMA_VERSION = 2
 
 
+def _validate_db_path(path: Path) -> None:
+    if sys.platform == "win32":
+        return
+    try:
+        path.absolute().relative_to(Path.home().absolute())
+    except ValueError:
+        raise ValueError(f"database path must be within the home directory: {path}")
+
+
 def init_database(db_path: Path | str | None = None) -> Path:
     resolved_db_path = _normalize_db_path(db_path or _configured_db_path())
+    _validate_db_path(resolved_db_path)
     _ensure_full_schema(resolved_db_path)
     _write_config(resolved_db_path, SCHEMA_VERSION)
     return resolved_db_path
@@ -37,6 +47,7 @@ def init_database(db_path: Path | str | None = None) -> Path:
 def migrate_database(new_db_path: Path | str) -> tuple[Path, Path]:
     old_db_path = get_database_path()
     resolved_new_db_path = _normalize_db_path(new_db_path)
+    _validate_db_path(resolved_new_db_path)
 
     if old_db_path == resolved_new_db_path:
         raise ValueError("new database path must be different from current path")

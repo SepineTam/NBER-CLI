@@ -19,6 +19,13 @@ from nber_cli.config_store import InfoCacheSettings
 from nber_cli.core.models import NBER
 
 
+@pytest.fixture(autouse=True)
+def mock_home_for_db(tmp_path):
+    with patch("nber_cli.db.Path.home", return_value=tmp_path):
+        yield
+
+
+
 @pytest.fixture
 def db_path(tmp_path):
     path = tmp_path / "nber.db"

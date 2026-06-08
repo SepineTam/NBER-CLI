@@ -9,11 +9,14 @@
 
 import json
 import sqlite3
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from nber_cli import db
+
+
 
 EXPECTED_TABLES = {
     "feed_items",
@@ -52,7 +55,7 @@ class TestInitDatabase:
 
     def test_writes_schema_version_to_config(self, tmp_path):
         home = tmp_path / "home"
-        db_path = tmp_path / "nber.db"
+        db_path = home / "nber.db"
 
         with patch("nber_cli.db.Path.home", return_value=home):
             db.init_database(db_path)
@@ -203,3 +206,42 @@ class TestMigrateDatabase:
 
         with pytest.raises(ValueError, match="already exists"):
             db.migrate_database(new)
+
+
+class TestDatabasePathSecurity:
+    def test_init_rejects_path_outside_home_on_unix(self, tmp_path):
+        outside_path = tmp_path.parent / "outside.db"
+        with patch("nber_cli.db.sys.platform", "linux"):
+            with pytest.raises(ValueError, match="within the home directory"):
+                db.init_database(outside_path)
+
+    def test_init_allows_path_within_home_on_unix(self, tmp_path):
+        inside_path = tmp_path / "nber.db"
+        with patch("nber_cli.db.sys.platform", "linux"):
+            db.init_database(inside_path)
+        assert inside_path.exists()
+
+    def test_migrate_rejects_path_outside_home_on_unix(self, tmp_path):
+        old = tmp_path / "old.db"
+        outside_new = tmp_path.parent / "outside_new.db"
+        db.init_database(old)
+
+        with patch("nber_cli.db.sys.platform", "linux"):
+            with pytest.raises(ValueError, match="within the home directory"):
+                db.migrate_database(outside_new)
+
+    def test_migrate_allows_path_within_home_on_unix(self, tmp_path):
+        old = tmp_path / "old.db"
+        new = tmp_path / "new" / "nber.db"
+        db.init_database(old)
+
+        with patch("nber_cli.db.sys.platform", "linux"):
+            db.migrate_database(new)
+
+        assert new.exists()
+
+    def test_init_allows_any_path_on_windows(self, tmp_path):
+        outside_path = tmp_path.parent / "outside.db"
+        with patch("nber_cli.db.sys.platform", "win32"):
+            db.init_database(outside_path)
+        assert outside_path.exists()
