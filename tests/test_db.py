@@ -9,7 +9,6 @@
 
 import json
 import sqlite3
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
