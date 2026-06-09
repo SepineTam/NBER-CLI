@@ -757,6 +757,19 @@ class TestMainEntrypointInfo:
                 main()
         assert exc_info.value.code == 2
 
+    @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
+    def test_info_network_failure_prints_error(self, mock_get_nber, capsys):
+        from aiohttp import ClientResponseError
+        mock_get_nber.side_effect = ClientResponseError(
+            request_info=MagicMock(), history=(), status=404, message="Not Found"
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
+                main()
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Failed to fetch paper w1234" in captured.err
+
 
 class TestMainEntrypointInfoCache:
     def test_info_cache_turn_on_writes_config(self, isolated_nber_home, capsys):

@@ -656,9 +656,14 @@ def main() -> None:
         except ValueError:
             parser.error(f"invalid paper ID '{args.paper_id}'")
 
-        info_cache_result = asyncio.run(
-            get_paper_with_info_cache_result(nber_id, refresh=args.refresh)
-        )
+        try:
+            info_cache_result = asyncio.run(
+                get_paper_with_info_cache_result(nber_id, refresh=args.refresh)
+            )
+        except Exception as error:
+            print(f"Failed to fetch paper w{nber_id}: {error}", file=sys.stderr)
+            raise SystemExit(1) from None
+
         paper = info_cache_result.paper
         db.record_info(None, nber_id)
         if info_cache_result.from_cache:

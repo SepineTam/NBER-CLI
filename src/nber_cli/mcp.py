@@ -44,7 +44,10 @@ async def get_paper_info(paper_id: str, include_all: bool = True) -> dict:
         Dictionary containing paper metadata.
     """
     nber_id = _parse_paper_id(paper_id)
-    paper = await get_paper_with_info_cache(nber_id)
+    try:
+        paper = await get_paper_with_info_cache(nber_id)
+    except Exception as error:
+        return {"error": f"Failed to fetch paper {paper_id}: {error}"}
     db.record_info(None, nber_id)
 
     result = info(paper)
