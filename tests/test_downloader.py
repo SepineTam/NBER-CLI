@@ -17,7 +17,6 @@ from nber_cli.download import (
     DownloadBatchResult,
     DownloadFailure,
     _create_connector,
-    _create_retry_client,
     download_multiple_papers,
     download_paper,
     download_paper_to_file,
@@ -48,24 +47,6 @@ class FakeResponse:
             )
 
 
-class FakeRetryClient:
-    """Mock RetryClient that supports async context manager."""
-
-    def __init__(self, session):
-        self._session = session
-        self.get_calls = []
-
-    async def __aenter__(self):
-        return self._session
-
-    async def __aexit__(self, exc_type, exc, tb):
-        return False
-
-    def get(self, url, **kwargs):
-        self.get_calls.append(url)
-        return self._session.get(url, **kwargs)
-
-
 class FakeClientSession:
     """Mock ClientSession that supports async context manager."""
 
@@ -87,6 +68,11 @@ class FakeClientSession:
         )
 
 
+async def _no_retry(loader):
+    """Helper to bypass _retry_async in tests."""
+    return await loader()
+
+
 class TestCreateConnector:
     @pytest.mark.asyncio
     async def test_returns_tcp_connector(self):
@@ -95,24 +81,15 @@ class TestCreateConnector:
         await connector.close()
 
 
-class TestCreateRetryClient:
-    def test_returns_retry_client(self):
-        from aiohttp import ClientSession
-        session = MagicMock(spec=ClientSession)
-        client = _create_retry_client(session)
-        assert client is not None
-
-
 class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_successful_download(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=200, content=b"pdf bytes")
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     result = await download_paper_to_file("w1234", output_file, restrict_dir=False)
@@ -125,10 +102,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "sub" / "dir" / "w1234.pdf"
         fake_response = FakeResponse(status=200, content=b"pdf bytes")
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     result = await download_paper_to_file("w1234", output_file, restrict_dir=False)
@@ -141,10 +117,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=404)
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
@@ -157,10 +132,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=500)
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     from aiohttp import ClientResponseError
@@ -173,10 +147,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=200, raise_error=asyncio.TimeoutError("connection timed out"))
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(asyncio.TimeoutError):
@@ -187,10 +160,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=200, raise_error=ConnectionError("broken pipe"))
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     with pytest.raises(ConnectionError):
@@ -201,10 +173,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w9999.pdf"
         fake_response = FakeResponse(status=200, content=b"pdf")
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     await download_paper_to_file("w9999", output_file, restrict_dir=False)
@@ -217,10 +188,9 @@ class TestDownloadPaperToFile:
         output_file = tmp_path / "w1234.pdf"
         fake_response = FakeResponse(status=200, content=b"pdf")
         fake_session = FakeClientSession(response=fake_response)
-        fake_retry = FakeRetryClient(fake_session)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session) as mock_client_session:
-            with patch("nber_cli.download._create_retry_client", return_value=fake_retry):
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "TestAgent/1.0"
                     await download_paper_to_file("w1234", output_file, restrict_dir=False)
@@ -392,8 +362,7 @@ class TestPathValidation:
         fake_session = FakeClientSession(response=fake_response)
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
-            with patch("nber_cli.download._create_retry_client") as mock_retry:
-                mock_retry.return_value = FakeRetryClient(fake_session)
+            with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
                     result = asyncio.run(download_paper_to_file("w1234", output_file, restrict_dir=False))

@@ -17,11 +17,11 @@ from typing import cast
 
 import certifi
 from aiohttp import ClientSession, ClientTimeout, TCPConnector
-from aiohttp_retry import ExponentialRetry, RetryClient
 from fake_useragent import UserAgent
 
 from .config import NBER_CLI_CONFIG
 from .core.models import DownloadBatchResult, DownloadFailure
+from .fetcher import _retry_async
 
 _USER_AGENT = UserAgent()
 
@@ -53,18 +53,10 @@ def _create_connector() -> TCPConnector:
     )
 
 
-def _create_retry_client(session: ClientSession) -> RetryClient:
-    retry_options = ExponentialRetry(attempts=NBER_CLI_CONFIG.request_attempts)
-    return RetryClient(
-        client_session=session,
-        retry_options=retry_options,
-    )
-
-
 async def download_paper_to_file(
     paper_id: str,
     output_file: Path,
-    session: ClientSession | RetryClient | None = None,
+    session: ClientSession | None = None,
     *,
     restrict_dir: bool = True,
 ) -> Path:
@@ -81,21 +73,21 @@ async def download_paper_to_file(
 
     url = f"https://www.nber.org/papers/{paper_id}.pdf"
     headers = {"User-Agent": _USER_AGENT.random}
-    timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
+
+    async def _fetch(sess: ClientSession) -> bytes:
+        async with sess.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.read()
 
     if session is not None:
-        async with session.get(url, headers=headers) as response:
-            response.raise_for_status()
-            content = await response.read()
+        content = await _retry_async(lambda: _fetch(session))
     else:
         connector = _create_connector()
+        timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
         async with ClientSession(
             timeout=timeout, connector=connector, headers=headers
         ) as base_session:
-            async with _create_retry_client(base_session) as retry_client:
-                async with retry_client.get(url) as response:
-                    response.raise_for_status()
-                    content = await response.read()
+            content = await _retry_async(lambda: _fetch(base_session))
 
     output_file.write_bytes(content)
     return output_file
@@ -104,7 +96,7 @@ async def download_paper_to_file(
 async def download_paper(
     paper_id: str,
     save_base: Path,
-    session: ClientSession | RetryClient | None = None,
+    session: ClientSession | None = None,
     *,
     restrict_dir: bool = True,
 ) -> Path:
@@ -144,21 +136,20 @@ async def download_multiple_papers(
     async with ClientSession(
         timeout=timeout, connector=connector, headers=headers
     ) as base_session:
-        async with _create_retry_client(base_session) as retry_client:
-            async def _download_limited(paper_id: str) -> Path:
-                async with semaphore:
-                    return await download_paper(
-                        paper_id=paper_id,
-                        save_base=save_base,
-                        session=retry_client,
-                        restrict_dir=restrict_dir,
-                    )
+        async def _download_limited(paper_id: str) -> Path:
+            async with semaphore:
+                return await download_paper(
+                    paper_id=paper_id,
+                    save_base=save_base,
+                    session=base_session,
+                    restrict_dir=restrict_dir,
+                )
 
-            tasks = [
-                _download_limited(paper_id)
-                for paper_id in paper_ids
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+        tasks = [
+            _download_limited(paper_id)
+            for paper_id in paper_ids
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
     paths: list[Path] = []
     failures: list[DownloadFailure] = []
