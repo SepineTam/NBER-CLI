@@ -867,6 +867,26 @@ class TestMainEntrypointInfoCache:
         assert exc_info.value.code == 2
 
 
+class TestMainEntrypointMcpServer:
+    @patch("nber_cli.cli._run_mcp_server")
+    def test_mcp_server_starts_with_default_transport(self, mock_run, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "mcp-server"]):
+            main()
+        mock_run.assert_called_once_with("stdio", 8000)
+
+    @patch("nber_cli.cli._run_mcp_server")
+    def test_mcp_server_uses_custom_port(self, mock_run, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "mcp-server", "--port", "9000"]):
+            main()
+        mock_run.assert_called_once_with("stdio", 9000)
+
+    @patch("nber_cli.cli._run_mcp_server")
+    def test_mcp_server_uses_streamable_http(self, mock_run, capsys):
+        with patch.object(sys, "argv", ["nber-cli", "mcp-server", "--transport", "streamable_http"]):
+            main()
+        mock_run.assert_called_once_with("streamable_http", 8000)
+
+
 class TestMainEntrypointDb:
     @patch("nber_cli.cli.db.init_database")
     def test_db_init_outputs_database_path(self, mock_init, capsys):
