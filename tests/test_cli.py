@@ -258,6 +258,26 @@ class TestParsePaperId:
         with pytest.raises(ValueError):
             _parse_paper_id("abc")
 
+    def test_empty_string_raises(self):
+        with pytest.raises(ValueError):
+            _parse_paper_id("")
+
+    def test_w_without_number_raises(self):
+        with pytest.raises(ValueError):
+            _parse_paper_id("w")
+
+    def test_negative_raises(self):
+        with pytest.raises(ValueError):
+            _parse_paper_id("w-123")
+
+    def test_mixed_chars_raises(self):
+        with pytest.raises(ValueError):
+            _parse_paper_id("w12a3")
+
+    def test_whitespace_raises(self):
+        with pytest.raises(ValueError):
+            _parse_paper_id(" w123 ")
+
 
 class TestParseBool:
     def test_true_values(self):

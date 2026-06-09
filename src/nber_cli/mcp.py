@@ -7,6 +7,7 @@
 # @Email  : sepinetam@gmail.com
 # @File   : mcp.py
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -21,7 +22,12 @@ from .info_cache import get_paper_with_info_cache
 nber_mcp = FastMCP("nber_mcp")
 
 
+_PAPER_ID_RE = re.compile(r"^w?\d+$", re.IGNORECASE)
+
+
 def _parse_paper_id(paper_id_str: str) -> int:
+    if not _PAPER_ID_RE.fullmatch(paper_id_str):
+        raise ValueError(f"invalid paper ID: {paper_id_str}")
     cleaned = paper_id_str.lower().removeprefix("w")
     return int(cleaned)
 

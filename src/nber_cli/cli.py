@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
@@ -298,7 +299,12 @@ def _resolve_paper_ids(single_id: str | None, batch_ids: list[str] | None) -> li
     return []
 
 
+_PAPER_ID_RE = re.compile(r"^w?\d+$", re.IGNORECASE)
+
+
 def _parse_paper_id(paper_id_str: str) -> int:
+    if not _PAPER_ID_RE.fullmatch(paper_id_str):
+        raise ValueError(f"invalid paper ID: {paper_id_str}")
     cleaned = paper_id_str.lower().removeprefix("w")
     return int(cleaned)
 
