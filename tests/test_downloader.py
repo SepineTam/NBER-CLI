@@ -23,49 +23,29 @@ from nber_cli.download import (
 )
 
 
-class FakeResponse:
-    """Mock aiohttp response."""
-
-    def __init__(self, status=200, content=b"fake pdf content", raise_error=None):
-        self.status = status
-        self._content = content
-        self._raise_error = raise_error
-
-    async def read(self):
-        if self._raise_error:
-            raise self._raise_error
-        return self._content
-
-    def raise_for_status(self):
-        if self.status >= 400:
-            from aiohttp import ClientResponseError
-            raise ClientResponseError(
-                request_info=MagicMock(),
-                history=(),
-                status=self.status,
-                message=f"HTTP {self.status}",
-            )
-
-
-class FakeClientSession:
-    """Mock ClientSession that supports async context manager."""
-
-    def __init__(self, response=None):
+class _MockContextManager:
+    def __init__(self, response):
         self._response = response
-        self.get_calls = []
 
     async def __aenter__(self):
-        return self
+        return self._response
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, *args):
         return False
 
-    def get(self, url, **kwargs):
-        self.get_calls.append(url)
-        return MagicMock(
-            __aenter__=AsyncMock(return_value=self._response),
-            __aexit__=AsyncMock(return_value=False),
-        )
+
+def _mock_session(response_content: bytes = b"fake pdf content", *, raise_error=None):
+    """Build a minimal mock aiohttp ClientSession."""
+    mock_response = MagicMock()
+    if raise_error is not None:
+        mock_response.raise_for_status.side_effect = raise_error
+    mock_response.read = AsyncMock(return_value=response_content)
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = _MockContextManager(mock_response)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+    return mock_session
 
 
 async def _no_retry(loader):
@@ -85,8 +65,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_successful_download(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, content=b"pdf bytes")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"pdf bytes")
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -100,8 +79,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_creates_parent_directories(self, tmp_path):
         output_file = tmp_path / "sub" / "dir" / "w1234.pdf"
-        fake_response = FakeResponse(status=200, content=b"pdf bytes")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"pdf bytes")
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -115,14 +93,17 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_http_404_raises_error(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=404)
-        fake_session = FakeClientSession(response=fake_response)
+        from aiohttp import ClientResponseError
+        fake_session = _mock_session(
+            raise_error=ClientResponseError(
+                request_info=MagicMock(), history=(), status=404, message="Not Found"
+            )
+        )
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
-                    from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
                         await download_paper_to_file("w1234", output_file, restrict_dir=False)
                     assert exc_info.value.status == 404
@@ -130,14 +111,17 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_http_500_raises_error(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=500)
-        fake_session = FakeClientSession(response=fake_response)
+        from aiohttp import ClientResponseError
+        fake_session = _mock_session(
+            raise_error=ClientResponseError(
+                request_info=MagicMock(), history=(), status=500, message="Internal Error"
+            )
+        )
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
                 with patch("nber_cli.download._USER_AGENT") as mock_ua:
                     mock_ua.random = "Mozilla/5.0"
-                    from aiohttp import ClientResponseError
                     with pytest.raises(ClientResponseError) as exc_info:
                         await download_paper_to_file("w1234", output_file, restrict_dir=False)
                     assert exc_info.value.status == 500
@@ -145,8 +129,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_network_timeout(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, raise_error=asyncio.TimeoutError("connection timed out"))
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(raise_error=asyncio.TimeoutError("connection timed out"))
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -158,8 +141,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_read_error(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, raise_error=ConnectionError("broken pipe"))
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(raise_error=ConnectionError("broken pipe"))
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -171,8 +153,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_url_construction(self, tmp_path):
         output_file = tmp_path / "w9999.pdf"
-        fake_response = FakeResponse(status=200, content=b"pdf")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"pdf")
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -180,14 +161,13 @@ class TestDownloadPaperToFile:
                     mock_ua.random = "Mozilla/5.0"
                     await download_paper_to_file("w9999", output_file, restrict_dir=False)
 
-        assert len(fake_session.get_calls) == 1
-        assert fake_session.get_calls[0] == "https://www.nber.org/papers/w9999.pdf"
+        assert fake_session.get.call_count == 1
+        assert fake_session.get.call_args.args[0] == "https://www.nber.org/papers/w9999.pdf"
 
     @pytest.mark.asyncio
     async def test_user_agent_header(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, content=b"pdf")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"pdf")
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session) as mock_client_session:
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
@@ -202,8 +182,7 @@ class TestDownloadPaperToFile:
     @pytest.mark.asyncio
     async def test_with_provided_session(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, content=b"session pdf")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"session pdf")
 
         with patch("nber_cli.download._USER_AGENT") as mock_ua:
             mock_ua.random = "Mozilla/5.0"
@@ -301,17 +280,25 @@ class TestDownloadMultiplePapers:
 
     @pytest.mark.asyncio
     async def test_concurrent_execution(self, tmp_path):
-        call_order = []
+        active_count = [0]
+        max_active = [0]
+        lock = asyncio.Lock()
 
         async def slow_download(paper_id, save_base, session=None, *, restrict_dir=True):
-            call_order.append(paper_id)
-            await asyncio.sleep(0.01)
+            async with lock:
+                active_count[0] += 1
+                max_active[0] = max(max_active[0], active_count[0])
+            await asyncio.sleep(0.05)
+            async with lock:
+                active_count[0] -= 1
             return save_base / f"{paper_id}.pdf"
 
         with patch("nber_cli.download.download_paper", side_effect=slow_download):
             result = await download_multiple_papers(["w1", "w2", "w3"], tmp_path, restrict_dir=False)
-            assert len(result.paths) == 3
-            assert len(result.failures) == 0
+
+        assert len(result.paths) == 3
+        assert len(result.failures) == 0
+        assert max_active[0] >= 2
 
 
 class TestDownloadBatchResult:
@@ -358,8 +345,7 @@ class TestPathValidation:
 
     def test_download_paper_to_file_allows_any_path_with_restrict_false(self, tmp_path):
         output_file = tmp_path / "w1234.pdf"
-        fake_response = FakeResponse(status=200, content=b"pdf bytes")
-        fake_session = FakeClientSession(response=fake_response)
+        fake_session = _mock_session(response_content=b"pdf bytes")
 
         with patch("nber_cli.download.ClientSession", return_value=fake_session):
             with patch("nber_cli.download._retry_async", side_effect=_no_retry):
