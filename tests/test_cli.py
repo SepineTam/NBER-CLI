@@ -628,14 +628,14 @@ class TestMainEntrypointInfo:
             ),
         )
 
-        with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
-            main()
+        with patch("nber_cli.cli._print_info_cache_hit_hint") as mock_hint:
+            with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
+                main()
 
         mock_get_nber.assert_not_called()
+        mock_hint.assert_called_once_with(1234)
         captured = capsys.readouterr()
         assert "Cached Title" in captured.out
-        assert "Loaded from info cache." in captured.err
-        assert "nber-cli info w1234 --refresh" in captured.err
         with sqlite3.connect(db_path) as connection:
             count = connection.execute(
                 "SELECT fetch_count FROM info_cache WHERE paper_id = 'w1234'"
@@ -660,15 +660,15 @@ class TestMainEntrypointInfo:
             ),
         )
 
-        with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
-            main()
+        with patch("nber_cli.cli._print_info_cache_hit_hint") as mock_hint:
+            with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
+                main()
 
         mock_get_nber.assert_not_called()
+        mock_hint.assert_called_once_with(1234)
         captured = capsys.readouterr()
         payload = json.loads(captured.out)
         assert payload["title"] == "Cached Title"
-        assert "Loaded from info cache." in captured.err
-        assert "nber-cli info w1234 --refresh" in captured.err
 
     @patch("nber_cli.info_cache.get_nber", new_callable=AsyncMock)
     def test_info_refresh_fetches_network_and_updates_cache(self, mock_get_nber, tmp_path, capsys):
@@ -863,6 +863,63 @@ class TestMainEntrypointInfoCache:
     def test_info_cache_clean_rejects_filters(self):
         with pytest.raises(SystemExit) as exc_info:
             with patch.object(sys, "argv", ["nber-cli", "info", "cache", "clean", "--days", "7"]):
+                main()
+        assert exc_info.value.code == 2
+
+    def test_info_cache_clear_aborts_on_no(self, tmp_path, capsys):
+        from nber_cli import db
+        from nber_cli.core.models import NBER
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        db.write_info_cache(
+            db_path,
+            NBER(
+                paper_id=1234,
+                title="Cached Title",
+                authors=["Author A"],
+                date="2024/01/01",
+                abstract="Cached abstract.",
+            ),
+        )
+
+        with (
+            patch("builtins.input", return_value="n"),
+            patch.object(sys, "argv", ["nber-cli", "info", "cache", "clear", "--all"]),
+        ):
+            main()
+
+        assert db.count_info_cache(db_path) == 1
+        assert "Aborted." in capsys.readouterr().out
+
+    def test_info_cache_clear_no_match_skips_confirm(self, tmp_path, capsys):
+        from nber_cli import db
+
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+
+        with patch.object(sys, "argv", ["nber-cli", "info", "cache", "clear", "--all"]):
+            main()
+
+        assert db.count_info_cache(db_path) == 0
+        captured = capsys.readouterr()
+        assert "No cached records matched." in captured.out
+
+    def test_info_cache_turn_on_and_off_mutually_exclusive(self):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "cache", "--turn-on", "--turn-off"]):
+                main()
+        assert exc_info.value.code == 2
+
+    def test_info_cache_refresh_not_allowed_with_cache(self):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "cache", "status", "--refresh"]):
+                main()
+        assert exc_info.value.code == 2
+
+    def test_info_cache_format_not_allowed_with_cache(self):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "info", "cache", "status", "--format", "json"]):
                 main()
         assert exc_info.value.code == 2
 
