@@ -9,7 +9,7 @@
 
 from datetime import date
 from urllib.error import URLError
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -323,3 +323,215 @@ class TestParseSearchResult:
         assert result.title == "Title with markup"
         assert result.authors == ["A & B"]
         assert result.abstract == "Abstract with line break."
+
+
+class TestRetryAsync:
+    @pytest.mark.asyncio
+    async def test_returns_on_success(self):
+        from nber_cli.fetcher import _retry_async
+        async def _loader():
+            return "ok"
+        with patch("nber_cli.fetcher.asyncio.sleep") as mock_sleep:
+            result = await _retry_async(_loader)
+        assert result == "ok"
+        assert mock_sleep.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_retries_on_retryable_http_error(self):
+        from aiohttp import ClientResponseError
+        from nber_cli.fetcher import _retry_async
+
+        calls = [0]
+
+        async def _loader():
+            calls[0] += 1
+            if calls[0] < 3:
+                raise ClientResponseError(
+                    request_info=MagicMock(), history=(), status=500, message="Internal Error"
+                )
+            return "ok"
+
+        with patch("nber_cli.fetcher.asyncio.sleep") as mock_sleep:
+            result = await _retry_async(_loader)
+
+        assert result == "ok"
+        assert calls[0] == 3
+        assert mock_sleep.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_404(self):
+        from aiohttp import ClientResponseError
+        from nber_cli.fetcher import _retry_async
+
+        async def _loader():
+            raise ClientResponseError(
+                request_info=MagicMock(), history=(), status=404, message="Not Found"
+            )
+
+        with patch("nber_cli.fetcher.asyncio.sleep") as mock_sleep:
+            with pytest.raises(ClientResponseError) as exc_info:
+                await _retry_async(_loader)
+
+        assert exc_info.value.status == 404
+        assert mock_sleep.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_retries_on_client_error(self):
+        from aiohttp import ClientError
+        from nber_cli.fetcher import _retry_async
+
+        calls = [0]
+
+        async def _loader():
+            calls[0] += 1
+            if calls[0] < 2:
+                raise ClientError("connection reset")
+            return "ok"
+
+        with patch("nber_cli.fetcher.asyncio.sleep") as mock_sleep:
+            result = await _retry_async(_loader)
+
+        assert result == "ok"
+        assert calls[0] == 2
+        assert mock_sleep.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_retries_on_timeout(self):
+        import asyncio
+        from nber_cli.fetcher import _retry_async
+
+        calls = [0]
+
+        async def _loader():
+            calls[0] += 1
+            if calls[0] < 2:
+                raise asyncio.TimeoutError("timed out")
+            return "ok"
+
+        with patch("nber_cli.fetcher.asyncio.sleep") as mock_sleep:
+            result = await _retry_async(_loader)
+
+        assert result == "ok"
+        assert calls[0] == 2
+        assert mock_sleep.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_raises_after_max_retries(self):
+        from aiohttp import ClientResponseError
+        from nber_cli.fetcher import _retry_async
+
+        async def _loader():
+            raise ClientResponseError(
+                request_info=MagicMock(), history=(), status=500, message="Error"
+            )
+
+        with patch("nber_cli.fetcher.asyncio.sleep"):
+            with pytest.raises(ClientResponseError) as exc_info:
+                await _retry_async(_loader)
+
+        assert exc_info.value.status == 500
+
+
+class TestRetryClassification:
+    def test_http_500_is_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 500
+        assert _should_retry_http_error(error) is True
+
+    def test_http_599_is_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 599
+        assert _should_retry_http_error(error) is True
+
+    def test_http_408_is_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 408
+        assert _should_retry_http_error(error) is True
+
+    def test_http_404_is_not_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 404
+        assert _should_retry_http_error(error) is False
+
+    def test_http_400_is_not_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 400
+        assert _should_retry_http_error(error) is False
+
+    def test_http_200_is_not_retryable(self):
+        from nber_cli.fetcher import _should_retry_http_error
+        error = MagicMock()
+        error.code = 200
+        assert _should_retry_http_error(error) is False
+
+    def test_aiohttp_500_is_retryable(self):
+        from nber_cli.fetcher import _should_retry_aiohttp_error
+        error = MagicMock()
+        error.status = 500
+        assert _should_retry_aiohttp_error(error) is True
+
+    def test_aiohttp_408_is_retryable(self):
+        from nber_cli.fetcher import _should_retry_aiohttp_error
+        error = MagicMock()
+        error.status = 408
+        assert _should_retry_aiohttp_error(error) is True
+
+    def test_aiohttp_404_is_not_retryable(self):
+        from nber_cli.fetcher import _should_retry_aiohttp_error
+        error = MagicMock()
+        error.status = 404
+        assert _should_retry_aiohttp_error(error) is False
+
+
+class TestLoadPage:
+    @pytest.mark.asyncio
+    async def test_load_page_fetches_url(self):
+        from nber_cli.fetcher import _load_page
+        mock_response = AsyncMock()
+        mock_response.text.return_value = "page content"
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await _load_page("https://example.com", mock_session)
+
+        assert result == "page content"
+        mock_session.get.assert_called_once_with("https://example.com", headers={"User-Agent": "Mozilla/5.0"})
+
+    @pytest.mark.asyncio
+    async def test_load_page_raises_on_http_error(self):
+        from nber_cli.fetcher import _load_page
+        from aiohttp import ClientResponseError
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = ClientResponseError(
+            request_info=MagicMock(), history=(), status=404, message="Not Found"
+        )
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        with pytest.raises(ClientResponseError):
+            await _load_page("https://example.com", mock_session)
+
+
+class TestLoadJson:
+    @pytest.mark.asyncio
+    async def test_load_json_fetches_and_parses(self):
+        from nber_cli.fetcher import _load_json
+        mock_response = AsyncMock()
+        mock_response.json.return_value = {"key": "value"}
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await _load_json("https://example.com", mock_session, {"q": "test"})
+
+        assert result == {"key": "value"}
+        mock_session.get.assert_called_once_with(
+            "https://example.com", headers={"User-Agent": "Mozilla/5.0"}, params={"q": "test"}
+        )
