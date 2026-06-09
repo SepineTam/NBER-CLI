@@ -276,7 +276,8 @@ def _parse_search_result(raw_result: dict[str, Any]) -> NBER:
     paper_id_match = re.search(r"/papers/w(\d+)", url)
     paper_id = int(paper_id_match.group(1)) if paper_id_match else 0
     full_url = f"{_NBER_BASE_URL}{url}" if url.startswith("/") else url
-    authors = [_clean_html_text(author) for author in raw_result.get("authors", [])]
+    authors_raw = raw_result.get("authors", []) or []
+    authors = [_clean_html_text(author) for author in authors_raw]
 
     return NBER(
         paper_id=paper_id,
