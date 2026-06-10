@@ -358,7 +358,18 @@ class TestFormatDownloadError:
     def test_formats_network_error(self):
         message = _format_download_error("w1234", ConnectionError("broken pipe"))
 
-        assert message == "Failed to download w1234: network error: broken pipe."
+        assert message == "Failed to download w1234: network error."
+
+    def test_formats_unknown_error_as_class_name(self):
+        message = _format_download_error("w1234", ValueError("sensitive details"))
+
+        assert message == "Failed to download w1234: ValueError."
+
+    def test_does_not_leak_error_details(self):
+        message = _format_download_error("w1234", Exception("contains secret url"))
+
+        assert "secret" not in message
+        assert "url" not in message
 
 
 class TestMainEntrypoint:

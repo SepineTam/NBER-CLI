@@ -374,14 +374,12 @@ def _format_download_error(paper_id: str, error: BaseException) -> str:
         return f"Failed to download {paper_id}: request timed out."
 
     if isinstance(error, (ClientError, ConnectionError)):
-        error_message = str(error) or error.__class__.__name__
-        return f"Failed to download {paper_id}: network error: {error_message}."
+        return f"Failed to download {paper_id}: network error."
 
     if isinstance(error, asyncio.CancelledError):
         return f"Failed to download {paper_id}: download cancelled."
 
-    error_message = str(error) or error.__class__.__name__
-    return f"Failed to download {paper_id}: {error_message}"
+    return f"Failed to download {paper_id}: {error.__class__.__name__}."
 
 
 def _run_single_download(paper_id: str, output_file: Path | None, save_base: Path, *, restrict_dir: bool = True) -> None:
@@ -391,8 +389,9 @@ def _run_single_download(paper_id: str, output_file: Path | None, save_base: Pat
         else:
             downloaded_file = asyncio.run(download_paper(paper_id, save_base, restrict_dir=restrict_dir))
     except (Exception, asyncio.CancelledError) as error:
-        db.record_download(None, paper_id, "failed", error=str(error))
-        print(_format_download_error(paper_id, error), file=sys.stderr)
+        error_msg = _format_download_error(paper_id, error)
+        db.record_download(None, paper_id, "failed", error=error_msg)
+        print(error_msg, file=sys.stderr)
         raise SystemExit(1) from None
 
     db.record_download(None, paper_id, "success", saved_path=str(downloaded_file))
@@ -405,8 +404,9 @@ def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[s
         _print_download_success(output_file.stem, output_file)
 
     for failure in batch_result.failures:
-        db.record_download(None, failure.paper_id, "failed", error=str(failure.error))
-        print(_format_download_error(failure.paper_id, failure.error), file=sys.stderr)
+        error_msg = _format_download_error(failure.paper_id, failure.error)
+        db.record_download(None, failure.paper_id, "failed", error=error_msg)
+        print(error_msg, file=sys.stderr)
 
     if batch_result.failures:
         print(
@@ -661,7 +661,7 @@ def main() -> None:
                 get_paper_with_info_cache_result(nber_id, refresh=args.refresh)
             )
         except Exception as error:
-            print(f"Failed to fetch paper w{nber_id}: {error}", file=sys.stderr)
+            print(f"Failed to fetch paper w{nber_id}: {error.__class__.__name__}.", file=sys.stderr)
             raise SystemExit(1) from None
 
         paper = info_cache_result.paper

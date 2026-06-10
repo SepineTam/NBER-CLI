@@ -657,4 +657,4 @@ def _normalize_paper_id(paper_id: str | int) -> str:
 
 
 def _log_warning(operation: str, error: BaseException) -> None:
-    print(f"warning: failed to {operation}: {error}", file=sys.stderr)
+    print(f"warning: failed to {operation}: {error.__class__.__name__}", file=sys.stderr)
