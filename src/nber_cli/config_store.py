@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+ConfigValue = Any
+ConfigDict = dict[str, ConfigValue]
+
 NBER_CLI_DIR_NAME = ".nber-cli"
 NBER_CLI_CONFIG_NAME = "config.json"
 NBER_DB_NAME = "nber.db"
@@ -23,7 +26,7 @@ LEGACY_DB_NAME = "feed.db"
 DEFAULT_INFO_CACHE_ENABLED = True
 DEFAULT_INFO_CACHE_TTL_DAYS = 30
 
-_DEFAULT_CONFIG: dict[str, Any] = {
+_DEFAULT_CONFIG: ConfigDict = {
     "info": {"cache_enabled": DEFAULT_INFO_CACHE_ENABLED, "cache_ttl_days": DEFAULT_INFO_CACHE_TTL_DAYS},
     "download": {"restrict_dir": True, "concurrency": 3},
 }
@@ -47,7 +50,7 @@ def legacy_db_path() -> Path:
     return Path.home() / NBER_CLI_DIR_NAME / LEGACY_DB_NAME
 
 
-def _inject_defaults(config: dict[str, Any]) -> None:
+def _inject_defaults(config: ConfigDict) -> None:
     for key, default_value in _DEFAULT_CONFIG.items():
         if key not in config:
             config[key] = copy.deepcopy(default_value)
@@ -58,9 +61,9 @@ def _inject_defaults(config: dict[str, Any]) -> None:
                     config[key][sub_key] = copy.deepcopy(sub_default)
 
 
-def get_config_value(config: dict[str, Any], dot_path: str) -> Any:
+def get_config_value(config: ConfigDict, dot_path: str) -> ConfigValue:
     keys = dot_path.split(".")
-    current: Any = config
+    current: ConfigValue = config
     for key in keys:
         if not isinstance(current, dict) or key not in current:
             return None
@@ -68,7 +71,7 @@ def get_config_value(config: dict[str, Any], dot_path: str) -> Any:
     return current
 
 
-def set_config_value(config: dict[str, Any], dot_path: str, value: Any) -> None:
+def set_config_value(config: ConfigDict, dot_path: str, value: ConfigValue) -> None:
     keys = dot_path.split(".")
     current = config
     for key in keys[:-1]:
@@ -78,7 +81,7 @@ def set_config_value(config: dict[str, Any], dot_path: str, value: Any) -> None:
     current[keys[-1]] = value
 
 
-def validate_config(config: dict[str, Any]) -> list[str]:
+def validate_config(config: ConfigDict) -> list[str]:
     errors: list[str] = []
     schema = _load_schema()
     if schema is None:
@@ -87,7 +90,7 @@ def validate_config(config: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _load_schema() -> dict[str, Any] | None:
+def _load_schema() -> ConfigDict | None:
     import importlib.resources
 
     try:
@@ -98,8 +101,8 @@ def _load_schema() -> dict[str, Any] | None:
 
 
 def _validate_against_schema(
-    value: Any,
-    schema: dict[str, Any],
+    value: ConfigValue,
+    schema: ConfigDict,
     path: str,
     errors: list[str],
 ) -> None:
@@ -117,10 +120,10 @@ def _validate_against_schema(
         errors.append(f"{path}: expected string, got {type(value).__name__}")
 
 
-def read_config(config_path: Path | None = None) -> dict[str, Any]:
+def read_config(config_path: Path | None = None) -> ConfigDict:
     resolved_path = config_path or default_config_path()
     if not resolved_path.exists():
-        config: dict[str, Any] = {}
+        config: ConfigDict = {}
     else:
         try:
             loaded = json.loads(resolved_path.read_text())
@@ -135,7 +138,7 @@ def read_config(config_path: Path | None = None) -> dict[str, Any]:
     return config
 
 
-def write_config(config: dict[str, Any], config_path: Path | None = None) -> None:
+def write_config(config: ConfigDict, config_path: Path | None = None) -> None:
     resolved_path = config_path or default_config_path()
     try:
         resolved_path.parent.mkdir(parents=True, exist_ok=True)
@@ -216,7 +219,7 @@ def set_info_cache_ttl_days(
     return get_info_cache_settings(config_path)
 
 
-def _get_mutable_info_config(config: dict[str, Any]) -> dict[str, Any]:
+def _get_mutable_info_config(config: ConfigDict) -> ConfigDict:
     info_config = config.get("info")
     if not isinstance(info_config, dict):
         info_config = {}
@@ -224,13 +227,13 @@ def _get_mutable_info_config(config: dict[str, Any]) -> dict[str, Any]:
     return info_config
 
 
-def _coerce_bool(value: Any, default: bool) -> bool:
+def _coerce_bool(value: ConfigValue, default: bool) -> bool:
     if isinstance(value, bool):
         return value
     return default
 
 
-def _coerce_positive_int(value: Any, default: int) -> int:
+def _coerce_positive_int(value: ConfigValue, default: int) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
         return value
     return default

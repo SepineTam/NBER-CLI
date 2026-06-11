@@ -15,8 +15,9 @@ import json
 import re
 import ssl
 import time
+from collections.abc import Awaitable, Callable
 from datetime import date
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -25,6 +26,9 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from .config import NBER_CLI_CONFIG
 from .core.models import NBER, NBERSearchResults
+
+T = TypeVar("T")
+JsonDict = dict[str, Any]
 
 _NBER_SEARCH_API = "https://www.nber.org/api/v1/working_page_listing/contentType/working_paper/_/_/search"
 _NBER_BASE_URL = "https://www.nber.org"
@@ -71,7 +75,7 @@ async def _load_page(url: str, session: ClientSession) -> str:
         return await resp.text()
 
 
-async def _load_json(url: str, session: ClientSession, params: dict[str, Any]) -> dict[str, Any]:
+async def _load_json(url: str, session: ClientSession, params: JsonDict) -> JsonDict:
     headers = {"User-Agent": "Mozilla/5.0"}
     async with session.get(url, headers=headers, params=params) as resp:
         resp.raise_for_status()
@@ -83,8 +87,8 @@ async def _load_page_with_retry(url: str, session: ClientSession) -> str:
 
 
 async def _load_json_with_retry(
-    url: str, session: ClientSession, params: dict[str, Any]
-) -> dict[str, Any]:
+    url: str, session: ClientSession, params: JsonDict
+) -> JsonDict:
     return await _retry_async(lambda: _load_json(url, session, params))
 
 
@@ -92,7 +96,7 @@ def _load_page_sync(url: str) -> str:
     return _load_text_sync(url)
 
 
-def _load_json_sync(url: str, params: dict[str, Any]) -> dict[str, Any]:
+def _load_json_sync(url: str, params: JsonDict) -> JsonDict:
     query_string = urlencode(params)
     page = _load_text_sync(f"{url}?{query_string}")
     return json.loads(page)
@@ -126,7 +130,7 @@ def _load_text_sync(url: str) -> str:
     raise RuntimeError(f"request failed after {NBER_CLI_CONFIG.request_attempts} attempts")
 
 
-async def _retry_async(loader):
+async def _retry_async(loader: Callable[[], Awaitable[T]]) -> T:
     last_error: BaseException | None = None
 
     for attempt in range(NBER_CLI_CONFIG.request_attempts):
@@ -212,7 +216,7 @@ def _build_search_params(
     page: int = 1,
     per_page: int = 20,
     today: date | None = None,
-) -> dict[str, Any]:
+) -> JsonDict:
     cleaned_query = query.strip()
     if not cleaned_query:
         raise ValueError("query must not be empty")
@@ -228,7 +232,7 @@ def _build_search_params(
     if start_date_value is not None and end_date_value is not None and start_date_value > end_date_value:
         raise ValueError("start_date must be on or before end_date")
 
-    params: dict[str, Any] = {
+    params: JsonDict = {
         "page": page,
         "perPage": per_page,
         "q": cleaned_query,
@@ -253,7 +257,7 @@ def _normalize_date(value: date | str | None) -> str | None:
 
 
 def _parse_search_payload(
-    payload: dict[str, Any], params: dict[str, Any]
+    payload: JsonDict, params: JsonDict
 ) -> NBERSearchResults:
     raw_results = payload.get("results", [])
     if not isinstance(raw_results, list):
@@ -271,7 +275,7 @@ def _parse_search_payload(
     )
 
 
-def _parse_search_result(raw_result: dict[str, Any]) -> NBER:
+def _parse_search_result(raw_result: JsonDict) -> NBER:
     url = str(raw_result.get("url") or "")
     paper_id_match = re.search(r"/papers/w(\d+)", url)
     paper_id = int(paper_id_match.group(1)) if paper_id_match else 0

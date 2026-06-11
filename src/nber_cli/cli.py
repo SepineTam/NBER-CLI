@@ -16,6 +16,7 @@ import re
 import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
+from typing import TypedDict
 
 from aiohttp import ClientError, ClientResponseError
 
@@ -37,6 +38,20 @@ from .formatters import (
 from .info_cache import get_paper_with_info_cache_result
 
 _OUTPUT_FORMATS = ["list", "json"]
+
+
+class _FeedCleanOptions(TypedDict):
+    days: int | None
+    delete_all: bool
+    start_date: str | None
+    end_date: str | None
+
+
+class _InfoCacheClearOptions(TypedDict):
+    days: int | None
+    delete_all: bool
+    start_date: str | None
+    end_date: str | None
 
 
 def _get_version() -> str:
@@ -434,7 +449,7 @@ def _info_payload(paper, include_all: bool) -> dict:
     return result
 
 
-def _feed_clean_options(args: argparse.Namespace) -> dict[str, object]:
+def _feed_clean_options(args: argparse.Namespace) -> _FeedCleanOptions:
     return {
         "days": args.days,
         "delete_all": args.delete_all,
@@ -447,7 +462,7 @@ def _info_cache_clear_options(
     args: argparse.Namespace,
     *,
     delete_all: bool,
-) -> dict[str, object]:
+) -> _InfoCacheClearOptions:
     return {
         "days": args.days,
         "delete_all": delete_all,
@@ -516,7 +531,7 @@ def _has_info_cache_only_option(args: argparse.Namespace) -> bool:
 
 def _run_info_cache_clear(
     parser: argparse.ArgumentParser,
-    clear_options: dict[str, object],
+    clear_options: _InfoCacheClearOptions,
 ) -> None:
     try:
         preview = db.clear_info_cache(**clear_options, dry_run=True)
