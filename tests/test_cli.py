@@ -639,12 +639,10 @@ class TestMainEntrypointInfo:
             ),
         )
 
-        with patch("nber_cli.cli._print_info_cache_hit_hint") as mock_hint:
-            with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
-                main()
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234"]):
+            main()
 
         mock_get_nber.assert_not_called()
-        mock_hint.assert_called_once_with(1234)
         captured = capsys.readouterr()
         assert "Cached Title" in captured.out
         with sqlite3.connect(db_path) as connection:
@@ -671,12 +669,10 @@ class TestMainEntrypointInfo:
             ),
         )
 
-        with patch("nber_cli.cli._print_info_cache_hit_hint") as mock_hint:
-            with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
-                main()
+        with patch.object(sys, "argv", ["nber-cli", "info", "w1234", "--format", "json"]):
+            main()
 
         mock_get_nber.assert_not_called()
-        mock_hint.assert_called_once_with(1234)
         captured = capsys.readouterr()
         payload = json.loads(captured.out)
         assert payload["title"] == "Cached Title"

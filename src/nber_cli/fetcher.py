@@ -118,12 +118,12 @@ def _load_text_sync(url: str) -> str:
                 raise
             last_error = error
 
-        time.sleep(0)
+        time.sleep(min(2 ** attempt, 30))
 
     if last_error is not None:
         raise last_error
 
-    raise RuntimeError("request failed unexpectedly")
+    raise RuntimeError(f"request failed after {NBER_CLI_CONFIG.request_attempts} attempts")
 
 
 async def _retry_async(loader):
@@ -141,12 +141,12 @@ async def _retry_async(loader):
                 raise
             last_error = error
 
-        await asyncio.sleep(0)
+        await asyncio.sleep(min(2 ** attempt, 30))
 
     if last_error is not None:
         raise last_error
 
-    raise RuntimeError("request failed unexpectedly")
+    raise RuntimeError(f"request failed after {NBER_CLI_CONFIG.request_attempts} attempts")
 
 
 def parse_page(page: str) -> NBER:

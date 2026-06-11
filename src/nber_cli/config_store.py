@@ -124,7 +124,10 @@ def read_config(config_path: Path | None = None) -> dict[str, Any]:
     else:
         try:
             loaded = json.loads(resolved_path.read_text())
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError) as error:
+            import warnings
+
+            warnings.warn(f"failed to read config from {resolved_path}: {error.__class__.__name__}")
             loaded = None
         config = loaded if isinstance(loaded, dict) else {}
 
@@ -134,8 +137,11 @@ def read_config(config_path: Path | None = None) -> dict[str, Any]:
 
 def write_config(config: dict[str, Any], config_path: Path | None = None) -> None:
     resolved_path = config_path or default_config_path()
-    resolved_path.parent.mkdir(parents=True, exist_ok=True)
-    resolved_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+    try:
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+        resolved_path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n")
+    except OSError as error:
+        raise RuntimeError(f"failed to write config to {resolved_path}: {error.__class__.__name__}") from error
 
 
 def update_database_config(

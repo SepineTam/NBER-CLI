@@ -103,7 +103,7 @@ class TestDownloadPaper:
     async def test_download_to_default_path(self):
         with patch("nber_cli.mcp.download_paper_to_dir", new_callable=AsyncMock) as mock_download:
             result = await download_paper("w1234")
-            assert result is True
+            assert result == {"success": True}
             mock_download.assert_called_once()
 
     @pytest.mark.asyncio
@@ -111,10 +111,11 @@ class TestDownloadPaper:
         target = Path.cwd() / "paper.pdf"
         with patch("nber_cli.mcp.download_paper_to_file", new_callable=AsyncMock) as mock_download:
             result = await download_paper("w1234", output_path=str(target))
-            assert result is True
+            assert result == {"success": True}
             mock_download.assert_called_once_with("w1234", target, restrict_dir=True)
 
     @pytest.mark.asyncio
     async def test_rejects_path_outside_cwd(self):
-        with pytest.raises(ValueError, match="within the current directory"):
-            await download_paper("w1234", output_path="/tmp/paper.pdf")
+        result = await download_paper("w1234", output_path="/tmp/paper.pdf")
+        assert "error" in result
+        assert "within the current directory" in result["error"]

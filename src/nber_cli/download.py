@@ -85,7 +85,7 @@ async def download_paper_to_file(
         connector = _create_connector()
         timeout = ClientTimeout(total=NBER_CLI_CONFIG.request_timeout_seconds)
         async with ClientSession(
-            timeout=timeout, connector=connector, headers=headers
+            timeout=timeout, connector=connector, headers=headers, raise_for_status=True
         ) as base_session:
             content = await _retry_async(lambda: _fetch(base_session))
 

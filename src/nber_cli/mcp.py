@@ -79,18 +79,21 @@ async def search_papers(
     Returns:
         Dictionary containing result metadata and papers.
     """
-    results = await search_nber(
-        query,
-        start_date=start_date,
-        end_date=end_date,
-        page=page,
-        per_page=per_page,
-    )
-    return search_results(results)
+    try:
+        results = await search_nber(
+            query,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            per_page=per_page,
+        )
+        return search_results(results)
+    except Exception as error:
+        return {"error": f"Search failed: {error.__class__.__name__}"}
 
 
 @nber_mcp.tool()
-async def download_paper(paper_id: str, output_path: Optional[str] = None) -> bool:
+async def download_paper(paper_id: str, output_path: Optional[str] = None) -> dict:
     """Download an NBER working paper as a PDF.
 
     Args:
@@ -98,19 +101,22 @@ async def download_paper(paper_id: str, output_path: Optional[str] = None) -> bo
         output_path: Explicit output file path, must be within the current directory. If not provided, saves as <paper_id>.pdf in current directory.
 
     Returns:
-        True if download succeeds. On failure, an exception is raised and propagated to the caller.
+        Dictionary with "success": True or "error": message.
     """
-    nber_id = _parse_paper_id(paper_id)
-    normalized_id = f"w{nber_id}"
+    try:
+        nber_id = _parse_paper_id(paper_id)
+        normalized_id = f"w{nber_id}"
 
-    if output_path:
-        target = Path(output_path)
-        try:
-            target.absolute().relative_to(Path.cwd().absolute())
-        except ValueError:
-            raise ValueError("MCP download only allows paths within the current directory")
-        await download_paper_to_file(normalized_id, target, restrict_dir=True)
-    else:
-        await download_paper_to_dir(normalized_id, Path.cwd(), restrict_dir=True)
+        if output_path:
+            target = Path(output_path)
+            try:
+                target.absolute().relative_to(Path.cwd().absolute())
+            except ValueError:
+                return {"error": "MCP download only allows paths within the current directory"}
+            await download_paper_to_file(normalized_id, target, restrict_dir=True)
+        else:
+            await download_paper_to_dir(normalized_id, Path.cwd(), restrict_dir=True)
 
-    return True
+        return {"success": True}
+    except Exception as error:
+        return {"error": f"Download failed: {error.__class__.__name__}"}

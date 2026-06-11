@@ -121,26 +121,29 @@ def parse_feed_xml(xml_text: str) -> list[NBERFeedItem]:
 
     items: list[NBERFeedItem] = []
     for raw_item in root.findall("./channel/item"):
-        raw_title = _clean_feed_text(raw_item.findtext("title"))
-        title, authors = _parse_feed_title(raw_title)
-        source_url = _clean_feed_text(raw_item.findtext("link"))
-        guid = _clean_feed_text(raw_item.findtext("guid")) or source_url
-        paper_id = _extract_paper_id(source_url) or _extract_paper_id(guid)
-        if not paper_id:
-            raise ValueError("NBER RSS item is missing a paper ID")
+        try:
+            raw_title = _clean_feed_text(raw_item.findtext("title"))
+            title, authors = _parse_feed_title(raw_title)
+            source_url = _clean_feed_text(raw_item.findtext("link"))
+            guid = _clean_feed_text(raw_item.findtext("guid")) or source_url
+            paper_id = _extract_paper_id(source_url) or _extract_paper_id(guid)
+            if not paper_id:
+                continue
 
-        url, _ = urldefrag(source_url)
-        items.append(
-            NBERFeedItem(
-                paper_id=paper_id,
-                title=title,
-                authors=authors,
-                abstract=_clean_feed_text(raw_item.findtext("description")),
-                url=url or source_url,
-                source_url=source_url,
-                guid=guid,
+            url, _ = urldefrag(source_url)
+            items.append(
+                NBERFeedItem(
+                    paper_id=paper_id,
+                    title=title,
+                    authors=authors,
+                    abstract=_clean_feed_text(raw_item.findtext("description")),
+                    url=url or source_url,
+                    source_url=source_url,
+                    guid=guid,
+                )
             )
-        )
+        except Exception:
+            continue
 
     return items
 

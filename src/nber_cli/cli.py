@@ -388,11 +388,11 @@ def _run_single_download(paper_id: str, output_file: Path | None, save_base: Pat
             downloaded_file = asyncio.run(download_paper_to_file(paper_id, output_file, restrict_dir=restrict_dir))
         else:
             downloaded_file = asyncio.run(download_paper(paper_id, save_base, restrict_dir=restrict_dir))
-    except (Exception, asyncio.CancelledError) as error:
+    except (ClientResponseError, ClientError, TimeoutError, asyncio.CancelledError) as error:
         error_msg = _format_download_error(paper_id, error)
         db.record_download(None, paper_id, "failed", error=error_msg)
         print(error_msg, file=sys.stderr)
-        raise SystemExit(1) from None
+        raise SystemExit(1) from error
 
     db.record_download(None, paper_id, "success", saved_path=str(downloaded_file))
     _print_download_success(paper_id, downloaded_file)
@@ -432,15 +432,6 @@ def _info_payload(paper, include_all: bool) -> dict:
         if paper.published_version:
             result["published_version"] = paper.published_version
     return result
-
-
-def _print_info_cache_hit_hint(paper_id: int) -> None:
-    normalized_paper_id = f"w{paper_id}"
-    print(
-        "Loaded from info cache. "
-        f"To fetch the latest version, run: nber-cli info {normalized_paper_id} --refresh",
-        file=sys.stderr,
-    )
 
 
 def _feed_clean_options(args: argparse.Namespace) -> dict[str, object]:
@@ -666,8 +657,6 @@ def main() -> None:
 
         paper = info_cache_result.paper
         db.record_info(None, nber_id)
-        if info_cache_result.from_cache:
-            _print_info_cache_hit_hint(nber_id)
 
         if args.output_format == "json":
             _print_json(_info_payload(paper, args.show_all))
