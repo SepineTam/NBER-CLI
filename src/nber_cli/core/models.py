@@ -9,14 +9,13 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 
 @dataclass
 class NBER:
     paper_id: int
     title: str
-    authors: List[str]
+    authors: list[str]
     date: str
     abstract: str
 

@@ -9,7 +9,6 @@
 
 import re
 from pathlib import Path
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -62,8 +61,8 @@ async def get_paper_info(paper_id: str, include_all: bool = True) -> dict:
 @nber_mcp.tool()
 async def search_papers(
     query: str,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     page: int = 1,
     per_page: int = 20,
 ) -> dict:
@@ -93,7 +92,7 @@ async def search_papers(
 
 
 @nber_mcp.tool()
-async def download_paper(paper_id: str, output_path: Optional[str] = None) -> dict:
+async def download_paper(paper_id: str, output_path: str | None = None) -> dict:
     """Download an NBER working paper as a PDF.
 
     Args:

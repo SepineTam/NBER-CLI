@@ -8,7 +8,6 @@
 # @File   : formatters.py
 
 import textwrap
-from typing import Dict
 
 from .core.models import NBER, NBERFeedFetchResult, NBERFeedItem, NBERSearchResults
 
@@ -19,7 +18,7 @@ def paper_id_str(paper: NBER) -> str:
     return f"w{paper.paper_id:04d}"
 
 
-def info(paper: NBER) -> Dict:
+def info(paper: NBER) -> dict:
     result = {
         "id": paper_id_str(paper),
         "title": paper.title,
@@ -32,14 +31,14 @@ def info(paper: NBER) -> Dict:
     return result
 
 
-def related(paper: NBER) -> Dict[str, str | None]:
+def related(paper: NBER) -> dict[str, str | None]:
     return {
         "topic": paper.topic,
         "programs": paper.programs,
     }
 
 
-def search_result(paper: NBER) -> Dict:
+def search_result(paper: NBER) -> dict:
     return {
         "id": paper_id_str(paper),
         "title": paper.title,
@@ -50,7 +49,7 @@ def search_result(paper: NBER) -> Dict:
     }
 
 
-def search_results(search: NBERSearchResults) -> Dict:
+def search_results(search: NBERSearchResults) -> dict:
     return {
         "query": search.query,
         "total_results": search.total_results,
@@ -62,7 +61,7 @@ def search_results(search: NBERSearchResults) -> Dict:
     }
 
 
-def feed_item(item: NBERFeedItem) -> Dict:
+def feed_item(item: NBERFeedItem) -> dict:
     return {
         "id": item.paper_id,
         "title": item.title,
@@ -74,7 +73,7 @@ def feed_item(item: NBERFeedItem) -> Dict:
     }
 
 
-def feed_results(result: NBERFeedFetchResult) -> Dict:
+def feed_results(result: NBERFeedFetchResult) -> dict:
     return {
         "source_url": result.source_url,
         "database_path": str(result.database_path),
