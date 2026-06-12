@@ -764,7 +764,8 @@ def main() -> None:
                 )
                 fetch_result = fetch_feed(display_all=display_all, max_items=args.max_items)
             except ValueError as error:
-                parser.error(str(error))
+                print(f"nber-cli: error: {error}", file=sys.stderr)
+                raise SystemExit(1)
             if args.output_format == "json":
                 _print_json(feed_results(fetch_result))
             else:

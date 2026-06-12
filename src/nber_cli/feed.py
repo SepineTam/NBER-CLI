@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import html
+import re
 import sqlite3
 from defusedxml import ElementTree as ET
 from defusedxml.common import EntitiesForbidden
@@ -22,6 +23,11 @@ from .core.models import NBERFeedCleanResult, NBERFeedFetchResult, NBERFeedItem
 from .fetcher import _load_text_sync
 
 NBER_FEED_URL = "https://www.nber.org/rss/new.xml"
+_UNESCAPED_TEXT_LESS_THAN = re.compile(r"<(?=[\s\d])")
+_FEED_TEXT_ELEMENT = re.compile(
+    r"(<(?P<tag>title|description)>)(?P<text>.*?)(</(?P=tag)>)",
+    re.DOTALL,
+)
 
 
 def init_feed_database(db_path: Path | str | None = None) -> Path:
@@ -116,8 +122,16 @@ def fetch_feed(
 def parse_feed_xml(xml_text: str) -> list[NBERFeedItem]:
     try:
         root = ET.fromstring(xml_text)
-    except (ET.ParseError, EntitiesForbidden) as error:
+    except EntitiesForbidden as error:
         raise ValueError("invalid NBER RSS XML") from error
+    except ET.ParseError as error:
+        repaired_xml_text = _repair_unescaped_text_less_than(xml_text)
+        if repaired_xml_text == xml_text:
+            raise _invalid_feed_xml_error(error) from error
+        try:
+            root = ET.fromstring(repaired_xml_text)
+        except (ET.ParseError, EntitiesForbidden) as repaired_error:
+            raise _invalid_feed_xml_error(repaired_error) from repaired_error
 
     items: list[NBERFeedItem] = []
     for raw_item in root.findall("./channel/item"):
@@ -146,6 +160,22 @@ def parse_feed_xml(xml_text: str) -> list[NBERFeedItem]:
             continue
 
     return items
+
+
+def _repair_unescaped_text_less_than(xml_text: str) -> str:
+    def repair_element(match: re.Match[str]) -> str:
+        repaired_text = _UNESCAPED_TEXT_LESS_THAN.sub("&lt;", match.group("text"))
+        return f"{match.group(1)}{repaired_text}{match.group(4)}"
+
+    return _FEED_TEXT_ELEMENT.sub(repair_element, xml_text)
+
+
+def _invalid_feed_xml_error(error: Exception) -> ValueError:
+    position = getattr(error, "position", None)
+    if position is None:
+        return ValueError("invalid NBER RSS XML")
+    line, column = position
+    return ValueError(f"invalid NBER RSS XML at line {line}, column {column}")
 
 
 def _save_feed_items(

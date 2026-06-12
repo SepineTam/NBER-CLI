@@ -1135,6 +1135,20 @@ class TestMainEntrypointDb:
         assert "w35254 | Feed Paper" in captured.out
 
     @patch("nber_cli.cli.fetch_feed")
+    def test_feed_fetch_runtime_error_does_not_print_usage(self, mock_fetch, capsys):
+        mock_fetch.side_effect = ValueError("invalid NBER RSS XML at line 3, column 4")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "feed", "fetch"]):
+                main()
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == "nber-cli: error: invalid NBER RSS XML at line 3, column 4\n"
+        assert "usage:" not in captured.err
+
+    @patch("nber_cli.cli.fetch_feed")
     def test_feed_fetch_outputs_json(self, mock_fetch, capsys):
         from nber_cli.core.models import NBERFeedFetchResult, NBERFeedItem
 

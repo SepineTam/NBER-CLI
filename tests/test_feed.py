@@ -99,6 +99,31 @@ class TestParseFeedXml:
         assert items[0].url == "https://www.nber.org/papers/w35254"
         assert items[0].source_url == "https://www.nber.org/papers/w35254#fromrss"
 
+    def test_repairs_unescaped_less_than_in_text(self):
+        malformed_xml = SAMPLE_FEED_XML.replace(
+            "Second abstract.",
+            "Statistically significant (p-value < 0.001).",
+        )
+
+        items = parse_feed_xml(malformed_xml)
+
+        assert items[1].abstract == "Statistically significant (p-value < 0.001)."
+
+    def test_does_not_repair_other_malformed_xml(self):
+        malformed_xml = SAMPLE_FEED_XML.replace("</channel>", "</broken>")
+
+        with pytest.raises(ValueError, match=r"invalid NBER RSS XML at line \d+, column \d+"):
+            parse_feed_xml(malformed_xml)
+
+    def test_does_not_repair_unescaped_less_than_outside_text_elements(self):
+        malformed_xml = SAMPLE_FEED_XML.replace(
+            '<rss version="2.0"',
+            '<rss version="< 2.0"',
+        )
+
+        with pytest.raises(ValueError, match=r"invalid NBER RSS XML at line \d+, column \d+"):
+            parse_feed_xml(malformed_xml)
+
     def test_rejects_xml_with_external_entities(self):
         malicious_xml = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE rss [
