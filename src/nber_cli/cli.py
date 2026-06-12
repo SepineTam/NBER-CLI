@@ -282,6 +282,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default="stdio",
         help="Transport mechanism (default: stdio).",
     )
+    mcp_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for HTTP transports (default: 8000).",
+    )
+    mcp_parser.add_argument(
+        "--yes",
+        action="store_true",
+        dest="confirm_port",
+        help="Confirm use of a custom port.",
+    )
 
     config_parser = subparsers.add_parser("config", help="Manage configuration.")
     config_subparsers = config_parser.add_subparsers(dest="config_command")
@@ -425,8 +437,9 @@ def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[s
         )
 
 
-def _run_mcp_server(transport: str) -> None:
+def _run_mcp_server(transport: str, port: int) -> None:
     from .mcp import nber_mcp
+    nber_mcp.settings.port = port
     nber_mcp.run(transport=cast(Literal["stdio", "sse", "streamable-http"], transport))
 
 
@@ -794,5 +807,12 @@ def main() -> None:
             return
 
     if args.command == "mcp-server":
-        _run_mcp_server(args.transport)
+        if args.port != 8000 and not args.confirm_port:
+            print(
+                "Custom MCP server port requires explicit confirmation. "
+                "Add --yes to proceed.",
+                file=sys.stderr,
+            )
+            raise SystemExit(1)
+        _run_mcp_server(args.transport, args.port)
         return
