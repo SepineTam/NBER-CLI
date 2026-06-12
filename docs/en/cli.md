@@ -273,6 +273,8 @@ nber-cli feed fetch --format json
 nber-cli feed fetch -f json
 ```
 
+NBER-CLI strictly parses the RSS XML. To tolerate a known upstream formatting issue, it repairs only unescaped `<` characters followed by whitespace or a digit inside RSS `title` and `description` text. Other malformed XML is rejected. Parse errors exit with code `1`, print a concise error with the line and column when available, and do not print command usage.
+
 ### feed clean
 
 Clean cached feed database records. This deletes records from the local cache, not from NBER. Deleted cache records may be fetched again as new items if they still appear in the RSS feed.
@@ -390,6 +392,7 @@ A few extra rules that are easy to miss:
 
 - A single `download` failure exits `1`. The successful `Successfully downloaded <id> to <path>` line goes to stdout; the `Failed to download <id>: <reason>` line goes to stderr. The download log row in `download_log` is written before the failure is printed.
 - A batch `download` runs every requested paper and only exits `1` at the end if at least one paper failed. Successful files are written to stdout (`Successfully downloaded ...`), failures and the per-failure reasons go to stderr. The exit code is `0` only when every paper succeeded.
+- A `feed fetch` RSS parse failure exits `1` and writes a concise error to stderr without printing command usage. The error includes the XML line and column when available.
 - `db init`, `db migrate`, `info cache clear`, and `feed clean` print a confirmation prompt to stderr. The command aborts with exit code `0` if the user declines (`Abort.` is printed to stderr). The actual deletion (when confirmed) exits `0` on success.
 - Database record-keeping failures (`record_query`, `record_download`, `record_info`, `touch_info_cache`, `write_info_cache`) print a one-line `warning: failed to ...` to stderr but do **not** raise. The main command's exit code is unaffected.
 - The download module reads the entire PDF body into memory and then writes it in one call. A failure that occurs between the network read and the disk write (process kill, disk full, permission revoked) typically surfaces as a Python exception on the way out; the user sees the traceback on stderr and the process exits `1`. There is no atomic-rename guarantee, so a target file may be left empty or partially written when this happens.

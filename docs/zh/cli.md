@@ -273,6 +273,8 @@ nber-cli feed fetch --format json
 nber-cli feed fetch -f json
 ```
 
+NBER-CLI 会严格解析 RSS XML。为了兼容已知的上游格式问题，程序只会修复 RSS `title` 和 `description` 文本中后接空白或数字的未转义 `<`；其他 XML 格式错误仍会被拒绝。解析错误会以退出码 `1` 退出，在可用时输出包含行号和列号的简洁错误信息，并且不会打印命令 usage。
+
 ### feed clean
 
 清理 feed 缓存数据库记录。这个操作删除的是本地缓存记录，不会影响 NBER。被删除的缓存记录如果仍然出现在 RSS feed 中，后续可能会再次作为新条目被获取。
@@ -390,6 +392,7 @@ nber-cli mcp-server --transport streamable_http --port 8000
 
 - 单篇 `download` 失败会以退出码 `1` 退出。成功时的 `Successfully downloaded <id> to <path>` 行写到 stdout，失败时的 `Failed to download <id>: <reason>` 行写到 stderr。`download_log` 中的日志行在失败信息打印之前写入。
 - 批量 `download` 会跑完所有请求的论文，只有在最后存在失败论文时才以退出码 `1` 退出。成功的文件路径写到 stdout（`Successfully downloaded ...`），失败和每条失败原因写到 stderr。**只有全部成功** 时退出码才是 `0`。
+- `feed fetch` 遇到 RSS 解析失败时会以退出码 `1` 退出，并向 stderr 写入简洁错误信息，不打印命令 usage；在可用时，错误信息会包含 XML 行号和列号。
 - `db init`、`db migrate`、`info cache clear` 和 `feed clean` 会向 stderr 打印确认提示。用户在确认提示中拒绝时（`Abort.` 会被打印到 stderr）命令以退出码 `0` 中止。确认后真正执行删除时，成功完成会以 `0` 退出。
 - 数据库记录失败（`record_query`、`record_download`、`record_info`、`touch_info_cache`、`write_info_cache`）会向 stderr 打印一行 `warning: failed to ...`，**不会**抛出异常，主命令的退出码也不受影响。
 - 下载模块先把整段 PDF 读入内存，再一次性写入磁盘。发生在网络读取和磁盘写入之间的失败（进程被 kill、磁盘写满、权限被收回）通常以 Python 异常的形式抛出；用户会在 stderr 上看到 traceback，进程以退出码 `1` 退出。这里**没有**原子 rename 保证，目标文件在这种失败下可能留下空文件或只写了一半的内容。

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 This file is the canonical release history. The English mirror at `docs/en/changelog.md` and the Chinese mirror at `docs/zh/changelog.md` are generated from the same source content and must stay in lock-step. Any release commit updates all three together.
 
+## [Unreleased]
+
+### Fixed
+- `feed fetch` now tolerates unescaped `<` characters followed by whitespace or a digit in RSS title and description text while keeping strict XML parsing for all other malformed input.
+- RSS parse failures now report their line and column when available, and `feed fetch` reports runtime parse errors with exit code `1` without printing command usage.
+
 ## [0.4.0] - 2026-06-04
 
 ### Added

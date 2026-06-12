@@ -277,7 +277,7 @@ print(f"Deleted: {result.deleted_count}")
 
 ### `parse_feed_xml(xml_text) -> list[NBERFeedItem]`
 
-把 NBER RSS 的原始 XML 解析为 `NBERFeedItem` 列表。条目必须在 `link` 或 `guid` 中携带能匹配 `r"/papers/(w\d+)"` 的论文 ID；任一字段都解析不到 ID 时抛出 `ValueError("NBER RSS item is missing a paper ID")`。XML 解析失败抛出 `ValueError("invalid NBER RSS XML")`。该函数不访问网络，也不读写数据库；`feed.fetch_feed` 在其上包装持久化与 `feed_fetches` 摘要写入。
+把 NBER RSS 的原始 XML 解析为 `NBERFeedItem` 列表。条目必须在 `link` 或 `guid` 中携带能匹配 `r"/papers/(w\d+)"` 的论文 ID；没有论文 ID 的条目会被跳过。解析器只会修复 `title` 和 `description` 文本中后接空白或数字的未转义 `<`，然后重新进行严格解析。其他 XML 格式错误会抛出以 `"invalid NBER RSS XML"` 开头的 `ValueError`，并在可用时附带行号和列号。该函数不访问网络，也不读写数据库；`feed.fetch_feed` 在其上包装持久化与 `feed_fetches` 摘要写入。
 
 ## 数据模型
 

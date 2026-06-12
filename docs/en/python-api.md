@@ -277,7 +277,7 @@ Update the `info_cache` row for `paper_id`: set `last_fetched_at` to the current
 
 ### `parse_feed_xml(xml_text) -> list[NBERFeedItem]`
 
-Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a `link` or `guid` that matches `r"/papers/(w\d+)"`; when neither field contains a paper ID, `parse_feed_xml` raises `ValueError("NBER RSS item is missing a paper ID")`. Malformed XML raises `ValueError("invalid NBER RSS XML")`. The function performs no network I/O and never touches the database; `feed.fetch_feed` wraps it to persist items and write a `feed_fetches` summary.
+Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a `link` or `guid` that matches `r"/papers/(w\d+)"`; items without a paper ID are skipped. The parser repairs unescaped `<` characters followed by whitespace or a digit only inside `title` and `description` text, then retries strict parsing. Other malformed XML raises a `ValueError` beginning with `"invalid NBER RSS XML"` and includes the line and column when available. The function performs no network I/O and never touches the database; `feed.fetch_feed` wraps it to persist items and write a `feed_fetches` summary.
 
 ## Data Models
 
