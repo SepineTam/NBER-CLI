@@ -79,7 +79,8 @@ async def _load_json(url: str, session: ClientSession, params: JsonDict) -> Json
     headers = {"User-Agent": "Mozilla/5.0"}
     async with session.get(url, headers=headers, params=params) as resp:
         resp.raise_for_status()
-        return await resp.json()
+        payload = await resp.json()
+        return payload if isinstance(payload, dict) else {}
 
 
 async def _load_page_with_retry(url: str, session: ClientSession) -> str:
@@ -99,7 +100,8 @@ def _load_page_sync(url: str) -> str:
 def _load_json_sync(url: str, params: JsonDict) -> JsonDict:
     query_string = urlencode(params)
     page = _load_text_sync(f"{url}?{query_string}")
-    return json.loads(page)
+    payload = json.loads(page)
+    return payload if isinstance(payload, dict) else {}
 
 
 def _load_text_sync(url: str) -> str:
@@ -112,7 +114,8 @@ def _load_text_sync(url: str) -> str:
         try:
             with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS, context=ssl_context) as response:
                 encoding = response.headers.get_content_charset("utf-8")
-                return response.read().decode(encoding)
+                text: str = response.read().decode(encoding)
+                return text
         except HTTPError as error:
             if not _should_retry_http_error(error) or attempt >= NBER_CLI_CONFIG.request_retry_count:
                 raise

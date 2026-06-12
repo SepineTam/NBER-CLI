@@ -936,19 +936,13 @@ class TestMainEntrypointMcpServer:
     def test_mcp_server_starts_with_default_transport(self, mock_run, capsys):
         with patch.object(sys, "argv", ["nber-cli", "mcp-server"]):
             main()
-        mock_run.assert_called_once_with("stdio", 8000)
-
-    @patch("nber_cli.cli._run_mcp_server")
-    def test_mcp_server_uses_custom_port(self, mock_run, capsys):
-        with patch.object(sys, "argv", ["nber-cli", "mcp-server", "--port", "9000"]):
-            main()
-        mock_run.assert_called_once_with("stdio", 9000)
+        mock_run.assert_called_once_with("stdio")
 
     @patch("nber_cli.cli._run_mcp_server")
     def test_mcp_server_uses_streamable_http(self, mock_run, capsys):
-        with patch.object(sys, "argv", ["nber-cli", "mcp-server", "--transport", "streamable_http"]):
+        with patch.object(sys, "argv", ["nber-cli", "mcp-server", "--transport", "streamable-http"]):
             main()
-        mock_run.assert_called_once_with("streamable_http", 8000)
+        mock_run.assert_called_once_with("streamable-http")
 
 
 class TestMainEntrypointDb:

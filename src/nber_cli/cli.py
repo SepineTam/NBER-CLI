@@ -16,7 +16,7 @@ import re
 import sys
 from importlib.metadata import version as get_version
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict, cast
 
 from aiohttp import ClientError, ClientResponseError
 
@@ -278,15 +278,9 @@ def _build_parser() -> argparse.ArgumentParser:
     mcp_parser = subparsers.add_parser("mcp-server", help="Start the MCP server.")
     mcp_parser.add_argument(
         "--transport",
-        choices=["stdio", "streamable_http"],
+        choices=["stdio", "sse", "streamable-http"],
         default="stdio",
         help="Transport mechanism (default: stdio).",
-    )
-    mcp_parser.add_argument(
-        "--port",
-        type=int,
-        default=8000,
-        help="Port for streamable_http transport (default: 8000).",
     )
 
     config_parser = subparsers.add_parser("config", help="Manage configuration.")
@@ -431,9 +425,9 @@ def _handle_download_errors(batch_result: DownloadBatchResult, paper_ids: list[s
         )
 
 
-def _run_mcp_server(transport: str, port: int) -> None:
+def _run_mcp_server(transport: str) -> None:
     from .mcp import nber_mcp
-    nber_mcp.run(transport=transport, port=port)
+    nber_mcp.run(transport=cast(Literal["stdio", "sse", "streamable-http"], transport))
 
 
 def _print_json(payload: dict) -> None:
@@ -755,13 +749,13 @@ def main() -> None:
                     if args.display_all is not None
                     else args.max_items is not None
                 )
-                result = fetch_feed(display_all=display_all, max_items=args.max_items)
+                fetch_result = fetch_feed(display_all=display_all, max_items=args.max_items)
             except ValueError as error:
                 parser.error(str(error))
             if args.output_format == "json":
-                _print_json(feed_results(result))
+                _print_json(feed_results(fetch_result))
             else:
-                print(feed_results_text(result))
+                print(feed_results_text(fetch_result))
             return
 
     if args.command == "config":
@@ -793,12 +787,12 @@ def main() -> None:
             config = config_store.read_config()
             errors = config_store.validate_config(config)
             if errors:
-                for error in errors:
-                    print(error, file=sys.stderr)
+                for message in errors:
+                    print(message, file=sys.stderr)
                 raise SystemExit(1)
             print("Configuration is valid.")
             return
 
     if args.command == "mcp-server":
-        _run_mcp_server(args.transport, args.port)
+        _run_mcp_server(args.transport)
         return

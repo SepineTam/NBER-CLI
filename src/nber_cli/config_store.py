@@ -95,7 +95,8 @@ def _load_schema() -> ConfigDict | None:
 
     try:
         schema_text = importlib.resources.files("nber_cli").joinpath("config.schema.json").read_text()
-        return json.loads(schema_text)
+        schema = json.loads(schema_text)
+        return schema if isinstance(schema, dict) else None
     except (OSError, json.JSONDecodeError, ImportError):
         return None
 
