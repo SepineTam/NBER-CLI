@@ -55,7 +55,8 @@ class TestInfoCacheSettings:
         config_path.parent.mkdir(parents=True)
         config_path.write_text("{")
 
-        settings = config_store.get_info_cache_settings()
+        with pytest.warns(UserWarning, match="failed to read config"):
+            settings = config_store.get_info_cache_settings()
 
         assert settings.cache_enabled is True
         assert settings.cache_ttl_days == 30

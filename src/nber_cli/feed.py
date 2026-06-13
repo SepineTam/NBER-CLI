@@ -28,6 +28,7 @@ _FEED_TEXT_ELEMENT = re.compile(
     r"(<(?P<tag>title|description)>)(?P<text>.*?)(</(?P=tag)>)",
     re.DOTALL,
 )
+_FEED_AUTHOR_SEPARATOR = re.compile(r"\s*(?:,|ⓡ)\s*")
 
 
 def init_feed_database(db_path: Path | str | None = None) -> Path:
@@ -316,7 +317,11 @@ def _parse_feed_title(raw_title: str) -> tuple[str, list[str]]:
     if not separator:
         return raw_title, []
 
-    authors = [author.strip() for author in authors_text.split(",") if author.strip()]
+    authors = [
+        author.strip()
+        for author in _FEED_AUTHOR_SEPARATOR.split(authors_text)
+        if author.strip()
+    ]
     return title.strip(), authors
 
 

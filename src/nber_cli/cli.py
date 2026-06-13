@@ -409,7 +409,7 @@ def _run_single_download(paper_id: str, output_file: Path | None, save_base: Pat
             downloaded_file = asyncio.run(download_paper_to_file(paper_id, output_file, restrict_dir=restrict_dir))
         else:
             downloaded_file = asyncio.run(download_paper(paper_id, save_base, restrict_dir=restrict_dir))
-    except (ClientResponseError, ClientError, TimeoutError, asyncio.CancelledError) as error:
+    except (asyncio.CancelledError, Exception) as error:
         error_msg = _format_download_error(paper_id, error)
         db.record_download(None, paper_id, "failed", error=error_msg)
         print(error_msg, file=sys.stderr)
@@ -629,6 +629,10 @@ def main() -> None:
         paper_ids = _resolve_paper_ids(args.paper_id, args.batch_ids)
         if not paper_ids:
             parser.error("download requires one paper ID or --batch with one or more IDs.")
+
+        for paper_id in paper_ids:
+            if not _PAPER_ID_RE.fullmatch(paper_id):
+                parser.error(f"invalid paper ID '{paper_id}'")
 
         if len(paper_ids) > 1 and args.file_path is not None:
             parser.error("--file/-f is only supported for single downloads, not for --batch or multiple IDs.")

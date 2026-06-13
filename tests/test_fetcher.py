@@ -493,6 +493,7 @@ class TestLoadPage:
     async def test_load_page_fetches_url(self):
         from nber_cli.fetcher import _load_page
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.text.return_value = "page content"
         mock_session = MagicMock()
         mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
@@ -524,6 +525,7 @@ class TestLoadJson:
     async def test_load_json_fetches_and_parses(self):
         from nber_cli.fetcher import _load_json
         mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
         mock_response.json.return_value = {"key": "value"}
         mock_session = MagicMock()
         mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)

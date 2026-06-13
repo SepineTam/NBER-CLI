@@ -220,6 +220,21 @@ class TestDatabasePathSecurity:
             db.init_database(inside_path)
         assert inside_path.exists()
 
+    def test_init_allows_path_within_symlinked_home_on_unix(self, tmp_path):
+        real_home = tmp_path / "real-home"
+        real_home.mkdir()
+        linked_home = tmp_path / "linked-home"
+        linked_home.symlink_to(real_home, target_is_directory=True)
+        inside_path = real_home / "nber.db"
+
+        with (
+            patch("nber_cli.db.sys.platform", "linux"),
+            patch("nber_cli.db.Path.home", return_value=linked_home),
+        ):
+            db.init_database(inside_path)
+
+        assert inside_path.exists()
+
     def test_migrate_rejects_path_outside_home_on_unix(self, tmp_path):
         old = tmp_path / "old.db"
         outside_new = tmp_path.parent / "outside_new.db"

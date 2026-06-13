@@ -99,6 +99,16 @@ class TestParseFeedXml:
         assert items[0].url == "https://www.nber.org/papers/w35254"
         assert items[0].source_url == "https://www.nber.org/papers/w35254#fromrss"
 
+    def test_parses_circled_r_author_separator(self):
+        feed_xml = SAMPLE_FEED_XML.replace(
+            "Person A, Person &amp; B",
+            "Person A ⓡ Person &amp; B",
+        )
+
+        items = parse_feed_xml(feed_xml)
+
+        assert items[0].authors == ["Person A", "Person & B"]
+
     def test_repairs_unescaped_less_than_in_text(self):
         malformed_xml = SAMPLE_FEED_XML.replace(
             "Second abstract.",

@@ -496,6 +496,26 @@ class TestMainEntrypoint:
         assert "Failed to download w1235456: paper not found (HTTP 404)." in captured.err
         assert "Traceback" not in captured.err
 
+    def test_single_download_invalid_id_exits_2_without_traceback(self, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "download", "../../bad"]):
+                main()
+
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        assert "invalid paper ID '../../bad'" in captured.err
+        assert "Traceback" not in captured.err
+
+    def test_batch_download_invalid_id_exits_2_without_traceback(self, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "download", "--batch", "w1234", "invalid"]):
+                main()
+
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        assert "invalid paper ID 'invalid'" in captured.err
+        assert "Traceback" not in captured.err
+
     @patch("nber_cli.cli.download_multiple_papers", new_callable=AsyncMock)
     def test_batch_download_with_failures_exits_1(self, mock_download, capsys):
         from nber_cli.download import DownloadFailure

@@ -31,7 +31,7 @@ def _validate_db_path(path: Path) -> None:
     if sys.platform == "win32":
         return
     try:
-        path.absolute().relative_to(Path.home().absolute())
+        path.resolve(strict=False).relative_to(Path.home().resolve(strict=False))
     except ValueError:
         raise ValueError(f"database path must be within the home directory: {path}")
 
