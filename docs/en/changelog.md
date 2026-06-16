@@ -6,6 +6,45 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-16
+
+### Security
+
+- RSS feed parsing now uses `defusedxml` to block XML external entity (XXE) and entity expansion attacks.
+- CLI downloads are restricted to the current working directory and its subdirectories by default. Use `nber-cli download --restrict false` to override per invocation. The `download.restrict_dir` config key is stored and validated, but the current CLI default remains `true`.
+- Database `init` and `migrate` paths on macOS and Linux must reside within the user's home directory.
+- Synchronous HTTP requests enforce TLS 1.2 as the minimum version.
+- Selected info/download failure paths now avoid raw exception text; download-log messages and soft database warnings use sanitized summaries or exception class names.
+
+### Added
+
+- Added `nber-cli config show` / `get <key>` / `set <key> <value>` / `verify` for inspecting and editing `~/.nber-cli/config.json`.
+- Added `download.concurrency` configuration option (default `3`) and the `--concurrency` / `-c` CLI flag to cap concurrent downloads.
+- Added `--restrict true|false` flag on `nber-cli download` to control directory restriction per invocation.
+- Added `--yes` for `nber-cli mcp-server`; the existing `--port` option now requires explicit confirmation when set to a non-default value.
+- Added the `sse` transport for `nber-cli mcp-server`.
+- Added JSON Schema (`config.schema.json`) for validating `~/.nber-cli/config.json`.
+- Added strict raw-configuration validation that reports malformed JSON, invalid section/value types, and schema-minimum violations without silently injecting defaults.
+- Added plugin manifest and marketplace metadata version synchronization, with the Claude plugin skill path corrected to the case-sensitive tracked `./skills/NBER-CLI` directory.
+- Added domain invariant validation in all core dataclasses (`NBER`, `NBERSearchResults`, `NBERFeedItem`, `NBERFeedFetchResult`, clean results, and download results).
+- Added `get_config_value`, `set_config_value`, `read_config`, `write_config`, and `validate_config` exports from the package top level.
+- Added paper ID format validation (`w?\d+`) across CLI, download, and MCP entry points.
+- Added validation of fetched paper titles, positive citation IDs, and response/request paper-ID agreement before metadata is accepted.
+
+### Changed
+
+- Replaced legacy `typing.Dict`, `List`, and `Optional` aliases with modern Python 3.11 syntax.
+- Added `mypy` configuration and strengthened type annotations across `cli.py`, `config_store.py`, and `fetcher.py`.
+- Corrected the `mcp-server` transport name to `streamable-http`; the existing `--port` option now uses `--yes` confirmation for non-default values.
+- Retry loops in `fetcher.py` now use exponential backoff capped at 30 seconds.
+- `feed fetch` skips malformed individual RSS items instead of failing the entire feed.
+- Invalid configured or per-call download concurrency values are rejected or fall back to the documented safe default instead of creating an invalid semaphore.
+- Database schema-changing and data-writing operations reject databases with a future `PRAGMA user_version`; the diagnostic schema-version reader remains read-only.
+- Feed fetching establishes/validates the local schema before the network request, then writes feed items plus fetch history transactionally after the response is parsed; cleanup operations pair schema validation/upgrade and deletion in one SQLite transaction.
+- `download.py` enables `raise_for_status=True` on `ClientSession`.
+- Error handling narrowed to specific network/timeout exception types with preserved exception chains.
+- Removed the info cache hit hint that was printed to stderr on cached `info` lookups.
+
 ### Fixed
 
 - `feed fetch` now tolerates unescaped `<` characters followed by whitespace or a digit in RSS title and description text while keeping strict XML parsing for all other malformed input.

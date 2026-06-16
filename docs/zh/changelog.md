@@ -6,7 +6,46 @@
 
 ## 未发布
 
-### 修复
+## 0.5.0 - 2026-06-16
+
+### Security
+
+- RSS feed 解析改用 `defusedxml`，阻止 XML 外部实体（XXE）和实体展开攻击。
+- CLI 下载默认限制在当前工作目录及其子目录。可使用 `nber-cli download --restrict false` 单次覆盖。`download.restrict_dir` 配置键会被存储和校验，但当前 CLI 默认值仍固定为 `true`。
+- macOS 和 Linux 上数据库 `init` 与 `migrate` 路径必须位于用户主目录内。
+- 同步 HTTP 请求强制最低 TLS 1.2 版本。
+- 部分 info/download 失败路径不再输出原始异常文本；下载日志消息和容错数据库 warning 使用脱敏摘要或异常类名。
+
+### Added
+
+- 新增 `nber-cli config show` / `get <key>` / `set <key> <value>` / `verify`，用于查看和编辑 `~/.nber-cli/config.json`。
+- 新增 `download.concurrency` 配置项（默认 `3`）以及 CLI 参数 `--concurrency` / `-c`，用于限制并发下载数。
+- 新增 `nber-cli download --restrict true|false`，用于单次控制下载目录限制。
+- 新增 `nber-cli mcp-server --yes`；原有 `--port` 设为非默认值时现在需要显式确认。
+- 为 `nber-cli mcp-server` 新增 `sse` 传输。
+- 新增 JSON Schema（`config.schema.json`）用于校验 `~/.nber-cli/config.json`。
+- 新增严格原始配置校验：报告损坏 JSON、非法配置段/值类型及低于 schema 最小值的数值，不静默注入默认值。
+- 同步 plugin manifest 与 marketplace metadata 的版本，并把 Claude plugin skill 路径修正为大小写敏感且已跟踪的 `./skills/NBER-CLI` 目录。
+- 为核心数据类（`NBER`、`NBERSearchResults`、`NBERFeedItem`、`NBERFeedFetchResult`、清理结果和下载结果）增加领域不变量校验。
+- 包顶层新增导出 `get_config_value`、`set_config_value`、`read_config`、`write_config`、`validate_config`。
+- 在 CLI、下载和 MCP 入口统一增加论文编号格式校验（`w?\d+`）。
+- 在接受元数据前校验拉取到的论文标题、正数 citation ID，以及响应 ID 与请求 ID 是否一致。
+
+### Changed
+
+- 将旧版 `typing.Dict`、`List`、`Optional` 类型别名替换为 Python 3.11 原生语法。
+- 新增 `mypy` 配置，并加强 `cli.py`、`config_store.py`、`fetcher.py` 的类型注解。
+- 修正 `mcp-server` 传输名称为 `streamable-http`；原有 `--port` 选项对非默认值改用 `--yes` 确认。
+- `fetcher.py` 的重试等待改为指数退避，上限 30 秒。
+- `feed fetch` 遇到单个损坏的 RSS 条目时跳过，不再导致整个 feed 失败。
+- 非法的配置或单次调用下载并发值会被拒绝或回退到文档规定的安全默认值，不再创建非法 semaphore。
+- 修改 schema 或写入数据的数据库操作会拒绝未来版本的 `PRAGMA user_version`；诊断用 schema 版本读取器保持只读。
+- Feed 拉取会在网络请求前建立并校验本地 schema，并在响应解析后以事务方式写入 feed 条目和抓取历史；清理操作会把 schema 校验/升级和删除放在同一个 SQLite 事务中。
+- `download.py` 在 `ClientSession` 上启用 `raise_for_status=True`。
+- 错误处理收窄为具体的网络/超时异常类型，并保留异常链。
+- 移除 `info` 命中缓存时向 stderr 打印的提示行。
+
+### Fixed
 
 - `feed fetch` 现在可以容忍 RSS 标题和摘要文本中后接空白或数字的未转义 `<`，其他格式错误仍使用严格 XML 解析。
 - RSS 解析失败时会在可用情况下报告行号和列号；`feed fetch` 的运行时解析错误会以退出码 `1` 返回，不再打印命令 usage。
