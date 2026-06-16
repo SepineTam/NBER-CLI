@@ -37,7 +37,11 @@ class NBERCLIConfig:
         if isinstance(restrict_dir, bool):
             kwargs["restrict_dir"] = restrict_dir
         concurrency = config_store.get_config_value(config, "download.concurrency")
-        if isinstance(concurrency, int) and not isinstance(concurrency, bool):
+        if (
+            isinstance(concurrency, int)
+            and not isinstance(concurrency, bool)
+            and concurrency > 0
+        ):
             kwargs["download_concurrency"] = concurrency
         return cls(**kwargs)
 

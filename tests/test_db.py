@@ -85,6 +85,23 @@ class TestInitDatabase:
 
         assert row[0] == "T"
 
+    def test_rejects_future_schema_without_modifying_database(self, tmp_path):
+        db_path = tmp_path / "future.db"
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("CREATE TABLE future_data (value TEXT)")
+            connection.execute("INSERT INTO future_data VALUES ('keep')")
+            connection.execute("PRAGMA user_version = 999")
+
+        with pytest.raises(ValueError, match="newer than supported"):
+            db.init_database(db_path)
+
+        with sqlite3.connect(db_path) as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            value = connection.execute("SELECT value FROM future_data").fetchone()[0]
+
+        assert version == 999
+        assert value == "keep"
+
 
 class TestSchemaUpgrade:
     def test_upgrades_v1_to_v2_with_legacy_db(self, tmp_path):
@@ -129,6 +146,24 @@ class TestSchemaUpgrade:
         assert version == 2
         assert EXPECTED_TABLES.issubset(tables)
         assert row[0] == "Old"
+
+
+class TestConnectionBoundary:
+    def test_record_query_checks_schema_and_writes_with_one_connection(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+        real_connect = sqlite3.connect
+        connection_count = 0
+
+        def tracked_connect(*args, **kwargs):
+            nonlocal connection_count
+            connection_count += 1
+            return real_connect(*args, **kwargs)
+
+        with patch("nber_cli.db.sqlite3.connect", side_effect=tracked_connect):
+            db.record_query(db_path, "labor", {}, 1)
+
+        assert connection_count == 1
 
 
 class TestDatabasePathConfig:
@@ -205,6 +240,52 @@ class TestMigrateDatabase:
 
         with pytest.raises(ValueError, match="already exists"):
             db.migrate_database(new)
+
+    def test_rejects_future_schema_without_moving_database(self, tmp_path):
+        home = tmp_path / "home"
+        old = home / "old.db"
+        new = home / "new.db"
+        old.parent.mkdir()
+        with sqlite3.connect(old) as connection:
+            connection.execute("CREATE TABLE future_data (value TEXT)")
+            connection.execute("INSERT INTO future_data VALUES ('keep')")
+            connection.execute("PRAGMA user_version = 999")
+
+        with (
+            patch("nber_cli.db.Path.home", return_value=home),
+            patch("nber_cli.db.get_database_path", return_value=old),
+            pytest.raises(ValueError, match="newer than supported"),
+        ):
+            db.migrate_database(new)
+
+        assert old.exists()
+        assert not new.exists()
+        assert not (home / ".nber-cli" / "config.json").exists()
+
+    def test_rejects_future_schema_version_stored_in_wal(self, tmp_path):
+        home = tmp_path / "home"
+        old = home / "old.db"
+        new = home / "new.db"
+        old.parent.mkdir()
+        connection = sqlite3.connect(old)
+        try:
+            connection.execute("PRAGMA journal_mode = WAL")
+            connection.execute("CREATE TABLE future_data (value TEXT)")
+            connection.commit()
+            connection.execute("PRAGMA user_version = 999")
+            connection.commit()
+
+            with (
+                patch("nber_cli.db.Path.home", return_value=home),
+                patch("nber_cli.db.get_database_path", return_value=old),
+                pytest.raises(ValueError, match="newer than supported"),
+            ):
+                db.migrate_database(new)
+        finally:
+            connection.close()
+
+        assert old.exists()
+        assert not new.exists()
 
 
 class TestDatabasePathSecurity:

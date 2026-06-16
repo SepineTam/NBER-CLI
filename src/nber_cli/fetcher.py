@@ -42,7 +42,13 @@ async def get_nber(nber_id: int, session: ClientSession | None = None) -> NBER:
         page = await _load_page_with_retry(_url, session)
     else:
         page = await asyncio.to_thread(_load_page_sync, _url)
-    return parse_page(page)
+    paper = parse_page(page)
+    if paper.paper_id != nber_id:
+        raise ValueError(
+            f"requested paper ID w{nber_id} does not match response paper ID "
+            f"w{paper.paper_id}"
+        )
+    return paper
 
 
 async def search_nber(
@@ -158,7 +164,9 @@ async def _retry_async(loader: Callable[[], Awaitable[T]]) -> T:
 
 def parse_page(page: str) -> NBER:
     title_match = re.search(r'<meta name="citation_title" content="([^"]*)"', page)
-    title = title_match.group(1) if title_match else ""
+    title = title_match.group(1).strip() if title_match else ""
+    if not title:
+        raise ValueError("invalid NBER paper page: missing citation title")
 
     authors = re.findall(r'<meta name="citation_author" content="([^"]*)"', page)
 
@@ -169,8 +177,13 @@ def parse_page(page: str) -> NBER:
         r'<meta name="citation_technical_report_number" content="([^"]*)"',
         page,
     )
-    paper_id_str = paper_id_match.group(1) if paper_id_match else ""
-    paper_id = int(paper_id_str.replace("w", "").lstrip("0") or "0")
+    paper_id_str = paper_id_match.group(1).strip() if paper_id_match else ""
+    normalized_id_match = re.fullmatch(r"w?0*(\d+)", paper_id_str, re.IGNORECASE)
+    if normalized_id_match is None:
+        raise ValueError("invalid NBER paper page: missing or invalid citation ID")
+    paper_id = int(normalized_id_match.group(1))
+    if paper_id <= 0:
+        raise ValueError("invalid NBER paper page: citation ID must be positive")
 
     abstract = _extract_abstract(page)
     published_version = _extract_published_version(page)

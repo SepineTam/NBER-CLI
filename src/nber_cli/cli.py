@@ -802,7 +802,11 @@ def main() -> None:
             print(f"Set {args.key} = {typed_value}")
             return
         if args.config_command == "verify":
-            config = config_store.read_config()
+            try:
+                config = config_store.read_config_for_validation()
+            except ValueError as error:
+                print(error, file=sys.stderr)
+                raise SystemExit(1)
             errors = config_store.validate_config(config)
             if errors:
                 for message in errors:

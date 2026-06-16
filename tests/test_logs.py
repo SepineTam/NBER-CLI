@@ -126,3 +126,28 @@ class TestFailureHandling:
 
         captured = capsys.readouterr()
         assert "warning" in captured.err
+
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            lambda path: db.record_query(path, "x", {}, 0),
+            lambda path: db.record_download(path, "w1", "success"),
+            lambda path: db.record_info(path, "w1"),
+        ],
+    )
+    def test_record_operations_warn_and_do_not_write_future_schema(
+        self, db_path, capsys, operation
+    ):
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("PRAGMA user_version = 999")
+
+        operation(db_path)
+
+        assert "warning" in capsys.readouterr().err
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+            counts = [
+                connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in ("query_log", "download_log", "info_log")
+            ]
+        assert counts == [0, 0, 0]

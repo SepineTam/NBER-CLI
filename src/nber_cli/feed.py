@@ -62,9 +62,8 @@ def clean_feed_cache(
         start_date=start_date,
         end_date=end_date,
     )
-    db._ensure_full_schema(resolved_db_path)
-
     with sqlite3.connect(resolved_db_path) as connection:
+        db._ensure_full_schema_on_connection(connection)
         matched_count = connection.execute(
             f"SELECT COUNT(*) FROM feed_items WHERE {condition}",
             parameters,
@@ -99,12 +98,15 @@ def fetch_feed(
         raise ValueError("max_items must be 0 or greater")
 
     resolved_db_path = db.get_database_path(db_path)
+    resolved_db_path.parent.mkdir(parents=True, exist_ok=True)
     db._ensure_full_schema(resolved_db_path)
 
     xml_text = _load_text_sync(NBER_FEED_URL)
     feed_items = parse_feed_xml(xml_text)
     seen_at = db._utc_now()
-    new_items = _save_feed_items(resolved_db_path, feed_items, seen_at)
+    with sqlite3.connect(resolved_db_path) as connection:
+        db._ensure_full_schema_on_connection(connection)
+        new_items = _save_feed_items(connection, feed_items, seen_at)
     output_items = feed_items if display_all else new_items
     if max_items is not None:
         output_items = output_items[:max_items]
@@ -180,7 +182,7 @@ def _invalid_feed_xml_error(error: Exception) -> ValueError:
 
 
 def _save_feed_items(
-    db_path: Path,
+    connection: sqlite3.Connection,
     feed_items: list[NBERFeedItem],
     seen_at: str,
 ) -> list[NBERFeedItem]:
@@ -188,54 +190,53 @@ def _save_feed_items(
 
     new_items: list[NBERFeedItem] = []
 
-    with sqlite3.connect(db_path) as connection:
-        for feed_item in feed_items:
-            is_new_item = not _feed_item_exists(connection, feed_item.paper_id)
-            connection.execute(
-                """
-                INSERT INTO feed_items (
-                    paper_id,
-                    title,
-                    authors_json,
-                    abstract,
-                    url,
-                    source_url,
-                    guid,
-                    first_seen_at,
-                    last_seen_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(paper_id) DO UPDATE SET
-                    title = excluded.title,
-                    authors_json = excluded.authors_json,
-                    abstract = excluded.abstract,
-                    url = excluded.url,
-                    source_url = excluded.source_url,
-                    guid = excluded.guid,
-                    last_seen_at = excluded.last_seen_at
-                """,
-                (
-                    feed_item.paper_id,
-                    feed_item.title,
-                    json.dumps(feed_item.authors, ensure_ascii=False),
-                    feed_item.abstract,
-                    feed_item.url,
-                    feed_item.source_url,
-                    feed_item.guid,
-                    seen_at,
-                    seen_at,
-                ),
-            )
-            if is_new_item:
-                new_items.append(feed_item)
-
+    for feed_item in feed_items:
+        is_new_item = not _feed_item_exists(connection, feed_item.paper_id)
         connection.execute(
             """
-            INSERT INTO feed_fetches (source_url, fetched_at, total_count, new_count)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO feed_items (
+                paper_id,
+                title,
+                authors_json,
+                abstract,
+                url,
+                source_url,
+                guid,
+                first_seen_at,
+                last_seen_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(paper_id) DO UPDATE SET
+                title = excluded.title,
+                authors_json = excluded.authors_json,
+                abstract = excluded.abstract,
+                url = excluded.url,
+                source_url = excluded.source_url,
+                guid = excluded.guid,
+                last_seen_at = excluded.last_seen_at
             """,
-            (NBER_FEED_URL, seen_at, len(feed_items), len(new_items)),
+            (
+                feed_item.paper_id,
+                feed_item.title,
+                json.dumps(feed_item.authors, ensure_ascii=False),
+                feed_item.abstract,
+                feed_item.url,
+                feed_item.source_url,
+                feed_item.guid,
+                seen_at,
+                seen_at,
+            ),
         )
+        if is_new_item:
+            new_items.append(feed_item)
+
+    connection.execute(
+        """
+        INSERT INTO feed_fetches (source_url, fetched_at, total_count, new_count)
+        VALUES (?, ?, ?, ?)
+        """,
+        (NBER_FEED_URL, seen_at, len(feed_items), len(new_items)),
+    )
 
     return new_items
 

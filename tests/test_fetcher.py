@@ -14,7 +14,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from nber_cli.config import NBER_CLI_CONFIG
-from nber_cli.fetcher import _build_search_params, _load_text_sync, _parse_search_payload
+from nber_cli.fetcher import (
+    _build_search_params,
+    _load_text_sync,
+    _parse_search_payload,
+    get_nber,
+)
 
 
 class TestConfigDefaults:
@@ -159,28 +164,81 @@ class TestParsePage:
         assert result.abstract == "This is the abstract of the paper."
         assert result.published_version == "Published in Journal of Economics, 2024."
 
-    def test_handles_missing_fields(self):
+    def test_rejects_missing_required_fields(self):
         page = "<html><head></head><body></body></html>"
         from nber_cli.fetcher import parse_page
-        result = parse_page(page)
-        assert result.paper_id == 0
-        assert result.title == ""
-        assert result.authors == []
-        assert result.date == ""
-        assert result.abstract == ""
-        assert result.published_version is None
+
+        with pytest.raises(ValueError, match="missing citation title"):
+            parse_page(page)
 
     def test_parses_paper_id_with_leading_zeros(self):
-        page = '<meta name="citation_technical_report_number" content="w00123">'
+        page = """
+<meta name="citation_title" content="A Paper">
+<meta name="citation_technical_report_number" content="w00123">
+"""
         from nber_cli.fetcher import parse_page
         result = parse_page(page)
         assert result.paper_id == 123
 
     def test_parses_paper_id_without_w_prefix(self):
-        page = '<meta name="citation_technical_report_number" content="456">'
+        page = """
+<meta name="citation_title" content="A Paper">
+<meta name="citation_technical_report_number" content="456">
+"""
         from nber_cli.fetcher import parse_page
         result = parse_page(page)
         assert result.paper_id == 456
+
+    @pytest.mark.parametrize("paper_id", ["", "w0", "0", "invalid", "w-1"])
+    def test_rejects_invalid_paper_id(self, paper_id):
+        page = f"""
+<meta name="citation_title" content="A Paper">
+<meta name="citation_technical_report_number" content="{paper_id}">
+"""
+        from nber_cli.fetcher import parse_page
+
+        with pytest.raises(ValueError, match="citation ID"):
+            parse_page(page)
+
+    def test_allows_missing_optional_fields(self):
+        page = """
+<meta name="citation_title" content="A Paper">
+<meta name="citation_technical_report_number" content="w123">
+"""
+        from nber_cli.fetcher import parse_page
+
+        result = parse_page(page)
+
+        assert result.authors == []
+        assert result.date == ""
+        assert result.abstract == ""
+        assert result.published_version is None
+
+
+@pytest.mark.asyncio
+class TestGetNber:
+    async def test_rejects_mismatched_response_id_without_session(self):
+        page = """
+<meta name="citation_title" content="Another Paper">
+<meta name="citation_technical_report_number" content="w5678">
+"""
+        with patch("nber_cli.fetcher._load_page_sync", return_value=page):
+            with pytest.raises(ValueError, match="does not match"):
+                await get_nber(1234)
+
+    async def test_rejects_mismatched_response_id_with_session(self):
+        page = """
+<meta name="citation_title" content="Another Paper">
+<meta name="citation_technical_report_number" content="w5678">
+"""
+        session = MagicMock()
+        with patch(
+            "nber_cli.fetcher._load_page_with_retry",
+            new_callable=AsyncMock,
+            return_value=page,
+        ):
+            with pytest.raises(ValueError, match="does not match"):
+                await get_nber(1234, session=session)
 
 
 class TestExtractAbstract:

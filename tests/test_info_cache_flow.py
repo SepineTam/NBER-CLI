@@ -104,3 +104,25 @@ class TestGetPaperWithInfoCache:
 
         mock_get_nber.assert_called_once_with(1234)
         assert db.count_info_cache(db_path) == 0
+
+    async def test_invalid_page_is_not_cached(self, db_path):
+        with patch(
+            "nber_cli.fetcher._load_page_sync",
+            return_value="<html><head></head><body></body></html>",
+        ):
+            with pytest.raises(ValueError, match="missing citation title"):
+                await get_paper_with_info_cache(1234)
+
+        assert db.count_info_cache(db_path) == 0
+
+    async def test_mismatched_page_is_not_cached(self, db_path):
+        page = """
+<meta name="citation_title" content="Another Paper">
+<meta name="citation_technical_report_number" content="w5678">
+"""
+        with patch("nber_cli.fetcher._load_page_sync", return_value=page):
+            with pytest.raises(ValueError, match="does not match"):
+                await get_paper_with_info_cache(1234)
+
+        assert db.count_info_cache(db_path) == 0
+        assert db.read_info_cache(db_path, 5678) is None

@@ -1393,6 +1393,59 @@ class TestConfigCommand:
         assert exc_info.value.code == 1
         assert "expected boolean" in capsys.readouterr().err
 
+    def test_config_verify_fails_on_non_positive_concurrency(
+        self, isolated_nber_home, capsys
+    ):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(json.dumps({"download": {"concurrency": 0}}))
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+                main()
+
+        assert exc_info.value.code == 1
+        assert "must be greater than or equal to 1" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("raw_config", ["[]", "0", "null", '"text"', "true"])
+    def test_config_verify_fails_on_non_object_root(
+        self, isolated_nber_home, capsys, raw_config
+    ):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(raw_config)
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+                main()
+
+        assert exc_info.value.code == 1
+        assert "expected object" in capsys.readouterr().err
+
+    def test_config_verify_fails_on_null_scalar(self, isolated_nber_home, capsys):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(json.dumps({"schema_version": None}))
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+                main()
+
+        assert exc_info.value.code == 1
+        assert "expected integer" in capsys.readouterr().err
+
+    def test_config_verify_fails_on_malformed_json(self, isolated_nber_home, capsys):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text("{")
+
+        with pytest.raises(SystemExit) as exc_info:
+            with patch.object(sys, "argv", ["nber-cli", "config", "verify"]):
+                main()
+
+        assert exc_info.value.code == 1
+        assert "JSONDecodeError" in capsys.readouterr().err
+
 
 class TestDownloadRestrict:
     @patch("nber_cli.cli.download_paper_to_file", new_callable=AsyncMock)

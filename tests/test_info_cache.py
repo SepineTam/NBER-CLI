@@ -77,6 +77,11 @@ def _set_cache_timestamps(
         )
 
 
+def _set_future_schema(db_path) -> None:
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA user_version = 999")
+
+
 class TestReadInfoCache:
     def test_returns_none_when_db_missing(self, tmp_path):
         path = tmp_path / "missing.db"
@@ -146,6 +151,12 @@ class TestReadInfoCache:
 
         assert db.read_info_cache(db_path, 1234, ttl_days=30) is None
 
+    def test_soft_fails_on_future_schema(self, db_path):
+        db.write_info_cache(db_path, _make_paper())
+        _set_future_schema(db_path)
+
+        assert db.read_info_cache(db_path, 1234) is None
+
 
 class TestWriteInfoCache:
     def test_inserts_new_record(self, db_path):
@@ -203,6 +214,16 @@ class TestWriteInfoCache:
 
         assert count == 2
 
+    def test_warns_and_does_not_write_future_schema(self, db_path, capsys):
+        _set_future_schema(db_path)
+
+        db.write_info_cache(db_path, _make_paper())
+
+        assert "warning" in capsys.readouterr().err
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+            assert connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()[0] == 0
+
 
 class TestTouchInfoCache:
     def test_updates_last_fetched_at_and_increments_count(self, db_path):
@@ -226,6 +247,20 @@ class TestTouchInfoCache:
         with sqlite3.connect(db_path) as connection:
             count = connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()[0]
 
+        assert count == 0
+
+    def test_warns_and_does_not_touch_future_schema(self, db_path, capsys):
+        db.write_info_cache(db_path, _make_paper())
+        _set_future_schema(db_path)
+
+        db.touch_info_cache(db_path, 1234)
+
+        assert "warning" in capsys.readouterr().err
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+            count = connection.execute(
+                "SELECT fetch_count FROM info_cache WHERE paper_id = 'w1234'"
+            ).fetchone()[0]
         assert count == 0
 
 
@@ -286,3 +321,22 @@ class TestClearInfoCache:
     def test_clear_requires_end_date_when_start_date_is_provided(self, db_path):
         with pytest.raises(ValueError, match="end-date is required"):
             db.clear_info_cache(start_date="2026-05-01", db_path=db_path)
+
+    def test_rejects_future_schema_without_deleting(self, db_path):
+        db.write_info_cache(db_path, _make_paper())
+        _set_future_schema(db_path)
+
+        with pytest.raises(ValueError, match="newer than supported"):
+            db.clear_info_cache(delete_all=True, db_path=db_path)
+
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+            assert connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()[0] == 1
+
+
+class TestCountInfoCache:
+    def test_soft_fails_on_future_schema(self, db_path):
+        db.write_info_cache(db_path, _make_paper())
+        _set_future_schema(db_path)
+
+        assert db.count_info_cache(db_path) == 0

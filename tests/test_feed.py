@@ -253,7 +253,7 @@ class TestMigrateFeedDatabase:
         assert not old_wal_path.exists()
         assert not old_shm_path.exists()
         assert (tmp_path / "new" / "feed.db-wal").read_text() == "wal"
-        assert (tmp_path / "new" / "feed.db-shm").read_text() == "shm"
+        assert (tmp_path / "new" / "feed.db-shm").exists()
 
     def test_rejects_missing_source_database(self, tmp_path):
         home = tmp_path
@@ -291,6 +291,20 @@ class TestMigrateFeedDatabase:
 
 
 class TestCleanFeedCache:
+    def test_rejects_future_schema_without_deleting(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+        init_feed_database(db_path)
+        _insert_cached_feed_item(db_path, "w10001", "2026-04-30T00:00:00+00:00")
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("PRAGMA user_version = 999")
+
+        with pytest.raises(ValueError, match="newer than supported"):
+            clean_feed_cache(delete_all=True, db_path=db_path)
+
+        assert _cached_feed_ids(db_path) == ["w10001"]
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+
     def test_defaults_to_cleaning_records_not_seen_for_30_days(self, tmp_path):
         db_path = tmp_path / "feed.db"
         init_feed_database(db_path)
@@ -387,6 +401,40 @@ class TestCleanFeedCache:
 
 
 class TestFetchFeed:
+    def test_rejects_future_schema_before_network_request(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+        init_feed_database(db_path)
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("PRAGMA user_version = 999")
+
+        with (
+            patch("nber_cli.feed._load_text_sync") as mock_load,
+            pytest.raises(ValueError, match="newer than supported"),
+        ):
+            fetch_feed(db_path=db_path)
+
+        mock_load.assert_not_called()
+        with sqlite3.connect(db_path) as connection:
+            assert connection.execute("PRAGMA user_version").fetchone()[0] == 999
+
+    def test_does_not_hold_database_transaction_during_network_request(self, tmp_path):
+        db_path = tmp_path / "feed.db"
+
+        def load_feed_without_locked_database(_url):
+            with sqlite3.connect(db_path, timeout=0) as connection:
+                connection.execute(
+                    "INSERT INTO query_log (created_at, keyword, conditions, result_count) "
+                    "VALUES ('now', 'network-hook', '{}', 0)"
+                )
+            return SAMPLE_FEED_XML
+
+        with patch("nber_cli.feed._load_text_sync", side_effect=load_feed_without_locked_database):
+            fetch_feed(db_path=db_path)
+
+        with sqlite3.connect(db_path) as connection:
+            count = connection.execute("SELECT COUNT(*) FROM query_log").fetchone()[0]
+        assert count == 1
+
     def test_fetch_returns_only_new_items_by_default(self, tmp_path):
         db_path = tmp_path / "feed.db"
 

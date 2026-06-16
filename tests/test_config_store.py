@@ -12,6 +12,7 @@ import json
 import pytest
 
 from nber_cli import config_store
+from nber_cli.config import NBERCLIConfig
 
 
 class TestInfoCacheSettings:
@@ -164,3 +165,62 @@ class TestValidateConfig:
     def test_returns_empty_when_config_is_valid(self):
         errors = config_store.validate_config({"info": {"cache_enabled": True}})
         assert errors == []
+
+    @pytest.mark.parametrize("config", [[], 1, None])
+    def test_rejects_non_object_root(self, config):
+        errors = config_store.validate_config(config)
+
+        assert errors == [f"$: expected object, got {type(config).__name__}"]
+
+    def test_rejects_non_object_section(self):
+        errors = config_store.validate_config({"download": []})
+
+        assert errors == ["$.download: expected object, got list"]
+
+    @pytest.mark.parametrize("value", [0, -1])
+    def test_enforces_minimum(self, value):
+        errors = config_store.validate_config(
+            {"download": {"concurrency": value}, "info": {"cache_ttl_days": value}}
+        )
+
+        assert "$.download.concurrency: must be greater than or equal to 1" in errors
+        assert "$.info.cache_ttl_days: must be greater than or equal to 1" in errors
+
+    def test_rejects_boolean_as_integer(self):
+        errors = config_store.validate_config({"download": {"concurrency": True}})
+
+        assert errors == ["$.download.concurrency: expected integer, got bool"]
+
+    def test_rejects_null_scalar(self):
+        errors = config_store.validate_config({"info": {"cache_enabled": None}})
+
+        assert errors == ["$.info.cache_enabled: expected boolean, got NoneType"]
+
+
+class TestReadConfigForValidation:
+    def test_returns_raw_json_without_defaults(self, isolated_nber_home):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text("[]")
+
+        assert config_store.read_config_for_validation() == []
+
+    def test_rejects_malformed_json(self, isolated_nber_home):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text("{")
+
+        with pytest.raises(ValueError, match="JSONDecodeError"):
+            config_store.read_config_for_validation()
+
+
+class TestRuntimeConfig:
+    @pytest.mark.parametrize("concurrency", [0, -1, True])
+    def test_invalid_concurrency_uses_safe_default(self, concurrency, monkeypatch):
+        monkeypatch.setattr(
+            config_store,
+            "read_config",
+            lambda: {"download": {"concurrency": concurrency}},
+        )
+
+        assert NBERCLIConfig.from_config_file().download_concurrency == 3

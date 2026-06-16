@@ -81,12 +81,12 @@ def set_config_value(config: ConfigDict, dot_path: str, value: ConfigValue) -> N
     current[keys[-1]] = value
 
 
-def validate_config(config: ConfigDict) -> list[str]:
+def validate_config(config: ConfigValue) -> list[str]:
     errors: list[str] = []
     schema = _load_schema()
     if schema is None:
         return errors
-    _validate_against_schema(config, schema, "", errors)
+    _validate_against_schema(config, schema, "$", errors)
     return errors
 
 
@@ -108,17 +108,43 @@ def _validate_against_schema(
     errors: list[str],
 ) -> None:
     schema_type = schema.get("type")
-    if schema_type == "object" and isinstance(value, dict):
+    if schema_type == "object":
+        if not isinstance(value, dict):
+            errors.append(f"{path}: expected object, got {type(value).__name__}")
+            return
         properties = schema.get("properties", {})
+        if not isinstance(properties, dict):
+            return
         for key, prop_schema in properties.items():
+            if not isinstance(prop_schema, dict):
+                continue
             if key in value:
-                _validate_against_schema(value[key], prop_schema, f"{path}.{key}" if path else key, errors)
-    elif schema_type == "integer" and value is not None and not isinstance(value, int):
-        errors.append(f"{path}: expected integer, got {type(value).__name__}")
-    elif schema_type == "boolean" and value is not None and not isinstance(value, bool):
+                _validate_against_schema(value[key], prop_schema, f"{path}.{key}", errors)
+        return
+    if schema_type == "integer":
+        if not isinstance(value, int) or isinstance(value, bool):
+            errors.append(f"{path}: expected integer, got {type(value).__name__}")
+            return
+        minimum = schema.get("minimum")
+        if isinstance(minimum, int) and value < minimum:
+            errors.append(f"{path}: must be greater than or equal to {minimum}")
+        return
+    if schema_type == "boolean" and not isinstance(value, bool):
         errors.append(f"{path}: expected boolean, got {type(value).__name__}")
-    elif schema_type == "string" and value is not None and not isinstance(value, str):
+    elif schema_type == "string" and not isinstance(value, str):
         errors.append(f"{path}: expected string, got {type(value).__name__}")
+
+
+def read_config_for_validation(config_path: Path | None = None) -> ConfigValue:
+    resolved_path = config_path or default_config_path()
+    if not resolved_path.exists():
+        return {}
+    try:
+        return json.loads(resolved_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"failed to read config from {resolved_path}: {error.__class__.__name__}"
+        ) from error
 
 
 def read_config(config_path: Path | None = None) -> ConfigDict:

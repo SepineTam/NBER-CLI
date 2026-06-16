@@ -213,6 +213,47 @@ class TestDownloadPaper:
 
 class TestDownloadMultiplePapers:
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("concurrency", [0, -1, True])
+    async def test_rejects_invalid_concurrency_immediately(self, tmp_path, concurrency):
+        with patch("nber_cli.download.ClientSession") as mock_session:
+            with pytest.raises(ValueError, match="positive integer"):
+                await download_multiple_papers(
+                    ["w1234"],
+                    tmp_path,
+                    restrict_dir=False,
+                    concurrency=concurrency,
+                )
+
+        mock_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_invalid_file_concurrency_falls_back_without_hanging(
+        self, tmp_path, isolated_nber_home
+    ):
+        from nber_cli.config import NBERCLIConfig
+
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text('{"download": {"concurrency": 0}}')
+        runtime_config = NBERCLIConfig.from_config_file()
+
+        with (
+            patch("nber_cli.download.NBER_CLI_CONFIG", runtime_config),
+            patch(
+                "nber_cli.download.download_paper",
+                new_callable=AsyncMock,
+                return_value=tmp_path / "w1234.pdf",
+            ),
+        ):
+            result = await asyncio.wait_for(
+                download_multiple_papers(["w1234"], tmp_path, restrict_dir=False),
+                timeout=0.2,
+            )
+
+        assert runtime_config.download_concurrency == 3
+        assert result.paths == [tmp_path / "w1234.pdf"]
+
+    @pytest.mark.asyncio
     async def test_all_success(self, tmp_path):
         with patch("nber_cli.download.download_paper") as mock_download:
             mock_download.side_effect = [

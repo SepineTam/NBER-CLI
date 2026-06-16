@@ -54,6 +54,10 @@ def migrate_database(new_db_path: Path | str) -> tuple[Path, Path]:
     if not old_db_path.exists():
         raise ValueError(f"database does not exist: {old_db_path}")
 
+    source_uri = f"{old_db_path.as_uri()}?mode=ro"
+    with sqlite3.connect(source_uri, uri=True) as connection:
+        _reject_future_schema(connection)
+
     move_pairs = _db_move_pairs(old_db_path, resolved_new_db_path)
     for _, target in move_pairs:
         if target.exists():
@@ -82,12 +86,36 @@ def get_schema_version(db_path: Path | str | None = None) -> int:
 def _ensure_full_schema(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(db_path) as connection:
-        current_version = _read_user_version(connection)
-        if current_version == 0:
-            _create_all_tables(connection)
-        elif current_version == 1:
-            _upgrade_v1_to_v2(connection)
-        connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        _ensure_full_schema_on_connection(connection)
+
+
+def _ensure_full_schema_on_connection(connection: sqlite3.Connection) -> None:
+    _begin_schema_transaction(connection, write=True)
+    current_version = _reject_future_schema(connection)
+    if current_version == 0:
+        _create_all_tables(connection)
+    elif current_version == 1:
+        _upgrade_v1_to_v2(connection)
+    connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+def _reject_future_schema(connection: sqlite3.Connection) -> int:
+    current_version = _read_user_version(connection)
+    if current_version > SCHEMA_VERSION:
+        raise ValueError(
+            f"database schema version {current_version} is newer than supported "
+            f"version {SCHEMA_VERSION}"
+        )
+    return current_version
+
+
+def _begin_schema_transaction(
+    connection: sqlite3.Connection,
+    *,
+    write: bool,
+) -> None:
+    if not connection.in_transaction:
+        connection.execute("BEGIN IMMEDIATE" if write else "BEGIN")
 
 
 def _create_all_tables(connection: sqlite3.Connection) -> None:
@@ -299,8 +327,9 @@ def record_query(
 ) -> None:
     try:
         resolved = get_database_path(db_path)
-        _ensure_full_schema(resolved)
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(resolved) as connection:
+            _ensure_full_schema_on_connection(connection)
             connection.execute(
                 """
                 INSERT INTO query_log (created_at, keyword, conditions, result_count)
@@ -326,8 +355,9 @@ def record_download(
 ) -> None:
     try:
         resolved = get_database_path(db_path)
-        _ensure_full_schema(resolved)
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(resolved) as connection:
+            _ensure_full_schema_on_connection(connection)
             connection.execute(
                 """
                 INSERT INTO download_log (
@@ -347,9 +377,10 @@ def record_info(
 ) -> None:
     try:
         resolved = get_database_path(db_path)
-        _ensure_full_schema(resolved)
         normalized = _normalize_paper_id(paper_id)
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(resolved) as connection:
+            _ensure_full_schema_on_connection(connection)
             connection.execute(
                 """
                 INSERT INTO info_log (created_at, paper_id)
@@ -384,6 +415,8 @@ def read_info_cache(
             return None
         normalized = _normalize_paper_id(paper_id)
         with sqlite3.connect(resolved) as connection:
+            _begin_schema_transaction(connection, write=False)
+            _reject_future_schema(connection)
             row = connection.execute(
                 """
                 SELECT paper_id, title, authors_json, date, abstract,
@@ -392,7 +425,7 @@ def read_info_cache(
                 """,
                 (normalized,),
             ).fetchone()
-    except (sqlite3.DatabaseError, OSError):
+    except (sqlite3.DatabaseError, OSError, ValueError):
         return None
 
     if row is None:
@@ -447,10 +480,11 @@ def is_info_cache_expired(
 def write_info_cache(db_path: Path | str | None, paper: NBER) -> None:
     try:
         resolved = get_database_path(db_path)
-        _ensure_full_schema(resolved)
         paper_id_str = _paper_id_to_str(paper.paper_id)
         now = _utc_now()
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         with sqlite3.connect(resolved) as connection:
+            _ensure_full_schema_on_connection(connection)
             connection.execute(
                 """
                 INSERT INTO info_cache (
@@ -495,6 +529,8 @@ def touch_info_cache(db_path: Path | str | None, paper_id: str | int) -> None:
             return
         normalized = _normalize_paper_id(paper_id)
         with sqlite3.connect(resolved) as connection:
+            _begin_schema_transaction(connection, write=True)
+            _reject_future_schema(connection)
             connection.execute(
                 """
                 UPDATE info_cache
@@ -513,8 +549,10 @@ def count_info_cache(db_path: Path | str | None = None) -> int:
         if not resolved.exists():
             return 0
         with sqlite3.connect(resolved) as connection:
+            _begin_schema_transaction(connection, write=False)
+            _reject_future_schema(connection)
             row = connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()
-    except (sqlite3.DatabaseError, OSError):
+    except (sqlite3.DatabaseError, OSError, ValueError):
         return 0
     return int(row[0]) if row else 0
 
@@ -538,9 +576,8 @@ def clear_info_cache(
         start_date=start_date,
         end_date=end_date,
     )
-    _ensure_full_schema(resolved_db_path)
-
     with sqlite3.connect(resolved_db_path) as connection:
+        _ensure_full_schema_on_connection(connection)
         matched_count = connection.execute(
             f"SELECT COUNT(*) FROM info_cache WHERE {condition}",
             parameters,

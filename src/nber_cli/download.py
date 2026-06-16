@@ -122,12 +122,19 @@ async def download_multiple_papers(
     concurrency: int | None = None,
 ) -> DownloadBatchResult:
     """Download multiple papers concurrently into the same base directory."""
+    max_concurrency = concurrency if concurrency is not None else NBER_CLI_CONFIG.download_concurrency
+    if (
+        not isinstance(max_concurrency, int)
+        or isinstance(max_concurrency, bool)
+        or max_concurrency <= 0
+    ):
+        raise ValueError("concurrency must be a positive integer")
+
     for pid in paper_ids:
         _validate_paper_id(pid)
     if restrict_dir:
         _validate_download_path(save_base / "x.pdf")
 
-    max_concurrency = concurrency if concurrency is not None else NBER_CLI_CONFIG.download_concurrency
     semaphore = asyncio.Semaphore(max_concurrency)
 
     connector = _create_connector()
