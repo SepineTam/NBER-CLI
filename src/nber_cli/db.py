@@ -11,11 +11,16 @@ from __future__ import annotations
 
 import json
 import shutil
-import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
+
+from sqlalchemy import Index
+from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Field, Session, SQLModel, create_engine
 
 from . import config_store
 from .core.models import NBER, NBERInfoCacheClearResult
@@ -25,6 +30,87 @@ NBER_CLI_CONFIG_NAME = config_store.NBER_CLI_CONFIG_NAME
 NBER_DB_NAME = config_store.NBER_DB_NAME
 LEGACY_DB_NAME = config_store.LEGACY_DB_NAME
 SCHEMA_VERSION = 2
+
+
+class FeedItem(SQLModel, table=True):
+    __tablename__ = "feed_items"
+    __table_args__ = (Index("idx_feed_items_last_seen_at", "last_seen_at"),)
+
+    paper_id: str = Field(primary_key=True)
+    title: str
+    authors_json: str
+    abstract: str
+    url: str
+    source_url: str
+    guid: str
+    first_seen_at: str
+    last_seen_at: str
+
+
+class FeedFetch(SQLModel, table=True):
+    __tablename__ = "feed_fetches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    source_url: str
+    fetched_at: str
+    total_count: int
+    new_count: int
+
+
+class QueryLog(SQLModel, table=True):
+    __tablename__ = "query_log"
+    __table_args__ = (Index("idx_query_log_created_at", "created_at"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: str
+    keyword: str
+    conditions: str
+    result_count: int
+
+
+class DownloadLog(SQLModel, table=True):
+    __tablename__ = "download_log"
+    __table_args__ = (
+        Index("idx_download_log_created_at", "created_at"),
+        Index("idx_download_log_paper_id", "paper_id"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: str
+    paper_id: str
+    status: str
+    saved_path: str | None = None
+    error: str | None = None
+
+
+class InfoLog(SQLModel, table=True):
+    __tablename__ = "info_log"
+    __table_args__ = (
+        Index("idx_info_log_paper_id", "paper_id"),
+        Index("idx_info_log_created_at", "created_at"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: str
+    paper_id: str
+
+
+class InfoCache(SQLModel, table=True):
+    __tablename__ = "info_cache"
+    __table_args__ = (Index("idx_info_cache_last_fetched_at", "last_fetched_at"),)
+
+    paper_id: str = Field(primary_key=True)
+    title: str
+    authors_json: str
+    date: str
+    abstract: str
+    url: str | None = None
+    published_version: str | None = None
+    topic: str | None = None
+    programs: str | None = None
+    first_cached_at: str
+    last_fetched_at: str
+    fetch_count: int = Field(default=0, sa_column_kwargs={"server_default": "0"})
 
 
 def _validate_db_path(path: Path) -> None:
@@ -54,8 +140,7 @@ def migrate_database(new_db_path: Path | str) -> tuple[Path, Path]:
     if not old_db_path.exists():
         raise ValueError(f"database does not exist: {old_db_path}")
 
-    source_uri = f"{old_db_path.as_uri()}?mode=ro"
-    with sqlite3.connect(source_uri, uri=True) as connection:
+    with _create_engine(old_db_path).connect() as connection:
         _reject_future_schema(connection)
 
     move_pairs = _db_move_pairs(old_db_path, resolved_new_db_path)
@@ -79,27 +164,32 @@ def get_schema_version(db_path: Path | str | None = None) -> int:
     resolved_db_path = get_database_path(db_path)
     if not resolved_db_path.exists():
         return 0
-    with sqlite3.connect(resolved_db_path) as connection:
+    engine = _create_engine(resolved_db_path)
+    with engine.connect() as connection:
         return _read_user_version(connection)
 
 
 def _ensure_full_schema(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as connection:
+    engine = _create_engine(db_path)
+    _ensure_full_schema_on_engine(engine)
+
+
+def _ensure_full_schema_on_engine(engine: Engine) -> None:
+    with engine.begin() as connection:
         _ensure_full_schema_on_connection(connection)
 
 
-def _ensure_full_schema_on_connection(connection: sqlite3.Connection) -> None:
-    _begin_schema_transaction(connection, write=True)
+def _ensure_full_schema_on_connection(connection: Connection) -> None:
     current_version = _reject_future_schema(connection)
     if current_version == 0:
         _create_all_tables(connection)
     elif current_version == 1:
         _upgrade_v1_to_v2(connection)
-    connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    connection.exec_driver_sql(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
-def _reject_future_schema(connection: sqlite3.Connection) -> int:
+def _reject_future_schema(connection: Connection) -> int:
     current_version = _read_user_version(connection)
     if current_version > SCHEMA_VERSION:
         raise ValueError(
@@ -110,161 +200,24 @@ def _reject_future_schema(connection: sqlite3.Connection) -> int:
 
 
 def _begin_schema_transaction(
-    connection: sqlite3.Connection,
+    connection: Connection,
     *,
     write: bool,
 ) -> None:
-    if not connection.in_transaction:
-        connection.execute("BEGIN IMMEDIATE" if write else "BEGIN")
+    if not connection.in_transaction():
+        connection.exec_driver_sql("BEGIN IMMEDIATE" if write else "BEGIN")
 
 
-def _create_all_tables(connection: sqlite3.Connection) -> None:
-    _create_feed_tables(connection)
-    _create_query_log_table(connection)
-    _create_download_log_table(connection)
-    _create_info_log_table(connection)
-    _create_info_cache_table(connection)
+def _create_all_tables(connection: Connection) -> None:
+    SQLModel.metadata.create_all(connection)
 
 
-def _create_feed_tables(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS feed_items (
-            paper_id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            authors_json TEXT NOT NULL,
-            abstract TEXT NOT NULL,
-            url TEXT NOT NULL,
-            source_url TEXT NOT NULL,
-            guid TEXT NOT NULL,
-            first_seen_at TEXT NOT NULL,
-            last_seen_at TEXT NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS feed_fetches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_url TEXT NOT NULL,
-            fetched_at TEXT NOT NULL,
-            total_count INTEGER NOT NULL,
-            new_count INTEGER NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_feed_items_last_seen_at
-        ON feed_items(last_seen_at)
-        """
-    )
-
-
-def _create_query_log_table(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS query_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT NOT NULL,
-            keyword TEXT NOT NULL,
-            conditions TEXT NOT NULL,
-            result_count INTEGER NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_query_log_created_at
-        ON query_log(created_at)
-        """
-    )
-
-
-def _create_download_log_table(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS download_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT NOT NULL,
-            paper_id TEXT NOT NULL,
-            status TEXT NOT NULL,
-            saved_path TEXT,
-            error TEXT
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_download_log_created_at
-        ON download_log(created_at)
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_download_log_paper_id
-        ON download_log(paper_id)
-        """
-    )
-
-
-def _create_info_log_table(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS info_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT NOT NULL,
-            paper_id TEXT NOT NULL
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_info_log_paper_id
-        ON info_log(paper_id)
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_info_log_created_at
-        ON info_log(created_at)
-        """
-    )
-
-
-def _create_info_cache_table(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS info_cache (
-            paper_id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            authors_json TEXT NOT NULL,
-            date TEXT NOT NULL,
-            abstract TEXT NOT NULL,
-            url TEXT,
-            published_version TEXT,
-            topic TEXT,
-            programs TEXT,
-            first_cached_at TEXT NOT NULL,
-            last_fetched_at TEXT NOT NULL,
-            fetch_count INTEGER NOT NULL DEFAULT 0
-        )
-        """
-    )
-    connection.execute(
-        """
-        CREATE INDEX IF NOT EXISTS idx_info_cache_last_fetched_at
-        ON info_cache(last_fetched_at)
-        """
-    )
-
-
-def _upgrade_v1_to_v2(connection: sqlite3.Connection) -> None:
+def _upgrade_v1_to_v2(connection: Connection) -> None:
     _create_all_tables(connection)
 
 
-def _read_user_version(connection: sqlite3.Connection) -> int:
-    row = connection.execute("PRAGMA user_version").fetchone()
+def _read_user_version(connection: Connection) -> int:
+    row = connection.exec_driver_sql("PRAGMA user_version").fetchone()
     return int(row[0]) if row else 0
 
 
@@ -273,9 +226,10 @@ def _write_config(db_path: Path, schema_version: int) -> None:
 
 
 def _configured_db_path() -> Path:
-    configured_db_path = config_store.get_configured_db_path(_default_config_path())
+    feed_config = _read_config(_default_config_path()).get("feed")
+    configured_db_path = feed_config.get("db-path") if isinstance(feed_config, dict) else None
     if configured_db_path is not None:
-        return configured_db_path
+        return _normalize_db_path(configured_db_path)
 
     default = _default_db_path()
     if default.exists():
@@ -304,10 +258,44 @@ def _legacy_db_path() -> Path:
 
 
 def _normalize_db_path(db_path: Path | str) -> Path:
+    if isinstance(db_path, str) and db_path.startswith("sqlite:"):
+        db_path = _path_from_sqlite_url(db_path)
     path = Path(db_path).expanduser()
     if not path.is_absolute():
         path = Path.cwd() / path
     return path.resolve(strict=False)
+
+
+def _path_from_sqlite_url(database_url: str) -> Path:
+    if database_url == "sqlite:///:memory:":
+        raise ValueError("in-memory SQLite databases are not supported")
+    if not database_url.startswith("sqlite:///"):
+        raise ValueError("database URL must use sqlite:///")
+    if "?" in database_url or "#" in database_url:
+        raise ValueError("database URL must not include query or fragment parts")
+
+    raw_path = database_url.removeprefix("sqlite:///")
+    if database_url.startswith("sqlite:////"):
+        raw_path = f"/{raw_path}"
+    if not raw_path:
+        raise ValueError("database URL must include a file path")
+    return Path(unquote(raw_path))
+
+
+def _database_url_from_path(db_path: Path) -> str:
+    return f"sqlite:///{db_path.as_posix()}"
+
+
+def _create_engine(db_path: Path | str) -> Engine:
+    return create_engine(_database_url_from_path(_normalize_db_path(db_path)))
+
+
+def _open_session(db_path: Path | str) -> Session:
+    return Session(_create_engine(db_path))
+
+
+def _execute(connection: Connection, statement: str, parameters: tuple[Any, ...] = ()):
+    return connection.exec_driver_sql(statement, parameters)
 
 
 def _db_move_pairs(old_db_path: Path, new_db_path: Path) -> list[tuple[Path, Path]]:
@@ -328,9 +316,11 @@ def record_query(
     try:
         resolved = get_database_path(db_path)
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _ensure_full_schema_on_connection(connection)
-            connection.execute(
+            _execute(
+                connection,
                 """
                 INSERT INTO query_log (created_at, keyword, conditions, result_count)
                 VALUES (?, ?, ?, ?)
@@ -342,6 +332,7 @@ def record_query(
                     result_count,
                 ),
             )
+            session.commit()
     except Exception as error:
         _log_warning("record_query", error)
 
@@ -356,9 +347,11 @@ def record_download(
     try:
         resolved = get_database_path(db_path)
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _ensure_full_schema_on_connection(connection)
-            connection.execute(
+            _execute(
+                connection,
                 """
                 INSERT INTO download_log (
                     created_at, paper_id, status, saved_path, error
@@ -367,6 +360,7 @@ def record_download(
                 """,
                 (_utc_now(), paper_id, status, saved_path, error),
             )
+            session.commit()
     except Exception as exc:
         _log_warning("record_download", exc)
 
@@ -379,15 +373,18 @@ def record_info(
         resolved = get_database_path(db_path)
         normalized = _normalize_paper_id(paper_id)
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _ensure_full_schema_on_connection(connection)
-            connection.execute(
+            _execute(
+                connection,
                 """
                 INSERT INTO info_log (created_at, paper_id)
                 VALUES (?, ?)
                 """,
                 (_utc_now(), normalized),
             )
+            session.commit()
     except Exception as exc:
         _log_warning("record_info", exc)
 
@@ -414,10 +411,12 @@ def read_info_cache(
         if not resolved.exists():
             return None
         normalized = _normalize_paper_id(paper_id)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _begin_schema_transaction(connection, write=False)
             _reject_future_schema(connection)
-            row = connection.execute(
+            row = _execute(
+                connection,
                 """
                 SELECT paper_id, title, authors_json, date, abstract,
                        url, published_version, topic, programs, last_fetched_at
@@ -425,7 +424,7 @@ def read_info_cache(
                 """,
                 (normalized,),
             ).fetchone()
-    except (sqlite3.DatabaseError, OSError, ValueError):
+    except (SQLAlchemyError, OSError, ValueError):
         return None
 
     if row is None:
@@ -483,9 +482,11 @@ def write_info_cache(db_path: Path | str | None, paper: NBER) -> None:
         paper_id_str = _paper_id_to_str(paper.paper_id)
         now = _utc_now()
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _ensure_full_schema_on_connection(connection)
-            connection.execute(
+            _execute(
+                connection,
                 """
                 INSERT INTO info_cache (
                     paper_id, title, authors_json, date, abstract,
@@ -518,6 +519,7 @@ def write_info_cache(db_path: Path | str | None, paper: NBER) -> None:
                     now,
                 ),
             )
+            session.commit()
     except Exception as exc:
         _log_warning("write_info_cache", exc)
 
@@ -528,10 +530,12 @@ def touch_info_cache(db_path: Path | str | None, paper_id: str | int) -> None:
         if not resolved.exists():
             return
         normalized = _normalize_paper_id(paper_id)
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _begin_schema_transaction(connection, write=True)
             _reject_future_schema(connection)
-            connection.execute(
+            _execute(
+                connection,
                 """
                 UPDATE info_cache
                 SET last_fetched_at = ?, fetch_count = fetch_count + 1
@@ -539,6 +543,7 @@ def touch_info_cache(db_path: Path | str | None, paper_id: str | int) -> None:
                 """,
                 (_utc_now(), normalized),
             )
+            session.commit()
     except Exception as exc:
         _log_warning("touch_info_cache", exc)
 
@@ -548,11 +553,12 @@ def count_info_cache(db_path: Path | str | None = None) -> int:
         resolved = get_database_path(db_path)
         if not resolved.exists():
             return 0
-        with sqlite3.connect(resolved) as connection:
+        with _open_session(resolved) as session:
+            connection = session.connection()
             _begin_schema_transaction(connection, write=False)
             _reject_future_schema(connection)
-            row = connection.execute("SELECT COUNT(*) FROM info_cache").fetchone()
-    except (sqlite3.DatabaseError, OSError, ValueError):
+            row = _execute(connection, "SELECT COUNT(*) FROM info_cache").fetchone()
+    except (SQLAlchemyError, OSError, ValueError):
         return 0
     return int(row[0]) if row else 0
 
@@ -576,20 +582,24 @@ def clear_info_cache(
         start_date=start_date,
         end_date=end_date,
     )
-    with sqlite3.connect(resolved_db_path) as connection:
+    with _open_session(resolved_db_path) as session:
+        connection = session.connection()
         _ensure_full_schema_on_connection(connection)
-        matched_count = connection.execute(
+        matched_count = _execute(
+            connection,
             f"SELECT COUNT(*) FROM info_cache WHERE {condition}",
             parameters,
         ).fetchone()[0]
 
         deleted_count = 0
         if not dry_run and matched_count:
-            cursor = connection.execute(
+            cursor = _execute(
+                connection,
                 f"DELETE FROM info_cache WHERE {condition}",
                 parameters,
             )
             deleted_count = cursor.rowcount if cursor.rowcount >= 0 else matched_count
+        session.commit()
 
     return NBERInfoCacheClearResult(
         database_path=resolved_db_path,

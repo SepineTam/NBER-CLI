@@ -61,6 +61,12 @@ def _get_version() -> str:
         return "0.4.0"
 
 
+def _parse_database_location(value: str) -> Path | str:
+    if value.startswith("sqlite:"):
+        return value
+    return Path(value)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="nber-cli",
@@ -202,16 +208,20 @@ def _build_parser() -> argparse.ArgumentParser:
     db_init_parser = db_subparsers.add_parser("init", help="Initialize the database.")
     db_init_parser.add_argument(
         "--db-path",
-        type=Path,
+        type=_parse_database_location,
         default=None,
-        help="SQLite database path. Defaults to ~/.nber-cli/nber.db.",
+        help="SQLite database path or sqlite:/// URL. Defaults to ~/.nber-cli/nber.db.",
     )
 
     db_migrate_parser = db_subparsers.add_parser(
         "migrate",
         help="Move the database to a new path and update config.",
     )
-    db_migrate_parser.add_argument("new_db_path", type=Path, help="New SQLite database path.")
+    db_migrate_parser.add_argument(
+        "new_db_path",
+        type=_parse_database_location,
+        help="New SQLite database path or sqlite:/// URL.",
+    )
 
     feed_parser = subparsers.add_parser("feed", help="Manage the NBER working papers RSS feed.")
     feed_subparsers = feed_parser.add_subparsers(dest="feed_command", required=True)

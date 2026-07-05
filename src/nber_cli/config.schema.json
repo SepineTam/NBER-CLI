@@ -25,11 +25,11 @@
     },
     "feed": {
       "type": "object",
-      "description": "Feed database settings",
+      "description": "Local database settings",
       "properties": {
         "db-path": {
           "type": "string",
-          "description": "Path to the feed SQLite database"
+          "description": "Path or sqlite:/// URL for the local database"
         }
       }
     },

@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import html
 import re
-import sqlite3
 from defusedxml import ElementTree as ET
 from defusedxml.common import EntitiesForbidden
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import urldefrag
+
+from sqlalchemy.engine import Connection
 
 from . import db
 from .core.models import NBERFeedCleanResult, NBERFeedFetchResult, NBERFeedItem
@@ -62,20 +63,24 @@ def clean_feed_cache(
         start_date=start_date,
         end_date=end_date,
     )
-    with sqlite3.connect(resolved_db_path) as connection:
+    with db._open_session(resolved_db_path) as session:
+        connection = session.connection()
         db._ensure_full_schema_on_connection(connection)
-        matched_count = connection.execute(
+        matched_count = db._execute(
+            connection,
             f"SELECT COUNT(*) FROM feed_items WHERE {condition}",
             parameters,
         ).fetchone()[0]
 
         deleted_count = 0
         if not dry_run and matched_count:
-            cursor = connection.execute(
+            cursor = db._execute(
+                connection,
                 f"DELETE FROM feed_items WHERE {condition}",
                 parameters,
             )
             deleted_count = cursor.rowcount if cursor.rowcount >= 0 else matched_count
+        session.commit()
 
     return NBERFeedCleanResult(
         database_path=resolved_db_path,
@@ -104,9 +109,11 @@ def fetch_feed(
     xml_text = _load_text_sync(NBER_FEED_URL)
     feed_items = parse_feed_xml(xml_text)
     seen_at = db._utc_now()
-    with sqlite3.connect(resolved_db_path) as connection:
+    with db._open_session(resolved_db_path) as session:
+        connection = session.connection()
         db._ensure_full_schema_on_connection(connection)
         new_items = _save_feed_items(connection, feed_items, seen_at)
+        session.commit()
     output_items = feed_items if display_all else new_items
     if max_items is not None:
         output_items = output_items[:max_items]
@@ -182,7 +189,7 @@ def _invalid_feed_xml_error(error: Exception) -> ValueError:
 
 
 def _save_feed_items(
-    connection: sqlite3.Connection,
+    connection: Connection,
     feed_items: list[NBERFeedItem],
     seen_at: str,
 ) -> list[NBERFeedItem]:
@@ -192,7 +199,8 @@ def _save_feed_items(
 
     for feed_item in feed_items:
         is_new_item = not _feed_item_exists(connection, feed_item.paper_id)
-        connection.execute(
+        db._execute(
+            connection,
             """
             INSERT INTO feed_items (
                 paper_id,
@@ -230,7 +238,8 @@ def _save_feed_items(
         if is_new_item:
             new_items.append(feed_item)
 
-    connection.execute(
+    db._execute(
+        connection,
         """
         INSERT INTO feed_fetches (source_url, fetched_at, total_count, new_count)
         VALUES (?, ?, ?, ?)
@@ -241,8 +250,9 @@ def _save_feed_items(
     return new_items
 
 
-def _feed_item_exists(connection: sqlite3.Connection, paper_id: str) -> bool:
-    row = connection.execute(
+def _feed_item_exists(connection: Connection, paper_id: str) -> bool:
+    row = db._execute(
+        connection,
         """
         SELECT 1 FROM feed_items WHERE paper_id = ?
         """,
