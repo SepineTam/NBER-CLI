@@ -15,7 +15,8 @@
       "mcp__codex-mcp__codex-reply"
     ],
     "deny": [
-      "Read(.env)"
+      "Read(.env)",
+      "Bash(git add -f *)"
     ]
   },
   "enabledMcpjsonServers": [
