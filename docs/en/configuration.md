@@ -1,6 +1,6 @@
 # Configuration
 
-Most NBER-CLI runtime behavior uses built-in defaults. The local database also uses a small user config file to remember the SQLite database path selected by `nber-cli db init` or `nber-cli db migrate`.
+Most NBER-CLI runtime behavior uses built-in defaults. The local database also uses a small user config file to remember the database location selected by `nber-cli db init` or `nber-cli db migrate`.
 
 ## Runtime Defaults
 
@@ -25,7 +25,7 @@ The following list is exhaustive — values not listed here are constants.
 | --- | --- | --- |
 | `info.cache_enabled` | Yes | `~/.nber-cli/config.json`; toggle via `nber-cli info cache --turn-on/--off` |
 | `info.cache_ttl_days` | Yes | `~/.nber-cli/config.json`; set via `nber-cli info cache --set-refresh <N>` |
-| `feed.db-path` (SQLite path) | Yes | `~/.nber-cli/config.json`; set via `nber-cli db init --db-path ...` or `nber-cli db migrate ...` |
+| `feed.db-path` (database path or `sqlite:///...` URL) | Yes | `~/.nber-cli/config.json`; set via `nber-cli db init --db-path ...` or `nber-cli db migrate ...` |
 | Request timeout | **No** | Code constant in `NBERCLIConfig` |
 | Retry count / request attempts | **No** | Code constant in `NBERCLIConfig` |
 | Download connection limits | **No** | Code constant in `NBERCLIConfig` |
@@ -57,7 +57,7 @@ Current schema:
 }
 ```
 
-`feed.db-path` points to the SQLite database used by `info`, `search`, `download`, and `feed`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
+`feed.db-path` points to the local database used by `info`, `search`, `download`, and `feed`. It may be a normal filesystem path or a SQLite URL such as `sqlite:///relative/nber.db` or `sqlite:////Users/name/data/nber.db`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
 
@@ -87,6 +87,12 @@ Initialize at a custom path:
 nber-cli db init --db-path ~/data/nber.db
 ```
 
+Initialize with a SQLite URL:
+
+```bash
+nber-cli db init --db-path sqlite:////Users/name/data/nber.db
+```
+
 Move an existing database and update the config:
 
 ```bash
@@ -100,6 +106,14 @@ The database holds:
 - `feed_items` and `feed_fetches`: RSS cache used by `feed fetch` and `feed clean`.
 - `info_cache`: paper metadata cache used by `info` and the MCP `get_paper_info` tool. Cache reads are gated by `info.cache_enabled` and respect the `info.cache_ttl_days` TTL.
 - `query_log`, `download_log`, `info_log`: behavior logs for search keywords, download outcomes, and info lookups.
+
+### Storage, Safety, and Extensibility
+
+The database is local-only. NBER-CLI does not send this cache or log database to project infrastructure, and no NBER-CLI server receives a copy. By default it lives under `~/.nber-cli/nber.db`; when `db init` or `db migrate` is used on macOS or Linux, the selected file must stay inside the user's home directory. This keeps the default persistence model predictable and avoids accidental writes into system or shared locations.
+
+The on-disk format is SQLite, so the database is a self-contained file plus standard SQLite sidecar files when WAL or journaling is active. Schema changes are versioned with SQLite's `PRAGMA user_version`; NBER-CLI refuses to write to a database created by a newer schema version, which protects data from accidental downgrade writes. Operations that update cache or log rows use transactions through the SQLModel/SQLAlchemy engine, and non-critical log/cache writes fail soft so a local database problem does not break search, download, or metadata lookup workflows.
+
+The Python access layer is SQLModel on top of SQLAlchemy. Tables are declared as typed SQLModel models, while the public API still returns filesystem `Path` values for compatibility. This gives the current CLI a stable SQLite file today and leaves room for future database work, such as richer typed queries, stricter schema migrations, or additional SQLAlchemy-supported backends, without changing the user-facing commands first.
 
 ## Database Operations
 
@@ -124,7 +138,7 @@ The database is created and upgraded automatically the first time any command th
 
 ### Migrate and Reset
 
-`nber-cli db migrate <new_db_path>` moves the database to a new path, including any SQLite `-wal`, `-shm`, and `-journal` sidecar files, and updates `feed.db-path` in the user config. The destination must not already exist; the command refuses to overwrite an existing file.
+`nber-cli db migrate <new_db_path>` moves the database to a new path or SQLite URL, including any SQLite `-wal`, `-shm`, and `-journal` sidecar files, and updates `feed.db-path` in the user config. The destination must not already exist; the command refuses to overwrite an existing file.
 
 There is no built-in command to reset the database to an empty state. The supported ways to start over are:
 

@@ -32,6 +32,7 @@ dependencies = [
     "certifi",
     "mcp>=1.27.1",
     "defusedxml>=0.7.1",
+    "sqlmodel>=0.0.24",
 ]
 
 [project.scripts]

@@ -11,7 +11,7 @@ NBER-CLI 是一个命令行与 MCP 工具，用于帮助用户搜索 NBER 工作
 ## 项目边界
 
 - **不进行项目侧存储**：NBER-CLI 不运营用于存储 NBER 论文或元数据的服务器、缓存、镜像、CDN 或其他基础设施。请求直接从用户的设备或 Agent 运行环境发往 NBER 网站。
-- **用户机器上的默认本地持久化**：NBER-CLI 会在用户机器上保留一个本地 SQLite 数据库，默认位于 `~/.nber-cli/nber.db`（或 `nber-cli db init` / `db migrate` 配置的路径），并保留一个用户配置文件 `~/.nber-cli/config.json`。下列命令和工具会在没有额外用户输入的情况下默认写入该数据库：
+- **用户机器上的默认本地持久化**：NBER-CLI 会在用户机器上保留一个本地 SQLite 数据库，默认位于 `~/.nber-cli/nber.db`（或 `nber-cli db init` / `db migrate` 配置的路径 / `sqlite:///...` URL），并保留一个用户配置文件 `~/.nber-cli/config.json`。数据库通过 SQLModel/SQLAlchemy 访问，除非用户自行复制或导出，否则它只留在用户机器上。下列命令和工具会在没有额外用户输入的情况下默认写入该数据库：
   - `nber-cli search` 会把每次查询的关键词、筛选条件和结果数量记录到 `query_log` 表。
   - `nber-cli download` 会把每次下载尝试的论文编号、成功或失败状态、保存的 PDF 路径以及失败时的错误信息记录到 `download_log` 表。单篇下载和批量下载都会按尝试次数逐条写入。
   - `nber-cli info` 与 MCP `get_paper_info` 工具会把每次查询的论文编号写入 `info_log` 表。

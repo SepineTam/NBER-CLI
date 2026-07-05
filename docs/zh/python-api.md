@@ -2,7 +2,7 @@
 
 NBER-CLI 暴露了与 CLI 相同核心能力的 Python 函数。由于查询、搜索和下载都涉及网络 I/O，这些 API 是异步的。
 
-feed 缓存辅助函数是同步的，因为它们主要执行本地 SQLite 操作和同步 RSS 获取。
+feed 缓存辅助函数是同步的，因为它们主要执行本地数据库操作和同步 RSS 获取。
 
 ## API 边界
 
@@ -110,6 +110,15 @@ asyncio.run(main())
 from nber_cli import init_database
 
 db_path = init_database()
+print(db_path)
+```
+
+使用 SQLite URL 初始化：
+
+```python
+from nber_cli import init_database
+
+db_path = init_database("sqlite:////Users/name/data/nber.db")
 print(db_path)
 ```
 
@@ -237,11 +246,11 @@ print(f"Deleted: {result.deleted_count}")
 
 ## 数据库与日志辅助函数
 
-这些辅助函数属于顶层公共 API，可以在用户代码中安全调用。它们包装了 `info`、`search`、`download` 和 `feed` 内部使用的 SQLite 层。日志与缓存写入采用“软失败”策略：数据库异常发生时，函数会向 `stderr` 输出一行 warning（对于记录器返回 `None`），而不会抛出异常，因此不会打断调用方的主命令。缓存读取器在数据库局部错误下返回 `None` 或 `0`。需要更强保证的调用方应直接使用 SQLite。
+这些辅助函数属于顶层公共 API，可以在用户代码中安全调用。它们通过 SQLModel/SQLAlchemy 包装了 `info`、`search`、`download` 和 `feed` 内部使用的本地 SQLite 数据库。日志与缓存写入采用“软失败”策略：数据库异常发生时，函数会向 `stderr` 输出一行 warning（对于记录器返回 `None`），而不会抛出异常，因此不会打断调用方的主命令。缓存读取器在数据库局部错误下返回 `None` 或 `0`。需要更强保证的调用方可以直接检查解析后的本地数据库路径。
 
 ### `get_database_path(db_path=None) -> Path`
 
-返回解析后的 SQLite 数据库路径。当 `db_path` 为 `None` 时，NBER-CLI 优先使用 `~/.nber-cli/config.json` 中配置的路径，回退到默认 `~/.nber-cli/nber.db`，在文件存在时回退到旧版 `~/.nber-cli/feed.db`。返回值始终是绝对路径。**不要求**该数据库文件实际存在。
+返回解析后的 SQLite 数据库路径。`db_path` 可以是 `Path`、文件路径字符串，也可以是 `sqlite:///...` URL。当 `db_path` 为 `None` 时，NBER-CLI 优先使用 `~/.nber-cli/config.json` 中配置的位置，回退到默认 `~/.nber-cli/nber.db`，在文件存在时回退到旧版 `~/.nber-cli/feed.db`。即使输入是 SQLite URL，返回值也始终是绝对路径。**不要求**该数据库文件实际存在。
 
 ### `get_schema_version(db_path=None) -> int`
 
@@ -324,7 +333,7 @@ print(f"Deleted: {result.deleted_count}")
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `source_url` | `str` | RSS feed URL。 |
-| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `database_path` | `Path` | 解析后的本地 SQLite 缓存数据库路径。 |
 | `total_fetched` | `int` | 本次获取到的 RSS 条目数量。 |
 | `new_count` | `int` | 本次获取到且缓存中原本不存在的条目数量。 |
 | `display_all` | `bool` | 返回条目是否包含所有获取到的条目。 |
@@ -335,7 +344,7 @@ print(f"Deleted: {result.deleted_count}")
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `database_path` | `Path` | 解析后的本地 SQLite 缓存数据库路径。 |
 | `matched_count` | `int` | 符合清理条件的缓存记录数量。 |
 | `deleted_count` | `int` | 已删除的缓存记录数量。 |
 | `mode` | `str` | 清理模式：`days`、`all` 或 `date-range`。 |
@@ -348,7 +357,7 @@ print(f"Deleted: {result.deleted_count}")
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `database_path` | `Path` | SQLite 缓存数据库路径。 |
+| `database_path` | `Path` | 解析后的本地 SQLite 缓存数据库路径。 |
 | `matched_count` | `int` | 符合清理条件的缓存记录数量。 |
 | `deleted_count` | `int` | 已删除的缓存记录数量。 |
 | `mode` | `str` | 清理模式：`days`、`all` 或 `date-range`。 |
@@ -451,7 +460,7 @@ from nber_cli.formatters import feed_results_text, info_text, search_results_tex
 | 字段 | 类型 | 备注 |
 | --- | --- | --- |
 | `source_url` | `str` | 本次抓取的 RSS feed URL。 |
-| `database_path` | `str` | 写入条目的 SQLite 数据库绝对路径。 |
+| `database_path` | `str` | 写入条目的本地 SQLite 数据库解析后绝对路径。 |
 | `total_fetched` | `int` | 本次从 feed 解析出的条目数。 |
 | `new_count` | `int` | 本地缓存中原本不存在的条目数。 |
 | `display_all` | `bool` | `results` 包含全部条目时为 `true`；只包含新条目时为 `false`。 |

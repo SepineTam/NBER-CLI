@@ -97,6 +97,8 @@ Initialize the local database:
 nber-cli db init
 ```
 
+The database is a local SQLite file, managed through SQLModel/SQLAlchemy. By default it is stored at `~/.nber-cli/nber.db`; advanced users can choose another path or a `sqlite:///...` URL with `nber-cli db init --db-path ...`.
+
 Fetch the NBER new working papers RSS feed:
 
 ```bash

@@ -77,13 +77,13 @@ The `examples/` directory contains focused guides for advanced workflows:
 - [`examples/use-of-download.md`](examples/use-of-download.md): single and batch downloads, save paths, restricted access handling, and feed-to-download integration.
 - [`examples/use-of-mcp-server.md`](examples/use-of-mcp-server.md): stdio and HTTP MCP server setup, client configuration, and security notes.
 - [`examples/use-of-json-pipeline.md`](examples/use-of-json-pipeline.md): stable JSON shapes, jq recipes, citation extraction, and append-only JSON Lines logs.
-- [`examples/use-of-db.md`](examples/use-of-db.md): database initialization, custom paths, migration, direct SQLite queries, and backup.
+- [`examples/use-of-db.md`](examples/use-of-db.md): database initialization, custom paths or `sqlite:///...` URLs, migration, direct SQLite queries, and backup.
 - [`examples/use-of-automation.md`](examples/use-of-automation.md): weekly digest scripts, cron recipes, systemd timers, and topic alerts.
 - [`examples/use-of-error-handling.md`](examples/use-of-error-handling.md): interpreting 403, 404, and timeouts, plus robust shell patterns.
 
 ## Advanced Feed Workflows
 
-The feed subsystem tracks NBER's new working papers RSS feed (`https://www.nber.org/rss/new.xml`) in a local SQLite cache. It is designed for incremental monitoring, not exhaustive search. Use it to answer questions like "what papers appeared this week?" or "has any new paper on topic X shown up?"
+The feed subsystem tracks NBER's new working papers RSS feed (`https://www.nber.org/rss/new.xml`) in the local database. It is designed for incremental monitoring, not exhaustive search. Use it to answer questions like "what papers appeared this week?" or "has any new paper on topic X shown up?"
 
 For more complete examples, including JSON filtering, cron automation, systemd timers, and batch-download scripts, see [`examples/use-of-feed.md`](examples/use-of-feed.md).
 
@@ -99,10 +99,11 @@ This writes the default path `~/.nber-cli/nber.db` to `~/.nber-cli/config.json`.
 
 ```bash
 uvx nber-cli db init --db-path ~/research/nber.db
+uvx nber-cli db init --db-path sqlite:////Users/name/research/nber.db
 uvx nber-cli db migrate ~/Dropbox/research/nber.db
 ```
 
-`db migrate` moves the database file and its SQLite sidecar files to the new path and updates config.
+`db migrate` moves the database file and its SQLite sidecar files to the new path and updates config. The database stays on the user's machine and is accessed through SQLModel/SQLAlchemy.
 
 ### First fetch vs incremental fetch
 
@@ -142,7 +143,7 @@ uvx nber-cli feed fetch --format json | jq -c '.items[]' >> nber_feed_new.jsonl
 The JSON shape is stable and includes:
 
 - `source_url`: the RSS URL
-- `database_path`: path to the SQLite cache
+- `database_path`: resolved path to the local SQLite cache
 - `total_fetched`: how many items NBER returned
 - `new_count`: how many items were not already in the cache
 - `display_all`: whether the output includes all items or only new ones

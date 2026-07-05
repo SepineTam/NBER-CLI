@@ -119,7 +119,7 @@ MCP server 会向 NBER 发起网络请求，并可以通过 `download_paper` 写
 
 ### 本地持久化与缓存
 
-`get_paper_info` 遵守与 CLI 相同的 `info_cache` 开关和 TTL。缓存开启时，命中会从 `info_cache` 读取，未命中会写入新行，行为与 CLI 一致。每次调用还会向 `info_log` 追加一行，使本地数据库记录这次查询；该数据库与 CLI 共用，由 `~/.nber-cli/config.json` 中的路径决定。工具的返回值不会标明结果是否来自缓存；调用方需要该信号时，应自己检查调用历史或直接使用 CLI。
+`get_paper_info` 遵守与 CLI 相同的 `info_cache` 开关和 TTL。缓存开启时，命中会从 `info_cache` 读取，未命中会写入新行，行为与 CLI 一致。每次调用还会向 `info_log` 追加一行，使本地数据库记录这次查询；这个由 SQLModel/SQLAlchemy 访问的本地数据库与 CLI 共用，由 `~/.nber-cli/config.json` 中配置的路径或 `sqlite:///...` URL 决定。工具的返回值不会标明结果是否来自缓存；调用方需要该信号时，应自己检查调用历史或直接使用 CLI。
 
 ### 与 CLI 的差异
 

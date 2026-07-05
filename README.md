@@ -19,7 +19,7 @@ A command line interface for reaching the National Bureau of Economic Research (
 - Download single papers or batches as PDF files.
 - Track newly released NBER working papers through a local RSS feed cache (`nber-cli feed fetch` / `feed clean`).
 - Cache paper metadata locally (`nber-cli info` writes to `info_cache`) with a sliding TTL, plus a behavior log for `search`, `download`, and `info` lookups.
-- Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db` (path configurable via `nber-cli db init` / `db migrate`).
+- Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db`, managed through SQLModel/SQLAlchemy and configurable with a filesystem path or `sqlite:///...` URL.
 - Expose the same core workflows as MCP tools for AI agents.
 - Return human-readable output by default, with JSON output for automation.
 

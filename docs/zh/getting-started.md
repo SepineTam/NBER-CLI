@@ -97,6 +97,8 @@ nber-cli info w25000 --all
 nber-cli db init
 ```
 
+数据库是由 SQLModel/SQLAlchemy 管理的本地 SQLite 文件，默认位于 `~/.nber-cli/nber.db`；高级用户可以用 `nber-cli db init --db-path ...` 指定其他路径或 `sqlite:///...` URL。
+
 获取 NBER 最新工作论文 RSS feed：
 
 ```bash

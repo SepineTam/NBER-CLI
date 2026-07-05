@@ -4,7 +4,7 @@ This document expands on the feed workflows in [`../SKILL.md`](../SKILL.md). It 
 
 ## What the feed cache does
 
-`nber-cli feed fetch` downloads the current RSS feed, parses every item, and stores them in a local SQLite database. Each item is keyed by NBER paper ID. On every subsequent fetch:
+`nber-cli feed fetch` downloads the current RSS feed, parses every item, and stores them in the local database. The database is a local SQLite file accessed through SQLModel/SQLAlchemy, and each item is keyed by NBER paper ID. On every subsequent fetch:
 
 - Items already seen have their `last_seen_at` timestamp updated.
 - Items never seen before are reported as "new" by default.

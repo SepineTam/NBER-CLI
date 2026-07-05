@@ -116,12 +116,12 @@ class TestReadInfoCache:
                 "nber_cli.db.config_store.get_info_cache_settings",
                 return_value=InfoCacheSettings(cache_enabled=False, cache_ttl_days=30),
             ),
-            patch("nber_cli.db.sqlite3.connect") as mock_connect,
+            patch("nber_cli.db.create_engine") as mock_create_engine,
         ):
             paper = db.read_info_cache(db_path, 1234)
 
         assert paper is None
-        mock_connect.assert_not_called()
+        mock_create_engine.assert_not_called()
 
     def test_returns_none_when_last_fetched_at_is_expired(self, db_path):
         db.write_info_cache(db_path, _make_paper())

@@ -149,21 +149,21 @@ class TestSchemaUpgrade:
 
 
 class TestConnectionBoundary:
-    def test_record_query_checks_schema_and_writes_with_one_connection(self, tmp_path):
+    def test_record_query_checks_schema_and_writes_with_one_engine(self, tmp_path):
         db_path = tmp_path / "nber.db"
         db.init_database(db_path)
-        real_connect = sqlite3.connect
-        connection_count = 0
+        real_create_engine = db.create_engine
+        engine_count = 0
 
-        def tracked_connect(*args, **kwargs):
-            nonlocal connection_count
-            connection_count += 1
-            return real_connect(*args, **kwargs)
+        def tracked_create_engine(*args, **kwargs):
+            nonlocal engine_count
+            engine_count += 1
+            return real_create_engine(*args, **kwargs)
 
-        with patch("nber_cli.db.sqlite3.connect", side_effect=tracked_connect):
+        with patch("nber_cli.db.create_engine", side_effect=tracked_create_engine):
             db.record_query(db_path, "labor", {}, 1)
 
-        assert connection_count == 1
+        assert engine_count == 1
 
 
 class TestDatabasePathConfig:
@@ -174,6 +174,15 @@ class TestDatabasePathConfig:
 
         assert custom_path.exists()
         assert db.get_database_path() == custom_path
+
+    def test_accepts_sqlite_url_path(self, tmp_path):
+        custom_path = tmp_path / "custom" / "nber.db"
+        sqlite_url = f"sqlite:///{custom_path}"
+
+        db.init_database(sqlite_url)
+
+        assert custom_path.exists()
+        assert db.get_database_path(sqlite_url) == custom_path
 
     def test_legacy_feed_db_is_discovered_when_default_missing(self, tmp_path):
         home = tmp_path / "home"

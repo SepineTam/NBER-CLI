@@ -2,7 +2,7 @@
 
 NBER-CLI exposes the same core functionality as importable Python functions. The API is asynchronous because lookup, search, and downloads perform network I/O.
 
-Feed cache helpers are synchronous because they perform local SQLite work and a synchronous RSS fetch.
+Feed cache helpers are synchronous because they perform local database work and a synchronous RSS fetch.
 
 ## API Boundaries
 
@@ -110,6 +110,15 @@ Initialize the default database:
 from nber_cli import init_database
 
 db_path = init_database()
+print(db_path)
+```
+
+Initialize with a SQLite URL:
+
+```python
+from nber_cli import init_database
+
+db_path = init_database("sqlite:////Users/name/data/nber.db")
 print(db_path)
 ```
 
@@ -237,11 +246,11 @@ The same `clear_info_cache` function also supports `delete_all=True` and `start_
 
 ## Database and Logging Helpers
 
-These helpers are part of the top-level public API and are safe to call from user code. They wrap the SQLite layer that `info`, `search`, `download`, and `feed` use internally. Logging and cache writers fail soft: when a database error occurs, the helper prints a one-line warning to `stderr` and returns `None` (for recorders) instead of raising, so they do not break the calling command. Cache readers return `None` or `0` on partial database errors. Callers that need stronger guarantees should talk to SQLite directly.
+These helpers are part of the top-level public API and are safe to call from user code. They wrap the local SQLite database that `info`, `search`, `download`, and `feed` use internally through SQLModel/SQLAlchemy. Logging and cache writers fail soft: when a database error occurs, the helper prints a one-line warning to `stderr` and returns `None` (for recorders) instead of raising, so they do not break the calling command. Cache readers return `None` or `0` on partial database errors. Callers that need stronger guarantees can inspect the resolved local database path directly.
 
 ### `get_database_path(db_path=None) -> Path`
 
-Return the resolved SQLite database path. When `db_path` is `None`, NBER-CLI uses the path configured in `~/.nber-cli/config.json`, or falls back to the default `~/.nber-cli/nber.db`, or the legacy `~/.nber-cli/feed.db` file when present. The returned path is always absolute. The database file is **not** required to exist.
+Return the resolved SQLite database path. `db_path` may be a `Path`, a filesystem path string, or a `sqlite:///...` URL. When `db_path` is `None`, NBER-CLI uses the location configured in `~/.nber-cli/config.json`, or falls back to the default `~/.nber-cli/nber.db`, or the legacy `~/.nber-cli/feed.db` file when present. The returned path is always absolute, even when the input was a SQLite URL. The database file is **not** required to exist.
 
 ### `get_schema_version(db_path=None) -> int`
 
@@ -324,7 +333,7 @@ Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a
 | Field | Type | Description |
 | --- | --- | --- |
 | `source_url` | `str` | RSS feed URL. |
-| `database_path` | `Path` | SQLite cache database path. |
+| `database_path` | `Path` | Resolved local SQLite cache database path. |
 | `total_fetched` | `int` | Number of RSS items fetched. |
 | `new_count` | `int` | Number of fetched items that were not already in the cache. |
 | `display_all` | `bool` | Whether returned items include all fetched items. |
@@ -335,7 +344,7 @@ Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `database_path` | `Path` | SQLite cache database path. |
+| `database_path` | `Path` | Resolved local SQLite cache database path. |
 | `matched_count` | `int` | Number of cache records matching the clean criteria. |
 | `deleted_count` | `int` | Number of cache records deleted. |
 | `mode` | `str` | Clean mode: `days`, `all`, or `date-range`. |
@@ -348,7 +357,7 @@ Parse raw NBER RSS XML into a list of `NBERFeedItem` objects. Items must carry a
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `database_path` | `Path` | SQLite cache database path. |
+| `database_path` | `Path` | Resolved local SQLite cache database path. |
 | `matched_count` | `int` | Number of cache records matching the clean criteria. |
 | `deleted_count` | `int` | Number of cache records deleted. |
 | `mode` | `str` | Clean mode: `days`, `all`, or `date-range`. |
@@ -451,7 +460,7 @@ Produced by `feed_results(result)`:
 | Field | Type | Notes |
 | --- | --- | --- |
 | `source_url` | `str` | The RSS feed URL that was fetched. |
-| `database_path` | `str` | Absolute path of the SQLite database the items were written to. |
+| `database_path` | `str` | Resolved absolute path of the local SQLite database the items were written to. |
 | `total_fetched` | `int` | Total items parsed from the feed. |
 | `new_count` | `int` | Items that were not already in the local cache. |
 | `display_all` | `bool` | `true` when `results` includes all fetched items, `false` when limited to new ones. |

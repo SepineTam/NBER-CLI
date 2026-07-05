@@ -173,12 +173,26 @@ class TestBuildParser:
         assert args.db_command == "init"
         assert args.db_path == Path("/tmp/nber.db")
 
+    def test_db_init_subcommand_accepts_sqlite_url(self):
+        parser = _build_parser()
+        args = parser.parse_args(["db", "init", "--db-path", "sqlite:///tmp/nber.db"])
+        assert args.command == "db"
+        assert args.db_command == "init"
+        assert args.db_path == "sqlite:///tmp/nber.db"
+
     def test_db_migrate_subcommand_with_new_db_path(self):
         parser = _build_parser()
         args = parser.parse_args(["db", "migrate", "/tmp/new-nber.db"])
         assert args.command == "db"
         assert args.db_command == "migrate"
         assert args.new_db_path == Path("/tmp/new-nber.db")
+
+    def test_db_migrate_subcommand_accepts_sqlite_url(self):
+        parser = _build_parser()
+        args = parser.parse_args(["db", "migrate", "sqlite:///tmp/new-nber.db"])
+        assert args.command == "db"
+        assert args.db_command == "migrate"
+        assert args.new_db_path == "sqlite:///tmp/new-nber.db"
 
     def test_feed_clean_subcommand_defaults(self):
         parser = _build_parser()

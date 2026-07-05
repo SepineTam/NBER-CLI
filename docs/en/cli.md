@@ -239,7 +239,7 @@ When only `--start-date` is provided, NBER-CLI automatically uses the current da
 
 ## feed
 
-`feed` works with NBER's new working papers RSS feed and the local SQLite database. The database tracks which RSS items have already been seen, so `feed fetch` can show only newly discovered papers by default.
+`feed` works with NBER's new working papers RSS feed and the local database. The database tracks which RSS items have already been seen, so `feed fetch` can show only newly discovered papers by default.
 
 ### feed fetch
 
@@ -325,7 +325,7 @@ Only `y` or `Y` continues. Any other response aborts without deleting records.
 
 ## db
 
-`db` manages the local SQLite database used by `info`, `search`, `download`, and `feed` for cache and behavior logs.
+`db` manages the local SQLite database used by `info`, `search`, `download`, and `feed` for cache and behavior logs. The database is stored on the user's machine and accessed through SQLModel/SQLAlchemy; commands accept either a filesystem path or a `sqlite:///...` URL.
 
 ### db init
 
@@ -334,6 +334,7 @@ Initialize the database and write its path to the user config:
 ```bash
 nber-cli db init
 nber-cli db init --db-path ~/.nber-cli/nber.db
+nber-cli db init --db-path sqlite:////Users/name/data/nber.db
 ```
 
 If `--db-path` is omitted, the default database path is `~/.nber-cli/nber.db`.
@@ -346,6 +347,7 @@ Move the database to a new path and update the user config:
 
 ```bash
 nber-cli db migrate ~/data/nber.db
+nber-cli db migrate sqlite:////Users/name/data/nber.db
 ```
 
 Migration moves the SQLite database file and any SQLite sidecar files such as `-wal`, `-shm`, and `-journal`. The target path must not already exist.
@@ -354,8 +356,8 @@ Migration moves the SQLite database file and any SQLite sidecar files such as `-
 
 | Subcommand | Option | Description |
 | --- | --- | --- |
-| `init` | `--db-path` | SQLite database path. Defaults to `~/.nber-cli/nber.db`. |
-| `migrate` | `new_db_path` | New SQLite database path. |
+| `init` | `--db-path` | SQLite database path or `sqlite:///...` URL. Defaults to `~/.nber-cli/nber.db`. |
+| `migrate` | `new_db_path` | New SQLite database path or `sqlite:///...` URL. |
 
 ## mcp-server
 

@@ -18,7 +18,7 @@
 - 下载单篇或批量论文 PDF。
 - 通过本地 RSS feed 缓存追踪 NBER 新发布的工作论文（`nber-cli feed fetch` / `feed clean`）。
 - 本地缓存论文元数据（`nber-cli info` 会写入 `info_cache`），采用滑动 TTL；同时为 `search`、`download` 和 `info` 查询记录行为日志。
-- 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`（路径可通过 `nber-cli db init` / `db migrate` 配置）。
+- 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`，由 SQLModel/SQLAlchemy 管理，路径可用普通文件路径或 `sqlite:///...` URL 配置。
 - 通过 MCP 工具把核心能力暴露给 AI Agent。
 - 默认输出适合阅读的文本，也支持 JSON 输出用于自动化流程。
 

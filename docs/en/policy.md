@@ -13,7 +13,7 @@ NBER-CLI is a command-line and MCP utility for searching NBER working papers, re
 ## Project Boundaries
 
 - **No project-side storage**: NBER-CLI does not operate servers, caches, mirrors, CDNs, or other infrastructure for storing NBER papers or metadata. Requests go directly from the user's machine or agent runtime to NBER's website.
-- **Default local persistence on the user machine**: NBER-CLI does keep a local SQLite database at `~/.nber-cli/nber.db` (or the path configured by `nber-cli db init` / `db migrate`) and a user config file at `~/.nber-cli/config.json`. By default the following commands and tools write to that database without any extra user input:
+- **Default local persistence on the user machine**: NBER-CLI does keep a local SQLite database at `~/.nber-cli/nber.db` (or the path / `sqlite:///...` URL configured by `nber-cli db init` / `db migrate`) and a user config file at `~/.nber-cli/config.json`. The database is accessed through SQLModel/SQLAlchemy and remains on the user's machine unless the user copies or exports it. By default the following commands and tools write to that database without any extra user input:
   - `nber-cli search` records every query, including the keyword, the applied filters, and the result count, in the `query_log` table.
   - `nber-cli download` records every attempt, including the paper ID, success or failure status, the saved PDF path, and the error message when relevant, in the `download_log` table. Single download and batch download both write one row per attempt.
   - `nber-cli info` and the MCP `get_paper_info` tool each write a row to the `info_log` table for the looked-up paper.

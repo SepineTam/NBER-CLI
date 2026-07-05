@@ -119,7 +119,7 @@ The MCP server performs network requests to NBER and can write PDFs to disk thro
 
 ### Local Persistence and Caching
 
-`get_paper_info` honors the same `info_cache` toggle and TTL as the CLI. When the cache is enabled, the tool reads from `info_cache` on a hit and writes a new row on a miss, mirroring the CLI behavior. Every call also appends a row to `info_log` so the local database records the lookup; the local database is shared with the CLI at the path configured in `~/.nber-cli/config.json`. Tool responses do not flag whether the result came from the cache; if the caller needs that signal it must look at its own call history or use the CLI directly.
+`get_paper_info` honors the same `info_cache` toggle and TTL as the CLI. When the cache is enabled, the tool reads from `info_cache` on a hit and writes a new row on a miss, mirroring the CLI behavior. Every call also appends a row to `info_log` so the local database records the lookup; the SQLModel/SQLAlchemy-backed local database is shared with the CLI at the path or `sqlite:///...` URL configured in `~/.nber-cli/config.json`. Tool responses do not flag whether the result came from the cache; if the caller needs that signal it must look at its own call history or use the CLI directly.
 
 ### Differences From the CLI
 

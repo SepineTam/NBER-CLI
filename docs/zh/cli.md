@@ -239,7 +239,7 @@ nber-cli search "inflation" -f json
 
 ## feed
 
-`feed` 用于处理 NBER 最新工作论文 RSS feed 和本地 SQLite 数据库。数据库会记录哪些 RSS 条目已经见过，因此 `feed fetch` 默认只显示新发现的论文。
+`feed` 用于处理 NBER 最新工作论文 RSS feed 和本地数据库。数据库会记录哪些 RSS 条目已经见过，因此 `feed fetch` 默认只显示新发现的论文。
 
 ### feed fetch
 
@@ -325,7 +325,7 @@ Continue? [y/N]:
 
 ## db
 
-`db` 用于管理本地 SQLite 数据库，`info`、`search`、`download` 和 `feed` 会用这个数据库存放缓存和行为日志。
+`db` 用于管理本地 SQLite 数据库，`info`、`search`、`download` 和 `feed` 会用这个数据库存放缓存和行为日志。数据库保存在用户机器上，并通过 SQLModel/SQLAlchemy 访问；命令参数既接受普通文件路径，也接受 `sqlite:///...` URL。
 
 ### db init
 
@@ -334,6 +334,7 @@ Continue? [y/N]:
 ```bash
 nber-cli db init
 nber-cli db init --db-path ~/.nber-cli/nber.db
+nber-cli db init --db-path sqlite:////Users/name/data/nber.db
 ```
 
 如果省略 `--db-path`，默认数据库路径是 `~/.nber-cli/nber.db`。
@@ -346,6 +347,7 @@ nber-cli db init --db-path ~/.nber-cli/nber.db
 
 ```bash
 nber-cli db migrate ~/data/nber.db
+nber-cli db migrate sqlite:////Users/name/data/nber.db
 ```
 
 迁移会移动 SQLite 数据库文件，以及 `-wal`、`-shm`、`-journal` 等 SQLite sidecar 文件。目标路径不能已经存在。
@@ -354,8 +356,8 @@ nber-cli db migrate ~/data/nber.db
 
 | 子命令 | 选项 | 说明 |
 | --- | --- | --- |
-| `init` | `--db-path` | SQLite 数据库路径，默认是 `~/.nber-cli/nber.db`。 |
-| `migrate` | `new_db_path` | 新的 SQLite 数据库路径。 |
+| `init` | `--db-path` | SQLite 数据库路径或 `sqlite:///...` URL，默认是 `~/.nber-cli/nber.db`。 |
+| `migrate` | `new_db_path` | 新的 SQLite 数据库路径或 `sqlite:///...` URL。 |
 
 ## mcp-server
 

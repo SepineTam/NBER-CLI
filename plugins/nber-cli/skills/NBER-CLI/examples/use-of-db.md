@@ -1,6 +1,8 @@
 # Use of DB
 
-The `db` command manages the SQLite cache used by the feed subsystem. You normally do not need to interact with it directly, but it is useful for custom paths, migrations, and manual inspection.
+The `db` command manages the local database used by `info`, `search`, `download`, and `feed` for cache and behavior logs. You normally do not need to interact with it directly, but it is useful for custom paths, `sqlite:///...` URLs, migrations, and manual inspection.
+
+The database is a local SQLite file accessed through SQLModel/SQLAlchemy. It stays on the user's machine unless the user copies or exports it. On macOS and Linux, `db init` and `db migrate` require the selected database file to be inside the user's home directory.
 
 ## Initialize the database
 
@@ -16,7 +18,13 @@ This creates the default database at `~/.nber-cli/nber.db` and writes the path t
 uvx nber-cli db init --db-path ~/research/nber.db
 ```
 
-Subsequent `feed fetch` commands will use this path automatically.
+You can also use a SQLite URL:
+
+```bash
+uvx nber-cli db init --db-path sqlite:////Users/name/research/nber.db
+```
+
+Subsequent commands that touch the local database will use this location automatically.
 
 ## Migrate an existing database
 
@@ -32,7 +40,7 @@ uvx nber-cli db migrate ~/Dropbox/research/nber.db
 sqlite3 ~/.nber-cli/nber.db ".schema"
 ```
 
-The two main tables are:
+The feed tables are:
 
 - `feed_items`: one row per paper ID seen in the RSS feed.
 - `feed_fetches`: one row per fetch attempt, recording time, total count, and new count.
