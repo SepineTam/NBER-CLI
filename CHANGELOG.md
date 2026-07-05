@@ -6,7 +6,21 @@ This file is the canonical release history. The English mirror at `docs/en/chang
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-06-16
+## [0.6.0] - 2026-07-05
+
+### Changed
+- Migrated the database layer from raw `sqlite3` to SQLModel/SQLAlchemy. All tables are now declared as SQLModel models with explicit indexes.
+- `db init --db-path` and `db migrate <new_db_path>` now accept `sqlite:///path/to/nber.db` URLs in addition to file paths.
+- Feed fetching, cache cleanup, query logging, download logging, info logging, and info-cache writes now use explicit SQLAlchemy sessions and commits.
+- `config.schema.json` now describes the database path as a "Path or sqlite:/// URL".
+
+### Added
+- Added `sqlmodel>=0.0.24` and SQLAlchemy to project dependencies.
+- Added CLI tests for `sqlite:///` database path handling.
+- Added release notes for v0.6.0.
+
+### Fixed
+- Updated the version fallback in `cli.py` from `0.4.0` to `0.6.0`.
 
 ### Security
 - RSS feed parsing now uses `defusedxml` to block XML external entity (XXE) and entity expansion attacks.

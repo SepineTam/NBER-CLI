@@ -6,7 +6,24 @@
 
 ## 未发布
 
-## 0.5.0 - 2026-06-16
+## 0.6.0 - 2026-07-05
+
+### Changed
+
+- 数据库层从原生 `sqlite3` 迁移到 SQLModel/SQLAlchemy。所有表均声明为带显式索引的 SQLModel 模型。
+- `db init --db-path` 和 `db migrate <new_db_path>` 除文件路径外，现在也接受 `sqlite:///path/to/nber.db` URL。
+- Feed 拉取、缓存清理、查询日志、下载日志、info 日志和 info 缓存写入现在使用显式的 SQLAlchemy Session 并提交。
+- `config.schema.json` 将数据库路径描述为 "Path or sqlite:/// URL"。
+
+### Added
+
+- 项目依赖中新增 `sqlmodel>=0.0.24` 及其 SQLAlchemy 传递依赖。
+- 新增针对 `sqlite:///` 数据库路径处理的 CLI 测试。
+- 新增 v0.6.0 release notes。
+
+### Fixed
+
+- 将 `cli.py` 中的版本 fallback 从 `0.4.0` 更新为 `0.6.0`。
 
 ### Security
 
