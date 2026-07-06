@@ -15,6 +15,7 @@ import pytest
 
 from nber_cli.config import NBER_CLI_CONFIG
 from nber_cli.fetcher import (
+    _NBER_REQUEST_HEADERS,
     _build_search_params,
     _load_text_sync,
     _parse_search_payload,
@@ -108,6 +109,36 @@ class TestParseSearchPayload:
         assert results.results[0].authors == ["Person A", "Person & B"]
         assert results.results[0].url == "https://www.nber.org/papers/w32000"
         assert results.results[0].abstract == "Abstract with markup."
+
+
+class TestLoadTextSyncHeaders:
+    def test_includes_accept_and_accept_language_headers(self):
+        captured_request = {}
+
+        class FakeResponse:
+            def __init__(self):
+                self.headers = MagicMock()
+                self.headers.get_content_charset.return_value = "utf-8"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return b"ok"
+
+        def fake_urlopen(request, timeout, context=None):
+            captured_request["headers"] = {k.lower(): v for k, v in request.headers.items()}
+            return FakeResponse()
+
+        with patch("nber_cli.fetcher.urlopen", side_effect=fake_urlopen):
+            _load_text_sync("https://example.com")
+
+        assert "accept" in captured_request["headers"]
+        assert "accept-language" in captured_request["headers"]
+        assert captured_request["headers"]["accept-language"] == "en-US,en;q=0.9"
 
 
 class TestLoadTextSyncRetry:
@@ -560,7 +591,7 @@ class TestLoadPage:
         result = await _load_page("https://example.com", mock_session)
 
         assert result == "page content"
-        mock_session.get.assert_called_once_with("https://example.com", headers={"User-Agent": "Mozilla/5.0"})
+        mock_session.get.assert_called_once_with("https://example.com", headers=_NBER_REQUEST_HEADERS)
 
     @pytest.mark.asyncio
     async def test_load_page_raises_on_http_error(self):
@@ -593,5 +624,5 @@ class TestLoadJson:
 
         assert result == {"key": "value"}
         mock_session.get.assert_called_once_with(
-            "https://example.com", headers={"User-Agent": "Mozilla/5.0"}, params={"q": "test"}
+            "https://example.com", headers=_NBER_REQUEST_HEADERS, params={"q": "test"}
         )

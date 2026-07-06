@@ -34,6 +34,21 @@ _NBER_SEARCH_API = "https://www.nber.org/api/v1/working_page_listing/contentType
 _NBER_BASE_URL = "https://www.nber.org"
 _REQUEST_TIMEOUT_SECONDS = NBER_CLI_CONFIG.request_timeout_seconds
 _SUPPORTED_SEARCH_PAGE_SIZES = NBER_CLI_CONFIG.search_page_sizes
+_NBER_REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Cache-Control": "max-age=0",
+    "Priority": "u=0, i",
+    "Sec-Ch-Ua": '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 
 async def get_nber(nber_id: int, session: ClientSession | None = None) -> NBER:
@@ -75,15 +90,13 @@ async def search_nber(
 
 
 async def _load_page(url: str, session: ClientSession) -> str:
-    headers = {"User-Agent": "Mozilla/5.0"}
-    async with session.get(url, headers=headers) as resp:
+    async with session.get(url, headers=_NBER_REQUEST_HEADERS) as resp:
         resp.raise_for_status()
         return await resp.text()
 
 
 async def _load_json(url: str, session: ClientSession, params: JsonDict) -> JsonDict:
-    headers = {"User-Agent": "Mozilla/5.0"}
-    async with session.get(url, headers=headers, params=params) as resp:
+    async with session.get(url, headers=_NBER_REQUEST_HEADERS, params=params) as resp:
         resp.raise_for_status()
         payload = await resp.json()
         return payload if isinstance(payload, dict) else {}
@@ -111,7 +124,7 @@ def _load_json_sync(url: str, params: JsonDict) -> JsonDict:
 
 
 def _load_text_sync(url: str) -> str:
-    request = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    request = Request(url, headers=_NBER_REQUEST_HEADERS)
     ssl_context = ssl.create_default_context()
     ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
     last_error: BaseException | None = None
