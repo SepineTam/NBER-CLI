@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import logging
 import re
 import sys
 from importlib.metadata import version as get_version
@@ -36,6 +37,9 @@ from .formatters import (
     search_results_text,
 )
 from .info_cache import get_paper_with_info_cache_result
+from .logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 _OUTPUT_FORMATS = ["list", "json"]
 
@@ -74,6 +78,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-v", "--version", action="version", version=f"NBER CLI v{_get_version()}"
+    )
+
+    parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose logging for debugging."
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -625,6 +633,8 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
+    configure_logging(verbose=args.verbose)
+
     if args.command is None:
         parser.print_help()
         raise SystemExit(0)
@@ -701,6 +711,12 @@ def main() -> None:
         return
 
     if args.command == "search":
+        logger.debug(
+            "search query=%s page=%s per_page=%s",
+            args.query,
+            args.page,
+            args.per_page,
+        )
         try:
             results = asyncio.run(
                 search_nber(
@@ -713,6 +729,7 @@ def main() -> None:
             )
         except ValueError as error:
             parser.error(str(error))
+        logger.debug("search results count=%s", len(results.results))
         db.record_query(
             None,
             keyword=args.query,

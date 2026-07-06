@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import html
 import json
+import logging
 import re
 import ssl
 import time
@@ -26,6 +27,8 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from .config import NBER_CLI_CONFIG
 from .core.models import NBER, NBERSearchResults
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 JsonDict = dict[str, Any]
@@ -90,14 +93,18 @@ async def search_nber(
 
 
 async def _load_page(url: str, session: ClientSession) -> str:
+    logger.debug("request %s", url)
     async with session.get(url, headers=_NBER_REQUEST_HEADERS) as resp:
         resp.raise_for_status()
+        logger.debug("response %s status=%s", url, resp.status)
         return await resp.text()
 
 
 async def _load_json(url: str, session: ClientSession, params: JsonDict) -> JsonDict:
+    logger.debug("request %s params=%s", url, params)
     async with session.get(url, headers=_NBER_REQUEST_HEADERS, params=params) as resp:
         resp.raise_for_status()
+        logger.debug("response %s status=%s", url, resp.status)
         payload = await resp.json()
         return payload if isinstance(payload, dict) else {}
 
@@ -124,6 +131,7 @@ def _load_json_sync(url: str, params: JsonDict) -> JsonDict:
 
 
 def _load_text_sync(url: str) -> str:
+    logger.debug("request %s", url)
     request = Request(url, headers=_NBER_REQUEST_HEADERS)
     ssl_context = ssl.create_default_context()
     ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -134,12 +142,15 @@ def _load_text_sync(url: str) -> str:
             with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS, context=ssl_context) as response:
                 encoding = response.headers.get_content_charset("utf-8")
                 text: str = response.read().decode(encoding)
+                logger.debug("response %s status=%s", url, response.status)
                 return text
         except HTTPError as error:
+            logger.warning("request %s failed: HTTP %s (attempt %s)", url, error.code, attempt + 1)
             if not _should_retry_http_error(error) or attempt >= NBER_CLI_CONFIG.request_retry_count:
                 raise
             last_error = error
         except (URLError, TimeoutError, OSError) as error:
+            logger.warning("request %s failed: %s (attempt %s)", url, error.__class__.__name__, attempt + 1)
             if attempt >= NBER_CLI_CONFIG.request_retry_count:
                 raise
             last_error = error

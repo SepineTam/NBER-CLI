@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import re
 from defusedxml import ElementTree as ET
 from defusedxml.common import EntitiesForbidden
@@ -22,6 +23,8 @@ from sqlalchemy.engine import Connection
 from . import db
 from .core.models import NBERFeedCleanResult, NBERFeedFetchResult, NBERFeedItem
 from .fetcher import _load_text_sync
+
+logger = logging.getLogger(__name__)
 
 NBER_FEED_URL = "https://www.nber.org/rss/new.xml"
 _UNESCAPED_TEXT_LESS_THAN = re.compile(r"<(?=[\s\d])")
@@ -103,11 +106,14 @@ def fetch_feed(
         raise ValueError("max_items must be 0 or greater")
 
     resolved_db_path = db.get_database_path(db_path)
+    logger.debug("feed database path: %s", resolved_db_path)
     resolved_db_path.parent.mkdir(parents=True, exist_ok=True)
     db._ensure_full_schema(resolved_db_path)
 
+    logger.debug("fetching feed from %s", NBER_FEED_URL)
     xml_text = _load_text_sync(NBER_FEED_URL)
     feed_items = parse_feed_xml(xml_text)
+    logger.debug("parsed %s feed items", len(feed_items))
     seen_at = db._utc_now()
     with db._open_session(resolved_db_path) as session:
         connection = session.connection()
@@ -118,6 +124,7 @@ def fetch_feed(
     if max_items is not None:
         output_items = output_items[:max_items]
 
+    logger.debug("feed fetch complete: total=%s new=%s", len(feed_items), len(new_items))
     return NBERFeedFetchResult(
         source_url=NBER_FEED_URL,
         database_path=resolved_db_path,

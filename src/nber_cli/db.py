@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import sys
 from datetime import datetime, timedelta, timezone
@@ -24,6 +25,8 @@ from sqlmodel import Field, Session, SQLModel, create_engine
 
 from . import config_store
 from .core.models import NBER, NBERInfoCacheClearResult
+
+logger = logging.getLogger(__name__)
 
 NBER_CLI_DIR_NAME = config_store.NBER_CLI_DIR_NAME
 NBER_CLI_CONFIG_NAME = config_store.NBER_CLI_CONFIG_NAME
@@ -157,7 +160,9 @@ def migrate_database(new_db_path: Path | str) -> tuple[Path, Path]:
 
 
 def get_database_path(db_path: Path | str | None = None) -> Path:
-    return _normalize_db_path(db_path or _configured_db_path())
+    resolved = _normalize_db_path(db_path or _configured_db_path())
+    logger.debug("database path: %s", resolved)
+    return resolved
 
 
 def get_schema_version(db_path: Path | str | None = None) -> int:

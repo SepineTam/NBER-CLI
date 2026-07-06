@@ -119,6 +119,7 @@ class TestLoadTextSyncHeaders:
             def __init__(self):
                 self.headers = MagicMock()
                 self.headers.get_content_charset.return_value = "utf-8"
+                self.status = 200
 
             def __enter__(self):
                 return self
@@ -148,6 +149,7 @@ class TestLoadTextSyncRetry:
                 self._text_value = text_value
                 self.headers = MagicMock()
                 self.headers.get_content_charset.return_value = "utf-8"
+                self.status = 200
 
             def __enter__(self):
                 return self
