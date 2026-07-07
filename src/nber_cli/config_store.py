@@ -18,6 +18,8 @@ from typing import Any
 ConfigValue = Any
 ConfigDict = dict[str, ConfigValue]
 
+_CLI_CONFIG_PATH: Path | None = None
+
 NBER_CLI_DIR_NAME = ".nber-cli"
 NBER_CLI_CONFIG_NAME = "config.json"
 NBER_DB_NAME = "nber.db"
@@ -38,7 +40,19 @@ class InfoCacheSettings:
     cache_ttl_days: int = DEFAULT_INFO_CACHE_TTL_DAYS
 
 
+def set_cli_config_path(path: Path | str | None) -> None:
+    global _CLI_CONFIG_PATH
+    _CLI_CONFIG_PATH = Path(path) if path is not None else None
+
+
+def clear_cli_config_path() -> None:
+    global _CLI_CONFIG_PATH
+    _CLI_CONFIG_PATH = None
+
+
 def default_config_path() -> Path:
+    if _CLI_CONFIG_PATH is not None:
+        return _CLI_CONFIG_PATH
     return Path.home() / NBER_CLI_DIR_NAME / NBER_CLI_CONFIG_NAME
 
 

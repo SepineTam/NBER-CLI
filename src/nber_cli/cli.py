@@ -83,6 +83,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--verbose", action="store_true", help="Enable verbose logging for debugging."
     )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to a custom config file for this run only.",
+    )
 
     subparsers = parser.add_subparsers(dest="command")
 
@@ -632,6 +639,9 @@ def _handle_info_cache_command(
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.config is not None:
+        config_store.set_cli_config_path(args.config)
 
     configure_logging(verbose=args.verbose)
 

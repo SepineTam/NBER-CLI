@@ -224,3 +224,32 @@ class TestRuntimeConfig:
         )
 
         assert NBERCLIConfig.from_config_file().download_concurrency == 3
+
+
+class TestCliConfigPath:
+    def test_cli_config_path_overrides_default(self, tmp_path, isolated_nber_home):
+        custom_path = tmp_path / "custom" / "config.json"
+        config_store.set_cli_config_path(custom_path)
+        try:
+            assert config_store.default_config_path() == custom_path
+        finally:
+            config_store.clear_cli_config_path()
+
+    def test_clear_cli_config_path_restores_default(self, tmp_path, isolated_nber_home):
+        custom_path = tmp_path / "custom" / "config.json"
+        config_store.set_cli_config_path(custom_path)
+        config_store.clear_cli_config_path()
+
+        assert config_store.default_config_path() == isolated_nber_home / ".nber-cli" / "config.json"
+
+    def test_read_config_uses_cli_path(self, tmp_path):
+        custom_path = tmp_path / "custom" / "config.json"
+        custom_path.parent.mkdir(parents=True)
+        custom_path.write_text('{"feed": {"db-path": "/tmp/custom.db"}}')
+
+        config_store.set_cli_config_path(custom_path)
+        try:
+            config = config_store.read_config()
+            assert config["feed"]["db-path"] == "/tmp/custom.db"
+        finally:
+            config_store.clear_cli_config_path()

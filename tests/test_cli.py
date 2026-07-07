@@ -54,6 +54,18 @@ class TestBuildParser:
         captured = capsys.readouterr()
         assert "NBER CLI v" in captured.out
 
+    def test_config_flag(self):
+        parser = _build_parser()
+        args = parser.parse_args(["--config", "/tmp/custom.json", "feed", "fetch"])
+        assert args.command == "feed"
+        assert str(args.config) == "/tmp/custom.json"
+
+    def test_config_short_flag(self):
+        parser = _build_parser()
+        args = parser.parse_args(["-c", "/tmp/custom.json", "feed", "fetch"])
+        assert args.command == "feed"
+        assert str(args.config) == "/tmp/custom.json"
+
     def test_download_subcommand_with_single_id(self):
         parser = _build_parser()
         args = parser.parse_args(["download", "w1234"])
