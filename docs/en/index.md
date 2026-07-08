@@ -63,10 +63,14 @@ Add it to an MCP client:
 - [MCP Server](mcp.md): agent configuration, transports, and available tools.
 - [Python API](python-api.md): async functions and data models.
 - [Configuration](configuration.md): runtime defaults and operational behavior.
+- [Persistence Layer](persistence.md): local SQLite schema, cache behavior, logs, migration, and cleanup limits.
+- [System Architecture](architecture.md): how the CLI, MCP server, network layer, download engine, feed system, and persistence layer fit together.
+- [Glossary](glossary.md): project-specific terms, table names, error models, and paper ID conventions.
 - [Development](development.md): local setup, tests, docs, CI, and release workflow.
+- [Test Infrastructure](testing.md): fixtures, mocking strategy, async tests, and robustness coverage.
 - [Contributing](contributing.md): contribution standards and review expectations.
 - [Changelog](changelog.md): notable project changes.
 
 ## Project Status
 
-The current public command model is `nber-cli` v0.3.0. The CLI is intentionally small and script-friendly: text output is optimized for human reading, and `--format json` is available where structured output matters.
+The current public command model is `nber-cli` v0.7.0. The CLI is intentionally small and script-friendly: text output is optimized for human reading, and `--format json` is available where structured output matters.

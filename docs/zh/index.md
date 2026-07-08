@@ -63,10 +63,14 @@ uvx nber-cli mcp-server
 - [MCP Server](mcp.md)：Agent 配置、传输方式和可用工具。
 - [Python API](python-api.md)：异步函数和数据模型。
 - [配置](configuration.md)：运行时默认值和操作行为。
+- [持久化层](persistence.md)：本地 SQLite schema、缓存行为、日志、迁移和清理边界。
+- [系统架构](architecture.md)：CLI、MCP server、网络层、下载引擎、feed 系统和持久化层如何协作。
+- [术语表](glossary.md)：项目专用术语、表名、错误模型和论文编号约定。
 - [开发](development.md)：本地环境、测试、文档、CI 和发布流程。
+- [测试基础设施](testing.md)：fixture、mock 策略、异步测试和健壮性覆盖。
 - [贡献指南](contributing.md)：贡献标准和评审期望。
 - [更新日志](changelog.md)：项目重要变更。
 
 ## 项目状态
 
-当前公开命令模型是 `nber-cli` v0.3.0。CLI 保持小而清晰：默认文本输出适合人读，需要结构化输出时可以使用 `--format json`。
+当前公开命令模型是 `nber-cli` v0.7.0。CLI 保持小而清晰：默认文本输出适合人读，需要结构化输出时可以使用 `--format json`。

@@ -53,10 +53,15 @@ plugins:
                 - CLI Reference: cli.md
                 - MCP Server: mcp.md
                 - Configuration: configuration.md
+                - Persistence Layer: persistence.md
             - API Reference:
                 - Python API: python-api.md
+            - Architecture:
+                - System Architecture: architecture.md
+                - Glossary: glossary.md
             - Development:
                 - Development Guide: development.md
+                - Test Infrastructure: testing.md
                 - Contributing: contributing.md
                 - Changelog: changelog.md
             - Usage Policy: policy.md
@@ -76,10 +81,15 @@ plugins:
                 - CLI 参考: cli.md
                 - MCP Server: mcp.md
                 - 配置: configuration.md
+                - 持久化层: persistence.md
             - API 参考:
                 - Python API: python-api.md
+            - 架构:
+                - 系统架构: architecture.md
+                - 术语表: glossary.md
             - 开发:
                 - 开发指南: development.md
+                - 测试基础设施: testing.md
                 - 贡献指南: contributing.md
                 - 更新日志: changelog.md
             - 使用政策: policy.md
@@ -127,10 +137,15 @@ nav:
       - CLI Reference: cli.md
       - MCP Server: mcp.md
       - Configuration: configuration.md
+      - Persistence Layer: persistence.md
   - API Reference:
       - Python API: python-api.md
+  - Architecture:
+      - System Architecture: architecture.md
+      - Glossary: glossary.md
   - Development:
       - Development Guide: development.md
+      - Test Infrastructure: testing.md
       - Contributing: contributing.md
       - Changelog: changelog.md
   - Usage Policy: policy.md

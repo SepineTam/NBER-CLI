@@ -2,6 +2,8 @@
 
 NBER-CLI 内置 MCP server，让 Agent 无需解析命令行文本，就能搜索 NBER、查看论文元数据和下载 PDF。
 
+MCP server 如何与 CLI 共用核心模块，见 [系统架构](architecture.md)。
+
 ## 启动服务
 
 默认传输方式是 stdio：

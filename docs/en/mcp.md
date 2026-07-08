@@ -2,6 +2,8 @@
 
 NBER-CLI includes an MCP server so agents can search NBER, inspect paper metadata, and download PDFs without scraping command output.
 
+For how the MCP server shares core modules with the CLI, see [System Architecture](architecture.md).
+
 ## Start the Server
 
 The default transport is stdio:

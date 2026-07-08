@@ -2,6 +2,8 @@
 
 Most NBER-CLI runtime behavior uses built-in defaults. The local database also uses a small user config file to remember the database location selected by `nber-cli db init` or `nber-cli db migrate`.
 
+For the full SQLite schema, cache tables, behavior logs, and backup guidance, see [Persistence Layer](persistence.md).
+
 ## Runtime Defaults
 
 | Setting | Default | Description |

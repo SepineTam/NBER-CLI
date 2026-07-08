@@ -2,6 +2,8 @@
 
 NBER-CLI 的大多数运行时行为使用内置默认值。本地数据库还会使用一个小型用户配置文件，用来记住 `nber-cli db init` 或 `nber-cli db migrate` 选择的数据库位置。
 
+完整的 SQLite schema、缓存表、行为日志和备份说明见 [持久化层](persistence.md)。
+
 ## 运行时默认值
 
 | 设置 | 默认值 | 说明 |

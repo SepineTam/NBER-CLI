@@ -2,6 +2,8 @@
 
 本页说明本地开发、测试、文档和发布准备流程。
 
+更详细的 fixture 与 mock 布局见 [测试基础设施](testing.md)。运行时组件关系见 [系统架构](architecture.md)。
+
 ## 仓库结构
 
 ```text

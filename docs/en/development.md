@@ -2,6 +2,8 @@
 
 This page covers local development, testing, documentation, and release preparation.
 
+For the detailed fixture and mocking layout, see [Test Infrastructure](testing.md). For runtime component relationships, see [System Architecture](architecture.md).
+
 ## Repository Layout
 
 ```text
