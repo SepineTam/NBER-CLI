@@ -4,7 +4,14 @@ All notable changes to this project will be documented here.
 
 This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chinese mirror at `docs/zh/changelog.md` carries the same content. Any release commit updates all three together.
 
-## Unreleased
+## 0.7.0 - 2026-07-08
+
+### Added
+- Added a `--verbose` global flag and a rotating debug log at `~/.nber-cli/debug.log`. By default only warnings and errors are logged; `--verbose` or `NBER_CLI_DEBUG=1` enables debug-level output.
+- Added `-c/--config <path>` global flag to use a custom config file for a single invocation without changing the default `~/.nber-cli/config.json`.
+
+### Fixed
+- Added a full set of browser-like request headers (User-Agent, Accept, Accept-Language, Sec-Fetch, etc.) to all NBER requests, replacing the minimal User-Agent-only headers. This restores access after NBER's CDN began rejecting minimal requests.
 
 ## 0.6.0 - 2026-07-05
 

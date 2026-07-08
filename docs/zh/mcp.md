@@ -49,10 +49,16 @@ nber-cli mcp-server
 如果客户端支持 streamable HTTP：
 
 ```bash
-uvx nber-cli mcp-server --transport streamable_http --port 8000
+uvx nber-cli mcp-server --transport streamable-http --port 8000
 ```
 
-`--port` 只对 `streamable_http` 生效。server 绑定到本地接口；应将其视为本地服务，如需远程访问请接入反向代理（或 SSH 隧道）。server 不内置身份认证：任何能访问该端口的网络位置都可以调用全部三个工具，并在宿主机文件系统中触发 PDF 下载。未经可信的反向代理认证，不要把该端口暴露在公网上。
+`--port` 只对 HTTP transport 生效。当端口设为非默认值时，需要加 `--yes` 确认：
+
+```bash
+uvx nber-cli mcp-server --transport streamable-http --port 9000 --yes
+```
+
+server 绑定到本地接口；应将其视为本地服务，如需远程访问请接入反向代理（或 SSH 隧道）。server 不内置身份认证：任何能访问该端口的网络位置都可以调用全部三个工具，并在宿主机文件系统中触发 PDF 下载。未经可信的反向代理认证，不要把该端口暴露在公网上。
 
 客户端通过 HTTP 连接时使用标准 MCP 客户端 URL（端口与 `--port` 一致）：
 

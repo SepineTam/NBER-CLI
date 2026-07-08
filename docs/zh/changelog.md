@@ -4,7 +4,14 @@
 
 本页是仓库根 `CHANGELOG.md` 的中文镜像，英文镜像在 `docs/en/changelog.md`。每次发布提交都会同步更新三份内容。
 
-## 未发布
+## 0.7.0 - 2026-07-08
+
+### Added
+- 新增全局参数 `--verbose` 与轮转调试日志文件 `~/.nber-cli/debug.log`。默认仅写入警告和错误；`--verbose` 或 `NBER_CLI_DEBUG=1` 可开启调试级别输出。
+- 新增全局参数 `-c/--config <path>`，可在单次运行中指定自定义配置文件，不影响默认的 `~/.nber-cli/config.json`。
+
+### Fixed
+- 为所有 NBER 请求补全类浏览器请求头（User-Agent、Accept、Accept-Language、Sec-Fetch 等），替代原先仅含 User-Agent 的极简头，以恢复 NBER CDN 访问。
 
 ## 0.6.0 - 2026-07-05
 

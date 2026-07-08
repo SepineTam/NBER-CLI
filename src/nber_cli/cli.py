@@ -62,7 +62,7 @@ def _get_version() -> str:
     try:
         return get_version("nber-cli")
     except Exception:
-        return "0.6.0"
+        return "0.7.0"
 
 
 def _parse_database_location(value: str) -> Path | str:

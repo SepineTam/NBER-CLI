@@ -21,6 +21,8 @@
 - 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`，由 SQLModel/SQLAlchemy 管理，路径可用普通文件路径或 `sqlite:///...` URL 配置。
 - 通过 MCP 工具把核心能力暴露给 AI Agent。
 - 默认输出适合阅读的文本，也支持 JSON 输出用于自动化流程。
+- 提供 `--verbose` 调试日志与轮转日志文件，便于排查问题。
+- 通过 `-c/--config <path>` 可在单次运行中临时指定配置文件。
 
 完整可配置项和本地数据库结构请见[配置](docs/zh/configuration.md)，默认写入磁盘的内容请见[使用政策](docs/zh/policy.md)。
 

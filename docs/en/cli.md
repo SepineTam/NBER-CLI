@@ -12,6 +12,8 @@ nber-cli [--version] <command> [options]
 | --- | --- |
 | `-v`, `--version` | Print the installed NBER-CLI version. |
 | `-h`, `--help` | Show command help. |
+| `--verbose` | Enable debug logging to stderr and the log file. |
+| `-c`, `--config <path>` | Use a custom config file for this run only. |
 
 Running `nber-cli` without a subcommand prints the top-level help and exits successfully.
 
@@ -24,6 +26,7 @@ Running `nber-cli` without a subcommand prints the top-level help and exits succ
 | `search` | Search NBER working papers. |
 | `db` | Manage the local SQLite database. |
 | `feed` | Manage the NBER new working papers RSS feed cache. |
+| `config` | Inspect and edit `~/.nber-cli/config.json`. |
 | `mcp-server` | Start the MCP server for agents. |
 
 ## download
@@ -63,6 +66,8 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 | `--file`, `-f` | Explicit target PDF path for a single download. |
 | `--save-base`, `-s` | Target directory for generated `<paper_id>.pdf` files. Defaults to the current working directory. |
 | `--batch`, `-b` | One or more paper IDs to download concurrently. |
+| `--restrict` | Restrict downloads to the current directory and its subdirectories. Defaults to `true`; use `--restrict false` to override per invocation. |
+| `--concurrency`, `-c` | Maximum concurrent downloads. Overrides the `download.concurrency` config value. |
 
 ### download Rules
 
@@ -359,6 +364,26 @@ Migration moves the SQLite database file and any SQLite sidecar files such as `-
 | `init` | `--db-path` | SQLite database path or `sqlite:///...` URL. Defaults to `~/.nber-cli/nber.db`. |
 | `migrate` | `new_db_path` | New SQLite database path or `sqlite:///...` URL. |
 
+## config
+
+Inspect and edit `~/.nber-cli/config.json`:
+
+```bash
+nber-cli config show
+nber-cli config get info.cache_ttl_days
+nber-cli config set download.concurrency 5
+nber-cli config verify
+```
+
+### config Options
+
+| Subcommand | Arguments | Description |
+| --- | --- | --- |
+| `show` | — | Print the current configuration. |
+| `get` | `<key>` | Print the value for a dot-separated key, such as `info.cache_ttl_days`. |
+| `set` | `<key> <value>` | Set a dot-separated key to the inferred value (`true`/`false`/integer/string). |
+| `verify` | — | Validate the configuration against `config.schema.json`. |
+
 ## mcp-server
 
 Start the default stdio MCP server:
@@ -370,15 +395,22 @@ nber-cli mcp-server
 Start an HTTP transport:
 
 ```bash
-nber-cli mcp-server --transport streamable_http --port 8000
+nber-cli mcp-server --transport streamable-http --port 8000
+```
+
+Use `--yes` to confirm a non-default port:
+
+```bash
+nber-cli mcp-server --transport streamable-http --port 9000 --yes
 ```
 
 ### mcp-server Options
 
 | Option | Description |
 | --- | --- |
-| `--transport` | Transport mechanism: `stdio` or `streamable_http`. Defaults to `stdio`. |
-| `--port` | Port for `streamable_http`. Defaults to `8000`. |
+| `--transport` | Transport mechanism: `stdio`, `sse`, or `streamable-http`. Defaults to `stdio`. |
+| `--port` | Port for HTTP transports. Defaults to `8000`. |
+| `--yes` | Confirm use of a non-default port. |
 
 For client configuration and tool details, see [MCP Server](mcp.md).
 

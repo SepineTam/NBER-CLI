@@ -49,10 +49,16 @@ If `nber-cli` is already installed on the machine, the client can call it direct
 For clients that support streamable HTTP:
 
 ```bash
-uvx nber-cli mcp-server --transport streamable_http --port 8000
+uvx nber-cli mcp-server --transport streamable-http --port 8000
 ```
 
-`--port` only applies to `streamable_http`. The server binds to the local interface; treat the bound socket as a local-only service and front it with a reverse proxy (or SSH tunnel) if you need remote access. There is no built-in authentication: anyone who can reach the bound port can call all three tools and trigger PDF downloads on the host filesystem. Do not expose the port on a public network without putting it behind a trusted authenticating proxy.
+`--port` only applies to HTTP transports. When set to a non-default value, pass `--yes` to confirm:
+
+```bash
+uvx nber-cli mcp-server --transport streamable-http --port 9000 --yes
+```
+
+The server binds to the local interface; treat the bound socket as a local-only service and front it with a reverse proxy (or SSH tunnel) if you need remote access. There is no built-in authentication: anyone who can reach the bound port can call all three tools and trigger PDF downloads on the host filesystem. Do not expose the port on a public network without putting it behind a trusted authenticating proxy.
 
 When the client connects over HTTP, use the standard MCP client URL (the `--port` value):
 

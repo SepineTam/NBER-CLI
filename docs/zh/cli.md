@@ -12,6 +12,8 @@ nber-cli [--version] <command> [options]
 | --- | --- |
 | `-v`, `--version` | 打印已安装的 NBER-CLI 版本。 |
 | `-h`, `--help` | 显示命令帮助。 |
+| `--verbose` | 启用调试日志输出到 stderr 和日志文件。 |
+| `-c`, `--config <path>` | 仅在本次运行中使用指定的配置文件。 |
 
 不带子命令运行 `nber-cli` 会打印顶层帮助并成功退出。
 
@@ -24,6 +26,7 @@ nber-cli [--version] <command> [options]
 | `search` | 搜索 NBER 工作论文。 |
 | `db` | 管理本地 SQLite 数据库。 |
 | `feed` | 管理 NBER 最新工作论文 RSS feed 的本地缓存。 |
+| `config` | 查看和编辑 `~/.nber-cli/config.json`。 |
 | `mcp-server` | 启动给 Agent 使用的 MCP server。 |
 
 ## download
@@ -63,6 +66,8 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 | `--file`, `-f` | 单篇下载的明确 PDF 输出路径。 |
 | `--save-base`, `-s` | 生成 `<paper_id>.pdf` 文件的目标目录，默认是当前工作目录。 |
 | `--batch`, `-b` | 要并发下载的一组论文编号。 |
+| `--restrict` | 限制下载到当前工作目录及其子目录。默认 `true`；单次调用可用 `--restrict false` 关闭。 |
+| `--concurrency`, `-c` | 最大并发下载数。会覆盖 `download.concurrency` 配置值。 |
 
 ### download 规则
 
@@ -359,6 +364,26 @@ nber-cli db migrate sqlite:////Users/name/data/nber.db
 | `init` | `--db-path` | SQLite 数据库路径或 `sqlite:///...` URL，默认是 `~/.nber-cli/nber.db`。 |
 | `migrate` | `new_db_path` | 新的 SQLite 数据库路径或 `sqlite:///...` URL。 |
 
+## config
+
+查看和编辑 `~/.nber-cli/config.json`：
+
+```bash
+nber-cli config show
+nber-cli config get info.cache_ttl_days
+nber-cli config set download.concurrency 5
+nber-cli config verify
+```
+
+### config 选项
+
+| 子命令 | 参数 | 说明 |
+| --- | --- | --- |
+| `show` | — | 打印当前配置。 |
+| `get` | `<key>` | 打印点分 key 的值，例如 `info.cache_ttl_days`。 |
+| `set` | `<key> <value>` | 把点分 key 设置为推断后的值（`true`/`false`/整数/字符串）。 |
+| `verify` | — | 根据 `config.schema.json` 校验配置。 |
+
 ## mcp-server
 
 启动默认 stdio MCP server：
@@ -370,15 +395,22 @@ nber-cli mcp-server
 启动 HTTP transport：
 
 ```bash
-nber-cli mcp-server --transport streamable_http --port 8000
+nber-cli mcp-server --transport streamable-http --port 8000
+```
+
+非默认端口需要用 `--yes` 确认：
+
+```bash
+nber-cli mcp-server --transport streamable-http --port 9000 --yes
 ```
 
 ### mcp-server 选项
 
 | 选项 | 说明 |
 | --- | --- |
-| `--transport` | 传输机制：`stdio` 或 `streamable_http`，默认是 `stdio`。 |
-| `--port` | `streamable_http` 使用的端口，默认是 `8000`。 |
+| `--transport` | 传输机制：`stdio`、`sse` 或 `streamable-http`，默认是 `stdio`。 |
+| `--port` | HTTP transport 使用的端口，默认是 `8000`。 |
+| `--yes` | 确认使用非默认端口。 |
 
 客户端配置和工具详情见 [MCP Server](mcp.md)。
 

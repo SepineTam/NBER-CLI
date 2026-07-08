@@ -22,6 +22,8 @@ A command line interface for reaching the National Bureau of Economic Research (
 - Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db`, managed through SQLModel/SQLAlchemy and configurable with a filesystem path or `sqlite:///...` URL.
 - Expose the same core workflows as MCP tools for AI agents.
 - Return human-readable output by default, with JSON output for automation.
+- Provide `--verbose` debug logging and a rotating log file for troubleshooting.
+- Use `-c/--config <path>` to temporarily override the config file for a single run.
 
 See [Configuration](docs/en/configuration.md) for the full list of configurable values and the local database layout, and [Usage Policy](docs/en/policy.md) for what NBER-CLI writes to disk by default.
 
