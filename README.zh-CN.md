@@ -59,6 +59,12 @@ uvx nber-cli info w25000
 uvx nber-cli download w34567
 ```
 
+如果提示命令不存在或报错请先通过 `uvx nber-cli -v` 检查当前运行的版本，如果不是最新版本可以通过如下命令将缓存更新至最新版本：
+
+```bash
+uvx --refresh nber-cli -v
+```
+
 也可以先安装命令：
 
 ```bash

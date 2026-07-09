@@ -60,6 +60,12 @@ uvx nber-cli info w25000
 uvx nber-cli download w34567
 ```
 
+If the command is not found or fails, run `uvx nber-cli -v` to check the current version. If it is not the latest version, update the cache with:
+
+```bash
+uvx --refresh nber-cli -v
+```
+
 Or install the command first:
 
 ```bash

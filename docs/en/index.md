@@ -24,6 +24,12 @@ uvx nber-cli feed fetch --max-items 5
 uvx nber-cli download w34567
 ```
 
+If the command is not found or fails, run `uvx nber-cli -v` to check the current version. If it is not the latest version, update the cache with:
+
+```bash
+uvx --refresh nber-cli -v
+```
+
 Install as a reusable command:
 
 ```bash
