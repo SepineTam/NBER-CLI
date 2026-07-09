@@ -49,6 +49,22 @@
           "description": "Maximum concurrent downloads"
         }
       }
+    },
+    "desktop": {
+      "type": "object",
+      "description": "Desktop app settings",
+      "properties": {
+        "server_port": {
+          "type": "integer",
+          "minimum": 1024,
+          "description": "Local HTTP sidecar port"
+        },
+        "feed_refresh_interval_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Feed refresh interval in minutes"
+        }
+      }
     }
   }
 }

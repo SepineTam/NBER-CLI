@@ -90,6 +90,59 @@ class TestInfoCacheSettings:
             config_store.set_info_cache_ttl_days(0)
 
 
+class TestDesktopSettings:
+    def test_defaults_when_config_is_missing(self):
+        settings = config_store.get_desktop_settings()
+
+        assert settings.server_port == 31527
+        assert settings.feed_refresh_interval_minutes == 60
+
+    def test_reads_desktop_settings(self, isolated_nber_home):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(
+            json.dumps(
+                {
+                    "desktop": {
+                        "server_port": 31999,
+                        "feed_refresh_interval_minutes": 15,
+                    }
+                }
+            )
+        )
+
+        settings = config_store.get_desktop_settings()
+
+        assert settings.server_port == 31999
+        assert settings.feed_refresh_interval_minutes == 15
+
+    def test_set_desktop_settings_preserves_existing_config(self, isolated_nber_home):
+        config_path = isolated_nber_home / ".nber-cli" / "config.json"
+        config_path.parent.mkdir(parents=True)
+        config_path.write_text(json.dumps({"feed": {"db-path": "/tmp/nber.db"}}))
+
+        settings = config_store.set_desktop_settings(
+            server_port=32000,
+            feed_refresh_interval_minutes=30,
+        )
+        config = json.loads(config_path.read_text())
+
+        assert settings.server_port == 32000
+        assert settings.feed_refresh_interval_minutes == 30
+        assert config["feed"]["db-path"] == "/tmp/nber.db"
+        assert config["desktop"]["server_port"] == 32000
+        assert config["desktop"]["feed_refresh_interval_minutes"] == 30
+
+    @pytest.mark.parametrize("port", [1023, 65536, True])
+    def test_set_desktop_settings_rejects_invalid_port(self, port):
+        with pytest.raises(ValueError, match="server_port"):
+            config_store.set_desktop_settings(server_port=port)
+
+    def test_set_desktop_settings_rejects_non_positive_refresh_interval(self):
+        with pytest.raises(ValueError, match="positive"):
+            config_store.set_desktop_settings(feed_refresh_interval_minutes=0)
+
+
 class TestNestedConfigOperations:
     def test_get_nested_value(self):
         config = {"download": {"restrict_dir": True}}
@@ -118,7 +171,9 @@ class TestInjectDefaults:
         config_store._inject_defaults(config)
         assert "info" in config
         assert "download" in config
+        assert "desktop" in config
         assert config["download"]["restrict_dir"] is True
+        assert config["desktop"]["server_port"] == 31527
 
     def test_injects_missing_nested_keys_without_overwriting(self):
         config = {"info": {"cache_enabled": False}}
@@ -139,10 +194,11 @@ class TestInjectDefaults:
 class TestValidateConfig:
     def test_valid_config_passes(self):
         config = {
-            "schema_version": 2,
+            "schema_version": 3,
             "info": {"cache_enabled": True, "cache_ttl_days": 30},
             "feed": {"db-path": "/tmp/nber.db"},
             "download": {"restrict_dir": True},
+            "desktop": {"server_port": 31527, "feed_refresh_interval_minutes": 60},
         }
         errors = config_store.validate_config(config)
         assert errors == []
@@ -180,11 +236,19 @@ class TestValidateConfig:
     @pytest.mark.parametrize("value", [0, -1])
     def test_enforces_minimum(self, value):
         errors = config_store.validate_config(
-            {"download": {"concurrency": value}, "info": {"cache_ttl_days": value}}
+            {
+                "download": {"concurrency": value},
+                "info": {"cache_ttl_days": value},
+                "desktop": {"feed_refresh_interval_minutes": value},
+            }
         )
 
         assert "$.download.concurrency: must be greater than or equal to 1" in errors
         assert "$.info.cache_ttl_days: must be greater than or equal to 1" in errors
+        assert (
+            "$.desktop.feed_refresh_interval_minutes: must be greater than or equal to 1"
+            in errors
+        )
 
     def test_rejects_boolean_as_integer(self):
         errors = config_store.validate_config({"download": {"concurrency": True}})

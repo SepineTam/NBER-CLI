@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from aiohttp import ClientResponseError
 
+from nber_cli import db
 from nber_cli.cli import (
     _build_parser,
     _detect_upgrade_command,
@@ -165,7 +166,7 @@ class TestDoctorHelpers:
         ):
             payload = _doctor_payload()
         assert payload["database_exists"] is False
-        assert payload["supported_schema_version"] == 2
+        assert payload["supported_schema_version"] == db.SCHEMA_VERSION
         assert payload["database_schema_version"] == 0
         assert payload["database_size"] == "unknown"
         assert payload["last_run_at"] == "unknown"
@@ -180,7 +181,7 @@ class TestDoctorHelpers:
             patch("nber_cli.cli.db.get_schema_version", side_effect=ValueError("future schema")),
         ):
             payload = _doctor_payload()
-        assert payload["supported_schema_version"] == 2
+        assert payload["supported_schema_version"] == db.SCHEMA_VERSION
         assert payload["database_schema_version"] == "unknown"
         assert payload["database_size"] == "10 B"
         assert payload["last_run_at"] == "unknown"
@@ -198,7 +199,7 @@ class TestDoctorHelpers:
         ):
             payload = _doctor_payload()
         assert payload["database_exists"] is True
-        assert payload["supported_schema_version"] == 2
+        assert payload["supported_schema_version"] == db.SCHEMA_VERSION
         assert payload["database_schema_version"] == 2
         assert payload["last_run_at"] == "2026-01-02T00:00:00"
 

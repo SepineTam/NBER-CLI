@@ -27,10 +27,16 @@ LEGACY_DB_NAME = "feed.db"
 
 DEFAULT_INFO_CACHE_ENABLED = True
 DEFAULT_INFO_CACHE_TTL_DAYS = 30
+DEFAULT_DESKTOP_SERVER_PORT = 31527
+DEFAULT_DESKTOP_FEED_REFRESH_INTERVAL_MINUTES = 60
 
 _DEFAULT_CONFIG: ConfigDict = {
     "info": {"cache_enabled": DEFAULT_INFO_CACHE_ENABLED, "cache_ttl_days": DEFAULT_INFO_CACHE_TTL_DAYS},
     "download": {"restrict_dir": True, "concurrency": 3},
+    "desktop": {
+        "server_port": DEFAULT_DESKTOP_SERVER_PORT,
+        "feed_refresh_interval_minutes": DEFAULT_DESKTOP_FEED_REFRESH_INTERVAL_MINUTES,
+    },
 }
 
 
@@ -38,6 +44,12 @@ _DEFAULT_CONFIG: ConfigDict = {
 class InfoCacheSettings:
     cache_enabled: bool = DEFAULT_INFO_CACHE_ENABLED
     cache_ttl_days: int = DEFAULT_INFO_CACHE_TTL_DAYS
+
+
+@dataclass(frozen=True, slots=True)
+class DesktopSettings:
+    server_port: int = DEFAULT_DESKTOP_SERVER_PORT
+    feed_refresh_interval_minutes: int = DEFAULT_DESKTOP_FEED_REFRESH_INTERVAL_MINUTES
 
 
 def set_cli_config_path(path: Path | str | None) -> None:
@@ -235,6 +247,44 @@ def get_info_cache_settings(config_path: Path | None = None) -> InfoCacheSetting
     )
 
 
+def get_desktop_settings(config_path: Path | None = None) -> DesktopSettings:
+    config = read_config(config_path)
+    desktop_config = config.get("desktop")
+    if not isinstance(desktop_config, dict):
+        desktop_config = {}
+
+    server_port = _coerce_port(
+        desktop_config.get("server_port"),
+        DEFAULT_DESKTOP_SERVER_PORT,
+    )
+    refresh_interval = _coerce_positive_int(
+        desktop_config.get("feed_refresh_interval_minutes"),
+        DEFAULT_DESKTOP_FEED_REFRESH_INTERVAL_MINUTES,
+    )
+    return DesktopSettings(
+        server_port=server_port,
+        feed_refresh_interval_minutes=refresh_interval,
+    )
+
+
+def set_desktop_settings(
+    *,
+    server_port: int | None = None,
+    feed_refresh_interval_minutes: int | None = None,
+    config_path: Path | None = None,
+) -> DesktopSettings:
+    config = read_config(config_path)
+    desktop_config = _get_mutable_desktop_config(config)
+    if server_port is not None:
+        desktop_config["server_port"] = _validate_port(server_port)
+    if feed_refresh_interval_minutes is not None:
+        if feed_refresh_interval_minutes <= 0:
+            raise ValueError("feed_refresh_interval_minutes must be a positive integer")
+        desktop_config["feed_refresh_interval_minutes"] = feed_refresh_interval_minutes
+    write_config(config, config_path)
+    return get_desktop_settings(config_path)
+
+
 def set_info_cache_enabled(
     cache_enabled: bool,
     config_path: Path | None = None,
@@ -268,6 +318,14 @@ def _get_mutable_info_config(config: ConfigDict) -> ConfigDict:
     return info_config
 
 
+def _get_mutable_desktop_config(config: ConfigDict) -> ConfigDict:
+    desktop_config = config.get("desktop")
+    if not isinstance(desktop_config, dict):
+        desktop_config = {}
+    config["desktop"] = desktop_config
+    return desktop_config
+
+
 def _coerce_bool(value: ConfigValue, default: bool) -> bool:
     if isinstance(value, bool):
         return value
@@ -278,3 +336,15 @@ def _coerce_positive_int(value: ConfigValue, default: int) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and value > 0:
         return value
     return default
+
+
+def _coerce_port(value: ConfigValue, default: int) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and 1024 <= value <= 65535:
+        return value
+    return default
+
+
+def _validate_port(value: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or not 1024 <= value <= 65535:
+        raise ValueError("server_port must be an integer between 1024 and 65535")
+    return value

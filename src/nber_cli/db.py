@@ -32,7 +32,7 @@ NBER_CLI_DIR_NAME = config_store.NBER_CLI_DIR_NAME
 NBER_CLI_CONFIG_NAME = config_store.NBER_CLI_CONFIG_NAME
 NBER_DB_NAME = config_store.NBER_DB_NAME
 LEGACY_DB_NAME = config_store.LEGACY_DB_NAME
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class FeedItem(SQLModel, table=True):
@@ -58,6 +58,14 @@ class FeedFetch(SQLModel, table=True):
     fetched_at: str
     total_count: int
     new_count: int
+
+
+class ReadStatus(SQLModel, table=True):
+    __tablename__ = "read_status"
+
+    paper_id: str = Field(primary_key=True)
+    is_read: bool = Field(default=False)
+    updated_at: str
 
 
 class QueryLog(SQLModel, table=True):
@@ -189,9 +197,20 @@ def _ensure_full_schema_on_connection(connection: Connection) -> None:
     current_version = _reject_future_schema(connection)
     if current_version == 0:
         _create_all_tables(connection)
-    elif current_version == 1:
-        _upgrade_v1_to_v2(connection)
+    else:
+        if current_version == 1:
+            _upgrade_v1_to_v2(connection)
+        if current_version <= 2:
+            _upgrade_v2_to_v3(connection)
     connection.exec_driver_sql(f"PRAGMA user_version = {SCHEMA_VERSION}")
+
+
+def _upgrade_v1_to_v2(connection: Connection) -> None:
+    _create_all_tables(connection)
+
+
+def _upgrade_v2_to_v3(connection: Connection) -> None:
+    _create_all_tables(connection)
 
 
 def _reject_future_schema(connection: Connection) -> int:
@@ -215,10 +234,6 @@ def _begin_schema_transaction(
 
 def _create_all_tables(connection: Connection) -> None:
     SQLModel.metadata.create_all(connection)
-
-
-def _upgrade_v1_to_v2(connection: Connection) -> None:
-    _create_all_tables(connection)
 
 
 def _read_user_version(connection: Connection) -> int:
@@ -310,6 +325,53 @@ def _db_move_pairs(old_db_path: Path, new_db_path: Path) -> list[tuple[Path, Pat
         if source_path.exists():
             pairs.append((source_path, Path(f"{new_db_path}{suffix}")))
     return pairs
+
+
+def read_paper_read_status(db_path: Path | str | None, paper_id: str | int) -> bool:
+    try:
+        resolved = get_database_path(db_path)
+        if not resolved.exists():
+            return False
+        normalized = _normalize_paper_id(paper_id)
+        with _open_session(resolved) as session:
+            connection = session.connection()
+            _begin_schema_transaction(connection, write=False)
+            _reject_future_schema(connection)
+            row = _execute(
+                connection,
+                "SELECT is_read FROM read_status WHERE paper_id = ?",
+                (normalized,),
+            ).fetchone()
+    except (SQLAlchemyError, OSError, ValueError):
+        return False
+
+    return bool(row[0]) if row else False
+
+
+def set_paper_read_status(
+    db_path: Path | str | None,
+    paper_id: str | int,
+    is_read: bool,
+) -> bool:
+    resolved = get_database_path(db_path)
+    normalized = _normalize_paper_id(paper_id)
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    with _open_session(resolved) as session:
+        connection = session.connection()
+        _ensure_full_schema_on_connection(connection)
+        _execute(
+            connection,
+            """
+            INSERT INTO read_status (paper_id, is_read, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(paper_id) DO UPDATE SET
+                is_read = excluded.is_read,
+                updated_at = excluded.updated_at
+            """,
+            (normalized, is_read, _utc_now()),
+        )
+        session.commit()
+    return is_read
 
 
 def record_query(

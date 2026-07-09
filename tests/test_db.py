@@ -20,6 +20,7 @@ from nber_cli import db
 EXPECTED_TABLES = {
     "feed_items",
     "feed_fetches",
+    "read_status",
     "query_log",
     "download_log",
     "info_log",
@@ -42,7 +43,7 @@ class TestInitDatabase:
 
         assert EXPECTED_TABLES.issubset(table_names)
 
-    def test_sets_user_version_to_2(self, tmp_path):
+    def test_sets_user_version_to_current_schema(self, tmp_path):
         db_path = tmp_path / "nber.db"
         db.init_database(db_path)
 
@@ -50,7 +51,7 @@ class TestInitDatabase:
             version = connection.execute("PRAGMA user_version").fetchone()[0]
 
         assert version == db.SCHEMA_VERSION
-        assert version == 2
+        assert version == 3
 
     def test_writes_schema_version_to_config(self, tmp_path):
         home = tmp_path / "home"
@@ -143,9 +144,59 @@ class TestSchemaUpgrade:
                 "SELECT title FROM feed_items WHERE paper_id = 'w1'"
             ).fetchone()
 
-        assert version == 2
+        assert version == db.SCHEMA_VERSION
         assert EXPECTED_TABLES.issubset(tables)
         assert row[0] == "Old"
+
+    def test_upgrades_v2_to_v3_with_read_status(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE feed_items (
+                    paper_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    authors_json TEXT NOT NULL,
+                    abstract TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    source_url TEXT NOT NULL,
+                    guid TEXT NOT NULL,
+                    first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute("PRAGMA user_version = 2")
+
+        db.init_database(db_path)
+
+        with sqlite3.connect(db_path) as connection:
+            version = connection.execute("PRAGMA user_version").fetchone()[0]
+            read_status = connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'read_status'"
+            ).fetchone()
+
+        assert version == db.SCHEMA_VERSION
+        assert read_status == ("read_status",)
+
+
+class TestReadStatus:
+    def test_default_read_status_is_false(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+
+        assert db.read_paper_read_status(db_path, "w12345") is False
+
+    def test_set_paper_read_status_upserts_value(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        db.init_database(db_path)
+
+        assert db.set_paper_read_status(db_path, "w12345", True) is True
+        assert db.read_paper_read_status(db_path, "12345") is True
+
+        assert db.set_paper_read_status(db_path, "w12345", False) is False
+        assert db.read_paper_read_status(db_path, "w12345") is False
 
 
 class TestConnectionBoundary:
