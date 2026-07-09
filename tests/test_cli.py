@@ -10,7 +10,10 @@
 import argparse
 import json
 import sqlite3
+import subprocess
 import sys
+import urllib.error
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,13 +23,18 @@ from aiohttp import ClientResponseError
 from nber_cli.cli import (
     _build_parser,
     _detect_upgrade_command,
+    _doctor_payload,
     _format_download_error,
+    _format_bytes,
+    _fix_doctor_version,
+    _get_latest_pypi_version,
     _get_version,
     _is_latest_version,
     _parse_bool,
     _parse_non_negative_int,
     _parse_paper_id,
     _parse_positive_int,
+    _read_db_last_run,
     _resolve_paper_ids,
     main,
 )
@@ -47,14 +55,25 @@ class TestDoctorHelpers:
     def test_is_latest_version(self):
         assert _is_latest_version("1.2.0", "1.2.0") is True
         assert _is_latest_version("1.2.1", "1.2.0") is True
+        assert _is_latest_version("1.2.0rc1", "1.2.0") is False
+        assert _is_latest_version("1.2", "1.2.0") is True
         assert _is_latest_version("1.1.9", "1.2.0") is False
-        assert _is_latest_version("1.1.9", None) is True
+        assert _is_latest_version("1.1.9", None) is None
+
+    def test_format_bytes(self):
+        assert _format_bytes(None) == "unknown"
+        assert _format_bytes(0) == "0 B"
+        assert _format_bytes(512) == "512 B"
+        assert _format_bytes(2048) == "2.0 KiB"
+        assert _format_bytes(5 * 1024 * 1024) == "5.0 MiB"
 
     def test_detect_upgrade_command_defaults_to_current_python_pip(self):
         with (
             patch.object(sys, "argv", ["nber-cli"]),
-            patch("nber_cli.cli.shutil.which", return_value="/usr/local/bin/nber-cli"),
-            patch("nber_cli.cli.sys.prefix", "/tmp/venv"),
+            patch("nber_cli.cli._is_running_under_uvx", return_value=False),
+            patch("nber_cli.cli._is_uv_tool_install", return_value=False),
+            patch("nber_cli.cli._is_pipx_install", return_value=False),
+            patch("nber_cli.cli._is_pip_install", return_value=True),
             patch("nber_cli.cli.sys.executable", "/tmp/venv/bin/python"),
         ):
             assert _detect_upgrade_command() == [
@@ -68,19 +87,160 @@ class TestDoctorHelpers:
 
     def test_detect_upgrade_command_for_pipx(self):
         with (
-            patch.object(sys, "argv", ["nber-cli"]),
-            patch("nber_cli.cli.shutil.which", return_value="/home/me/.local/bin/nber-cli"),
-            patch("nber_cli.cli.sys.prefix", "/home/me/.local/pipx/venvs/nber-cli"),
+            patch("nber_cli.cli._is_running_under_uvx", return_value=False),
+            patch("nber_cli.cli._is_uv_tool_install", return_value=False),
+            patch("nber_cli.cli._is_pipx_install", return_value=True),
         ):
             assert _detect_upgrade_command() == ["pipx", "upgrade", "nber-cli"]
 
     def test_detect_upgrade_command_for_uv_tool(self):
         with (
-            patch.object(sys, "argv", ["nber-cli"]),
-            patch("nber_cli.cli.shutil.which", return_value="/home/me/.local/bin/nber-cli"),
-            patch("nber_cli.cli.sys.prefix", "/home/me/.local/share/uv/tools/nber-cli"),
+            patch("nber_cli.cli._is_running_under_uvx", return_value=False),
+            patch("nber_cli.cli._is_uv_tool_install", return_value=True),
         ):
             assert _detect_upgrade_command() == ["uv", "tool", "upgrade", "nber-cli"]
+
+    def test_detect_upgrade_command_for_uvx(self):
+        with patch("nber_cli.cli._is_running_under_uvx", return_value=True):
+            assert _detect_upgrade_command() == ["uvx", "--refresh", "nber-cli", "-v"]
+
+    def test_detect_upgrade_command_unknown(self):
+        with (
+            patch("nber_cli.cli._is_running_under_uvx", return_value=False),
+            patch("nber_cli.cli._is_uv_tool_install", return_value=False),
+            patch("nber_cli.cli._is_pipx_install", return_value=False),
+            patch("nber_cli.cli._is_pip_install", return_value=False),
+        ):
+            assert _detect_upgrade_command() == []
+
+    def test_get_latest_pypi_version_network_failure(self):
+        with patch("nber_cli.cli.urllib.request.urlopen", side_effect=urllib.error.URLError("blocked")):
+            assert _get_latest_pypi_version() is None
+
+    def test_get_latest_pypi_version_non_200_status(self):
+        response = MagicMock()
+        response.__enter__.return_value = SimpleNamespace(status=503, reason="Service Unavailable")
+        with patch("nber_cli.cli.urllib.request.urlopen", return_value=response):
+            assert _get_latest_pypi_version() is None
+
+    def test_get_latest_pypi_version_json_parse_failure(self):
+        response = MagicMock()
+        response.__enter__.return_value = SimpleNamespace(status=200, read=lambda: b"{")
+        with patch("nber_cli.cli.urllib.request.urlopen", return_value=response):
+            assert _get_latest_pypi_version() is None
+
+    def test_get_latest_pypi_version_success(self):
+        response = MagicMock()
+        response.__enter__.return_value = SimpleNamespace(
+            status=200,
+            read=lambda: b'{"info": {"version": "1.2.3"}}',
+        )
+        with patch("nber_cli.cli.urllib.request.urlopen", return_value=response):
+            assert _get_latest_pypi_version() == "1.2.3"
+
+    def test_read_db_last_run_missing_tables(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        sqlite3.connect(db_path).close()
+        assert _read_db_last_run(db_path) is None
+
+    def test_read_db_last_run_returns_latest_activity(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("CREATE TABLE query_log (created_at TEXT)")
+            connection.execute("CREATE TABLE download_log (created_at TEXT)")
+            connection.execute("INSERT INTO query_log VALUES ('2026-01-01T00:00:00')")
+            connection.execute("INSERT INTO download_log VALUES ('2026-01-02T00:00:00')")
+        assert _read_db_last_run(db_path) == "2026-01-02T00:00:00"
+
+    def test_doctor_payload_database_missing(self, tmp_path):
+        db_path = tmp_path / "missing.db"
+        with (
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli.shutil.which", return_value="/tmp/nber-cli"),
+            patch("nber_cli.cli.config_store.default_config_path", return_value=tmp_path / "config.json"),
+            patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
+            patch("nber_cli.cli.db.get_database_path", return_value=db_path),
+            patch("nber_cli.cli.db.get_schema_version", return_value=0),
+        ):
+            payload = _doctor_payload()
+        assert payload["database_exists"] is False
+        assert payload["database_size"] == "unknown"
+        assert payload["last_run_at"] == "unknown"
+
+    def test_doctor_payload_schema_error(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        db_path.write_bytes(b"not sqlite")
+        with (
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
+            patch("nber_cli.cli.db.get_database_path", return_value=db_path),
+            patch("nber_cli.cli.db.get_schema_version", side_effect=ValueError("future schema")),
+        ):
+            payload = _doctor_payload()
+        assert payload["database_schema_version"] == "error"
+        assert payload["database_size"] == "10 B"
+        assert payload["last_run_at"] == "unknown"
+
+    def test_doctor_payload_normal_database(self, tmp_path):
+        db_path = tmp_path / "nber.db"
+        with sqlite3.connect(db_path) as connection:
+            connection.execute("CREATE TABLE query_log (created_at TEXT)")
+            connection.execute("INSERT INTO query_log VALUES ('2026-01-02T00:00:00')")
+        with (
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
+            patch("nber_cli.cli.db.get_database_path", return_value=db_path),
+            patch("nber_cli.cli.db.get_schema_version", return_value=2),
+        ):
+            payload = _doctor_payload()
+        assert payload["database_exists"] is True
+        assert payload["database_schema_version"] == 2
+        assert payload["last_run_at"] == "2026-01-02T00:00:00"
+
+    def test_fix_doctor_version_success(self, capsys):
+        with (
+            patch("nber_cli.cli._doctor_payload", return_value={"latest_pypi_version": "1.0.0", "is_latest": False}),
+            patch("nber_cli.cli._print_doctor"),
+            patch("nber_cli.cli._detect_upgrade_command", return_value=["pipx", "upgrade", "nber-cli"]),
+            patch("nber_cli.cli.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")),
+            patch("nber_cli.cli._get_subprocess_cli_version", return_value="1.0.0"),
+        ):
+            _fix_doctor_version()
+        assert "nber-cli is up to date." in capsys.readouterr().out
+
+    def test_fix_doctor_version_upgrade_failure(self):
+        with (
+            patch("nber_cli.cli._doctor_payload", return_value={"latest_pypi_version": "1.0.0", "is_latest": False}),
+            patch("nber_cli.cli._print_doctor"),
+            patch("nber_cli.cli._detect_upgrade_command", return_value=["pipx", "upgrade", "nber-cli"]),
+            patch("nber_cli.cli.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="", stderr="boom")),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                _fix_doctor_version()
+        assert exc_info.value.code == 1
+
+    def test_fix_doctor_version_still_old_after_upgrade(self):
+        with (
+            patch("nber_cli.cli._doctor_payload", return_value={"latest_pypi_version": "1.0.0", "is_latest": False}),
+            patch("nber_cli.cli._print_doctor"),
+            patch("nber_cli.cli._detect_upgrade_command", return_value=["pipx", "upgrade", "nber-cli"]),
+            patch("nber_cli.cli.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")),
+            patch("nber_cli.cli._get_subprocess_cli_version", return_value="0.9.0"),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                _fix_doctor_version()
+        assert exc_info.value.code == 1
+
+    def test_fix_doctor_version_timeout(self):
+        with (
+            patch("nber_cli.cli._doctor_payload", return_value={"latest_pypi_version": "1.0.0", "is_latest": False}),
+            patch("nber_cli.cli._print_doctor"),
+            patch("nber_cli.cli._detect_upgrade_command", return_value=["pipx", "upgrade", "nber-cli"]),
+            patch("nber_cli.cli.subprocess.run", side_effect=subprocess.TimeoutExpired("pipx", 120)),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                _fix_doctor_version()
+        assert exc_info.value.code == 1
 
 
 class TestBuildParser:

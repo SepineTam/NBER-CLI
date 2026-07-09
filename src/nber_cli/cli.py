@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import re
 import shutil
 import sqlite3
@@ -20,11 +21,14 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from importlib import metadata
 from importlib.metadata import version as get_version
 from pathlib import Path
+from collections.abc import Callable
 from typing import Literal, TypedDict, cast
 
 from aiohttp import ClientError, ClientResponseError
+from packaging.version import InvalidVersion, parse as parse_version
 
 from . import config_store
 from . import db
@@ -48,6 +52,11 @@ logger = logging.getLogger(__name__)
 
 _OUTPUT_FORMATS = ["list", "json"]
 _PYPI_JSON_URL = "https://pypi.org/pypi/nber-cli/json"
+_PYPI_REQUEST_HEADERS = {
+    "User-Agent": "nber-cli doctor",
+    "Accept": "application/json",
+}
+_UPGRADE_TIMEOUT_SECONDS = 120
 
 
 class _FeedCleanOptions(TypedDict):
@@ -487,9 +496,20 @@ def _print_json(payload: dict) -> None:
 
 
 def _get_latest_pypi_version() -> str | None:
+    request = urllib.request.Request(_PYPI_JSON_URL, headers=_PYPI_REQUEST_HEADERS)
     try:
-        with urllib.request.urlopen(_PYPI_JSON_URL, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            status = getattr(response, "status", None)
+            if status is None and hasattr(response, "getcode"):
+                status = response.getcode()
+            if status != 200:
+                reason = getattr(response, "reason", "")
+                logger.warning("failed to fetch PyPI version: HTTP %s %s", status, reason)
+                return None
             payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        logger.warning("failed to fetch PyPI version: HTTP %s %s", error.code, error.reason)
+        return None
     except (OSError, urllib.error.URLError, json.JSONDecodeError, TimeoutError) as error:
         logger.warning("failed to fetch PyPI version: %s", error)
         return None
@@ -498,15 +518,14 @@ def _get_latest_pypi_version() -> str | None:
     return version if isinstance(version, str) and version else None
 
 
-def _version_key(version: str) -> tuple[int, ...]:
-    parts = re.findall(r"\d+", version)
-    return tuple(int(part) for part in parts) if parts else (0,)
-
-
-def _is_latest_version(current_version: str, latest_version: str | None) -> bool:
+def _is_latest_version(current_version: str, latest_version: str | None) -> bool | None:
     if latest_version is None:
-        return True
-    return _version_key(current_version) >= _version_key(latest_version)
+        return None
+    try:
+        return parse_version(current_version) >= parse_version(latest_version)
+    except InvalidVersion as error:
+        logger.warning("failed to compare versions: %s", error)
+        return None
 
 
 def _format_bytes(size: int | None) -> str:
@@ -546,30 +565,48 @@ def _read_db_last_run(db_path: Path) -> str | None:
     return max(values) if values else None
 
 
+def _safe_doctor_value(label: str, callback: Callable[[], object], fallback: object = "unknown") -> object:
+    try:
+        return callback()
+    except Exception as error:
+        logger.warning("doctor failed to read %s: %s", label, error)
+        return fallback
+
+
 def _doctor_payload() -> dict[str, object]:
     current_version = _get_version()
     latest_version = _get_latest_pypi_version()
     command_path = shutil.which("nber-cli")
     package_path = Path(__file__).resolve().parent
     config_path = config_store.default_config_path()
-    config = config_store.read_config()
-    db_path = db.get_database_path()
-    db_exists = db_path.exists()
-    db_size = db_path.stat().st_size if db_exists else None
+    config = _safe_doctor_value("config", config_store.read_config, {})
+    db_path_value = _safe_doctor_value("database path", db.get_database_path, None)
+    db_path = db_path_value if isinstance(db_path_value, Path) else None
+    db_exists = _safe_doctor_value("database existence", lambda: db_path.exists() if db_path else False, False)
+    db_size = _safe_doctor_value(
+        "database size",
+        lambda: db_path.stat().st_size if db_path and db_path.exists() else None,
+    )
+    schema_version = _safe_doctor_value("database schema version", db.get_schema_version, "error")
+    last_run_at = _safe_doctor_value(
+        "database activity",
+        lambda: _read_db_last_run(db_path) if db_path else None,
+    )
+    is_latest = _is_latest_version(current_version, latest_version)
     return {
         "current_version": current_version,
         "latest_pypi_version": latest_version or "unknown",
-        "is_latest": _is_latest_version(current_version, latest_version),
+        "is_latest": is_latest if is_latest is not None else "unknown",
         "command_path": command_path or "not found on PATH",
         "package_path": str(package_path),
         "python_executable": sys.executable,
         "config_path": str(config_path),
         "config": config,
-        "database_path": str(db_path),
+        "database_path": str(db_path) if db_path else "unknown",
         "database_exists": db_exists,
-        "database_schema_version": db.get_schema_version(),
-        "database_size": _format_bytes(db_size),
-        "last_run_at": _read_db_last_run(db_path) or "unknown",
+        "database_schema_version": schema_version,
+        "database_size": _format_bytes(db_size if isinstance(db_size, int) else None),
+        "last_run_at": last_run_at or "unknown",
     }
 
 
@@ -591,16 +628,106 @@ def _print_doctor(payload: dict[str, object]) -> None:
 
 
 def _detect_upgrade_command() -> list[str]:
-    executable = Path(sys.argv[0]).name.lower()
-    command_path = shutil.which("nber-cli") or ""
-    prefix = str(Path(sys.prefix).resolve()).lower()
-    if executable == "uvx" or "uv/archive-v0" in prefix or "uvx" in command_path:
+    if _is_running_under_uvx():
         return ["uvx", "--refresh", "nber-cli", "-v"]
-    if "uv/tools" in prefix or "/uv/tools/" in command_path:
+    if _is_uv_tool_install():
         return ["uv", "tool", "upgrade", "nber-cli"]
-    if "pipx" in prefix or "/pipx/" in command_path:
+    if _is_pipx_install():
         return ["pipx", "upgrade", "nber-cli"]
-    return [sys.executable, "-m", "pip", "install", "--upgrade", "nber-cli"]
+    if _is_pip_install():
+        return [sys.executable, "-m", "pip", "install", "--upgrade", "nber-cli"]
+    return []
+
+
+def _read_pyvenv_cfg() -> str:
+    pyvenv_cfg = Path(sys.prefix) / "pyvenv.cfg"
+    try:
+        return pyvenv_cfg.read_text(encoding="utf-8").lower()
+    except OSError:
+        return ""
+
+
+def _distribution_direct_url() -> str:
+    try:
+        dist = metadata.distribution("nber-cli")
+    except metadata.PackageNotFoundError:
+        return ""
+    try:
+        direct_url = dist.read_text("direct_url.json")
+    except OSError:
+        return ""
+    return direct_url.lower() if direct_url else ""
+
+
+def _distribution_installer() -> str:
+    try:
+        dist = metadata.distribution("nber-cli")
+    except metadata.PackageNotFoundError:
+        return ""
+    try:
+        installer = dist.read_text("INSTALLER")
+    except OSError:
+        return ""
+    return installer.strip().lower() if installer else ""
+
+
+def _is_running_under_uvx() -> bool:
+    if Path(sys.argv[0]).name.lower() == "uvx":
+        return True
+    if "UV_RUN_RECURSION" in os.environ or "UV_PROJECT_ENVIRONMENT" in os.environ:
+        return "tool" not in _read_pyvenv_cfg()
+    direct_url = _distribution_direct_url()
+    return "uvx" in direct_url
+
+
+def _is_uv_tool_install() -> bool:
+    pyvenv_cfg = _read_pyvenv_cfg()
+    direct_url = _distribution_direct_url()
+    return "uv tool" in pyvenv_cfg or "uv-tool" in pyvenv_cfg or "uv tool" in direct_url
+
+
+def _is_pipx_install() -> bool:
+    if "PIPX_HOME" in os.environ or "PIPX_BIN_DIR" in os.environ:
+        return True
+    pyvenv_cfg = _read_pyvenv_cfg()
+    direct_url = _distribution_direct_url()
+    return "pipx" in pyvenv_cfg or "pipx" in direct_url
+
+
+def _is_pip_install() -> bool:
+    return _distribution_installer() == "pip"
+
+
+def _manual_upgrade_message() -> str:
+    return (
+        "Could not determine how nber-cli was installed. Please upgrade manually with one of:\n"
+        "  uvx --refresh nber-cli -v\n"
+        "  uv tool upgrade nber-cli\n"
+        "  pipx upgrade nber-cli\n"
+        "  python -m pip install --upgrade nber-cli"
+    )
+
+
+def _get_subprocess_cli_version() -> str | None:
+    executable = shutil.which("nber-cli")
+    if executable is None:
+        return None
+    try:
+        result = subprocess.run(
+            [executable, "--version"],
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        logger.warning("failed to check upgraded nber-cli version: %s", error)
+        return None
+    if result.returncode != 0:
+        logger.warning("failed to check upgraded nber-cli version: %s", result.stderr)
+        return None
+    match = re.search(r"v?(\d+(?:\.\d+)*(?:[a-zA-Z0-9_.!+-]*)?)", result.stdout)
+    return match.group(1) if match else None
 
 
 def _fix_doctor_version() -> None:
@@ -609,14 +736,27 @@ def _fix_doctor_version() -> None:
     if payload["latest_pypi_version"] == "unknown":
         print("Cannot check for upgrades because the latest PyPI version is unknown.", file=sys.stderr)
         raise SystemExit(1)
-    if payload["is_latest"]:
+    if payload["is_latest"] is True:
         print("Version is already up to date.")
         return
 
     command = _detect_upgrade_command()
+    if not command:
+        print(_manual_upgrade_message(), file=sys.stderr)
+        raise SystemExit(1)
     print(f"Running upgrade command: {' '.join(command)}")
     try:
-        result = subprocess.run(command, text=True, capture_output=True, check=False)
+        result = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=_UPGRADE_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as error:
+        logger.error("upgrade command timed out after %s seconds", error.timeout)
+        print(f"Upgrade timed out after {error.timeout} seconds. See the debug log for details.", file=sys.stderr)
+        raise SystemExit(1) from error
     except OSError as error:
         logger.exception("failed to run upgrade command")
         print(f"Failed to run upgrade command: {error}", file=sys.stderr)
@@ -630,10 +770,20 @@ def _fix_doctor_version() -> None:
         print(f"Upgrade failed with exit code {result.returncode}. See the debug log for details.", file=sys.stderr)
         raise SystemExit(1)
 
-    refreshed = _doctor_payload()
-    if not refreshed["is_latest"]:
-        logger.error("upgrade command finished but version is still not latest: %s", refreshed)
-        print("Upgrade command finished, but nber-cli is still not up to date.", file=sys.stderr)
+    refreshed_version = _get_subprocess_cli_version()
+    latest_version = str(payload["latest_pypi_version"])
+    refreshed_is_latest = _is_latest_version(refreshed_version or "", latest_version) if refreshed_version else None
+    if refreshed_is_latest is not True:
+        logger.error(
+            "upgrade command finished but version check did not confirm latest: current=%s latest=%s",
+            refreshed_version or "unknown",
+            latest_version,
+        )
+        print(
+            "Upgrade command finished, but the current shell did not confirm the latest version. "
+            "Please rerun nber-cli to use the new version.",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
     print("nber-cli is up to date.")
 
@@ -816,10 +966,17 @@ def main() -> None:
         raise SystemExit(0)
 
     if args.command == "doctor":
-        if args.fix_version:
-            _fix_doctor_version()
-        else:
-            _print_doctor(_doctor_payload())
+        try:
+            if args.fix_version:
+                _fix_doctor_version()
+            else:
+                _print_doctor(_doctor_payload())
+        except SystemExit:
+            raise
+        except Exception as error:
+            logger.exception("doctor command failed")
+            print(f"Doctor failed: {error.__class__.__name__}. See the debug log for details.", file=sys.stderr)
+            raise SystemExit(1) from error
         return
 
     if args.command == "download":

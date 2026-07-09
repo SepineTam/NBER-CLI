@@ -1248,6 +1248,7 @@ dependencies = [
     { name = "defusedxml" },
     { name = "fake-useragent" },
     { name = "mcp" },
+    { name = "packaging" },
     { name = "sqlmodel" },
 ]
 
@@ -1273,6 +1274,7 @@ requires-dist = [
     { name = "defusedxml", specifier = ">=0.7.1" },
     { name = "fake-useragent" },
     { name = "mcp", specifier = ">=1.27.1" },
+    { name = "packaging", specifier = ">=26.2" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
 ]
 
