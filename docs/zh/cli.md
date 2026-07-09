@@ -27,6 +27,7 @@ nber-cli [--version] <command> [options]
 | `db` | 管理本地 SQLite 数据库。 |
 | `feed` | 管理 NBER 最新工作论文 RSS feed 的本地缓存。 |
 | `config` | 查看和编辑 `~/.nber-cli/config.json`。 |
+| `doctor` | 检查本地安装、配置、数据库和包版本状态。 |
 | `mcp-server` | 启动给 Agent 使用的 MCP server。 |
 
 ## download
@@ -383,6 +384,24 @@ nber-cli config verify
 | `get` | `<key>` | 打印点分 key 的值，例如 `info.cache_ttl_days`。 |
 | `set` | `<key> <value>` | 把点分 key 设置为推断后的值（`true`/`false`/整数/字符串）。 |
 | `verify` | — | 根据 `config.schema.json` 校验配置。 |
+
+## doctor
+
+检查当前本地安装与运行状态：
+
+```bash
+nber-cli doctor
+```
+
+报告会包含已安装版本、PyPI 最新版本、可执行文件路径、包路径、Python 可执行文件、配置文件路径与内容、数据库路径、数据库是否存在、schema 版本、数据库大小，以及最近一次有记录的 query/download/info/feed 活动时间。
+
+当 PyPI 上有更新版本时执行升级：
+
+```bash
+nber-cli doctor --fix-version
+```
+
+该命令会先检查当前版本是否已经最新。如果需要升级，它会用 `uvx --refresh nber-cli -v` 刷新 `uvx` 执行缓存，用 `uv tool upgrade nber-cli` 升级 `uv tool` 安装，用 `pipx upgrade nber-cli` 升级 `pipx` 安装，否则回退到当前 Python 的 `python -m pip install --upgrade nber-cli`。升级命令完成后会再次检查版本；失败详情会写入 `~/.nber-cli/debug.log`。
 
 ## mcp-server
 

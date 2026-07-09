@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chinese mirror at `docs/zh/changelog.md` carries the same content. Any release commit updates all three together.
 
+## Unreleased
+
+### Added
+- Added `nber-cli doctor` to show installed and PyPI versions, executable/package locations, config contents, database path, schema version, size, and last recorded activity. Added `nber-cli doctor --fix-version` to refresh `uvx` caches or upgrade installations detected as `uv tool`, `pipx`, or `pip`.
+
 ## 0.7.0 - 2026-07-08
 
 ### Added

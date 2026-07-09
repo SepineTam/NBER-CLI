@@ -33,6 +33,7 @@ dependencies = [
     "mcp>=1.27.1",
     "defusedxml>=0.7.1",
     "sqlmodel>=0.0.24",
+    "packaging>=26.2",
 ]
 
 [project.scripts]
