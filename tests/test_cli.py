@@ -19,8 +19,10 @@ from aiohttp import ClientResponseError
 
 from nber_cli.cli import (
     _build_parser,
+    _detect_upgrade_command,
     _format_download_error,
     _get_version,
+    _is_latest_version,
     _parse_bool,
     _parse_non_negative_int,
     _parse_paper_id,
@@ -39,6 +41,46 @@ class TestGetVersion:
     def test_returns_fallback_when_package_not_installed(self):
         with patch("nber_cli.cli.get_version", side_effect=Exception("not found")):
             assert _get_version() == "0.7.0"
+
+
+class TestDoctorHelpers:
+    def test_is_latest_version(self):
+        assert _is_latest_version("1.2.0", "1.2.0") is True
+        assert _is_latest_version("1.2.1", "1.2.0") is True
+        assert _is_latest_version("1.1.9", "1.2.0") is False
+        assert _is_latest_version("1.1.9", None) is True
+
+    def test_detect_upgrade_command_defaults_to_current_python_pip(self):
+        with (
+            patch.object(sys, "argv", ["nber-cli"]),
+            patch("nber_cli.cli.shutil.which", return_value="/usr/local/bin/nber-cli"),
+            patch("nber_cli.cli.sys.prefix", "/tmp/venv"),
+            patch("nber_cli.cli.sys.executable", "/tmp/venv/bin/python"),
+        ):
+            assert _detect_upgrade_command() == [
+                "/tmp/venv/bin/python",
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                "nber-cli",
+            ]
+
+    def test_detect_upgrade_command_for_pipx(self):
+        with (
+            patch.object(sys, "argv", ["nber-cli"]),
+            patch("nber_cli.cli.shutil.which", return_value="/home/me/.local/bin/nber-cli"),
+            patch("nber_cli.cli.sys.prefix", "/home/me/.local/pipx/venvs/nber-cli"),
+        ):
+            assert _detect_upgrade_command() == ["pipx", "upgrade", "nber-cli"]
+
+    def test_detect_upgrade_command_for_uv_tool(self):
+        with (
+            patch.object(sys, "argv", ["nber-cli"]),
+            patch("nber_cli.cli.shutil.which", return_value="/home/me/.local/bin/nber-cli"),
+            patch("nber_cli.cli.sys.prefix", "/home/me/.local/share/uv/tools/nber-cli"),
+        ):
+            assert _detect_upgrade_command() == ["uv", "tool", "upgrade", "nber-cli"]
 
 
 class TestBuildParser:
@@ -65,6 +107,18 @@ class TestBuildParser:
         args = parser.parse_args(["-c", "/tmp/custom.json", "feed", "fetch"])
         assert args.command == "feed"
         assert str(args.config) == "/tmp/custom.json"
+
+    def test_doctor_subcommand(self):
+        parser = _build_parser()
+        args = parser.parse_args(["doctor"])
+        assert args.command == "doctor"
+        assert args.fix_version is False
+
+    def test_doctor_fix_version_flag(self):
+        parser = _build_parser()
+        args = parser.parse_args(["doctor", "--fix-version"])
+        assert args.command == "doctor"
+        assert args.fix_version is True
 
     def test_download_subcommand_with_single_id(self):
         parser = _build_parser()

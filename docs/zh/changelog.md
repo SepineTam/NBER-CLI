@@ -4,6 +4,11 @@
 
 本页是仓库根 `CHANGELOG.md` 的中文镜像，英文镜像在 `docs/en/changelog.md`。每次发布提交都会同步更新三份内容。
 
+## Unreleased
+
+### Added
+- 新增 `nber-cli doctor`，用于显示已安装版本、PyPI 最新版本、可执行文件和包位置、配置内容、数据库路径、schema 版本、占用空间与最后记录的活动时间。新增 `nber-cli doctor --fix-version`，可刷新 `uvx` 缓存，或按检测到的 `uv tool`、`pipx`、`pip` 安装方式升级。
+
 ## 0.7.0 - 2026-07-08
 
 ### Added

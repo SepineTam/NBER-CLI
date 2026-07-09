@@ -27,6 +27,7 @@ Running `nber-cli` without a subcommand prints the top-level help and exits succ
 | `db` | Manage the local SQLite database. |
 | `feed` | Manage the NBER new working papers RSS feed cache. |
 | `config` | Inspect and edit `~/.nber-cli/config.json`. |
+| `doctor` | Inspect the local installation, config, database, and package version status. |
 | `mcp-server` | Start the MCP server for agents. |
 
 ## download
@@ -383,6 +384,24 @@ nber-cli config verify
 | `get` | `<key>` | Print the value for a dot-separated key, such as `info.cache_ttl_days`. |
 | `set` | `<key> <value>` | Set a dot-separated key to the inferred value (`true`/`false`/integer/string). |
 | `verify` | — | Validate the configuration against `config.schema.json`. |
+
+## doctor
+
+Inspect the current local installation and runtime state:
+
+```bash
+nber-cli doctor
+```
+
+The report includes the installed version, latest PyPI version, executable path, package path, Python executable, config path and contents, database path, database existence, schema version, database size, and the latest recorded query/download/info/feed activity.
+
+To upgrade when PyPI has a newer version:
+
+```bash
+nber-cli doctor --fix-version
+```
+
+The command first checks whether the installed version is current. If an upgrade is needed, it refreshes `uvx` executions with `uvx --refresh nber-cli -v`, upgrades `uv tool` installations with `uv tool upgrade nber-cli`, upgrades `pipx` installations with `pipx upgrade nber-cli`, and otherwise falls back to `python -m pip install --upgrade nber-cli` using the current Python executable. It runs a second version check after the upgrade command and writes failures to `~/.nber-cli/debug.log`.
 
 ## mcp-server
 
