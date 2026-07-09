@@ -198,6 +198,9 @@ class TestReadStatus:
         assert db.set_paper_read_status(db_path, "w12345", False) is False
         assert db.read_paper_read_status(db_path, "w12345") is False
 
+        assert db.set_paper_read_status(db_path, "w12345", True) is True
+        assert db.read_paper_read_status(db_path, "w12345") is True
+
 
 class TestConnectionBoundary:
     def test_record_query_checks_schema_and_writes_with_one_engine(self, tmp_path):

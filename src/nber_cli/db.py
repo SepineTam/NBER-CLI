@@ -345,7 +345,7 @@ def read_paper_read_status(db_path: Path | str | None, paper_id: str | int) -> b
     except (SQLAlchemyError, OSError, ValueError):
         return False
 
-    return bool(row[0]) if row else False
+    return _coerce_db_bool(row[0]) if row else False
 
 
 def set_paper_read_status(
@@ -368,10 +368,20 @@ def set_paper_read_status(
                 is_read = excluded.is_read,
                 updated_at = excluded.updated_at
             """,
-            (normalized, is_read, _utc_now()),
+            (normalized, int(is_read), _utc_now()),
         )
         session.commit()
-    return is_read
+    return read_paper_read_status(resolved, normalized)
+
+
+def _coerce_db_bool(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", errors="ignore")
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "t", "yes"}
+    return bool(value)
 
 
 def record_query(

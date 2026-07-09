@@ -226,6 +226,29 @@ def test_mark_read_can_toggle_status(tmp_path):
     assert db.read_paper_read_status(db_path, "w12345") is False
 
 
+def test_mark_read_toggle_is_reflected_in_feed(tmp_path):
+    db_path = tmp_path / "nber.db"
+
+    with _client(db_path) as client:
+        _insert_feed_item(db_path, "w12345")
+
+        read_response = client.post("/api/v1/papers/w12345/mark-read", json={"is_read": True})
+        read_feed = client.get("/api/v1/feed")
+
+        unread_response = client.post("/api/v1/papers/w12345/mark-read", json={"is_read": False})
+        unread_feed = client.get("/api/v1/feed")
+
+        restored_response = client.post("/api/v1/papers/w12345/mark-read", json={"is_read": True})
+        restored_feed = client.get("/api/v1/feed")
+
+    assert read_response.json()["data"]["is_read"] is True
+    assert read_feed.json()["data"]["items"][0]["is_read"] is True
+    assert unread_response.json()["data"]["is_read"] is False
+    assert unread_feed.json()["data"]["items"][0]["is_read"] is False
+    assert restored_response.json()["data"]["is_read"] is True
+    assert restored_feed.json()["data"]["items"][0]["is_read"] is True
+
+
 def test_settings_get_and_patch(tmp_path):
     db_path = tmp_path / "nber.db"
 

@@ -112,7 +112,7 @@ def _list_feed_items(
             guid=row[6],
             first_seen_at=row[7],
             last_seen_at=row[8],
-            is_read=bool(row[9]),
+            is_read=db._coerce_db_bool(row[9]),
         )
         for row in rows
     ]

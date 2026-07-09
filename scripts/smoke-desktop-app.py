@@ -278,9 +278,7 @@ def _exercise_seeded_flow(port: int) -> None:
     if not paper_data["is_read"]:
         raise SystemExit("seeded detail flow failed: opening detail did not mark paper read")
 
-    feed_after_detail = _request_json("GET", port, "/api/v1/feed?limit=10")
-    if not feed_after_detail["data"]["items"][0]["is_read"]:
-        raise SystemExit("seeded read-status flow failed: feed did not reflect read state")
+    _assert_feed_read_state(port, True, "read state")
 
     mark_unread = _request_json(
         "POST",
@@ -290,9 +288,7 @@ def _exercise_seeded_flow(port: int) -> None:
     )
     if mark_unread["data"]["is_read"]:
         raise SystemExit("seeded read-status flow failed: mark unread did not return unread state")
-    feed_after_unread = _request_json("GET", port, "/api/v1/feed?limit=10")
-    if feed_after_unread["data"]["items"][0]["is_read"]:
-        raise SystemExit("seeded read-status flow failed: feed did not reflect unread state")
+    _assert_feed_read_state(port, False, "unread state")
 
     mark_read = _request_json(
         "POST",
@@ -302,10 +298,22 @@ def _exercise_seeded_flow(port: int) -> None:
     )
     if not mark_read["data"]["is_read"]:
         raise SystemExit("seeded read-status flow failed: mark read did not return read state")
-    feed_after_read = _request_json("GET", port, "/api/v1/feed?limit=10")
-    if not feed_after_read["data"]["items"][0]["is_read"]:
-        raise SystemExit("seeded read-status flow failed: feed did not reflect restored read state")
+    _assert_feed_read_state(port, True, "restored read state")
     print("seeded_flow=ok")
+
+
+def _assert_feed_read_state(port: int, expected: bool, label: str) -> None:
+    last_feed: dict | None = None
+    for _ in range(10):
+        last_feed = _request_json("GET", port, "/api/v1/feed?limit=10")
+        items = last_feed["data"]["items"]
+        if items and items[0]["paper_id"] == SAMPLE_PAPER_ID and items[0]["is_read"] is expected:
+            return
+        time.sleep(0.2)
+    raise SystemExit(
+        "seeded read-status flow failed: "
+        f"feed did not reflect {label}; expected={expected} feed={last_feed}"
+    )
 
 
 def _exercise_settings_flow(port: int) -> None:
