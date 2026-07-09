@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -49,3 +50,13 @@ def test_windows_smoke_does_not_treat_sidecar_or_uninstaller_as_app(tmp_path):
     assert smoke._is_windows_app_executable(sidecar) is False
     assert smoke._is_windows_app_executable(uninstaller) is False
     assert smoke._is_windows_app_executable(app) is True
+
+
+def test_smoke_seed_writes_requested_desktop_port(tmp_path):
+    smoke = _load_smoke_script()
+
+    smoke._seed_sample_environment(tmp_path, 31528)
+
+    config = json.loads((tmp_path / ".nber-cli" / "config.json").read_text())
+    assert config["desktop"]["server_port"] == 31528
+    assert config["desktop"]["feed_refresh_interval_minutes"] == 60

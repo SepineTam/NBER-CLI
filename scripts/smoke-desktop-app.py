@@ -53,7 +53,7 @@ def main() -> None:
             raise SystemExit(f"desktop executable not found: {executable}")
 
         _assert_port_free(args.port)
-        _seed_sample_database(temp_home)
+        _seed_sample_environment(temp_home, args.port)
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
         env["USERPROFILE"] = str(temp_home)
@@ -76,7 +76,7 @@ def main() -> None:
         print(payload)
         _assert_database_migrated(temp_home)
         _exercise_seeded_flow(args.port)
-        _exercise_settings_flow(args.port)
+        _exercise_settings_flow(args.port, args.port)
         if args.exercise_live_refresh:
             _exercise_live_refresh(args.port)
     finally:
@@ -316,10 +316,12 @@ def _assert_feed_read_state(port: int, expected: bool, label: str) -> None:
     )
 
 
-def _exercise_settings_flow(port: int) -> None:
+def _exercise_settings_flow(port: int, expected_server_port: int) -> None:
     settings = _request_json("GET", port, "/api/v1/settings")["data"]
-    if settings["server_port"] != DEFAULT_PORT:
-        raise SystemExit(f"settings flow failed: expected default port {DEFAULT_PORT}, got {settings}")
+    if settings["server_port"] != expected_server_port:
+        raise SystemExit(
+            f"settings flow failed: expected port {expected_server_port}, got {settings}"
+        )
     log_dir = Path(settings["log_dir"])
     for log_name in ("sidecar.stdout.log", "sidecar.stderr.log"):
         if not (log_dir / log_name).exists():
@@ -374,6 +376,25 @@ def _assert_database_migrated(temp_home: Path) -> None:
     if user_version != 3:
         raise SystemExit(f"migration flow failed: unexpected user_version {user_version}")
     print("migration_flow=ok")
+
+
+def _seed_sample_environment(temp_home: Path, port: int) -> None:
+    config_path = temp_home / ".nber-cli" / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "desktop": {
+                    "server_port": port,
+                    "feed_refresh_interval_minutes": 60,
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _seed_sample_database(temp_home)
 
 
 def _seed_sample_database(temp_home: Path) -> None:
