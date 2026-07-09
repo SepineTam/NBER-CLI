@@ -587,7 +587,8 @@ def _doctor_payload() -> dict[str, object]:
         "database size",
         lambda: db_path.stat().st_size if db_path and db_path.exists() else None,
     )
-    schema_version = _safe_doctor_value("database schema version", db.get_schema_version, "error")
+    supported_schema_version = db.SCHEMA_VERSION
+    actual_schema_version = _safe_doctor_value("database schema version", db.get_schema_version, "unknown")
     last_run_at = _safe_doctor_value(
         "database activity",
         lambda: _read_db_last_run(db_path) if db_path else None,
@@ -604,7 +605,8 @@ def _doctor_payload() -> dict[str, object]:
         "config": config,
         "database_path": str(db_path) if db_path else "unknown",
         "database_exists": db_exists,
-        "database_schema_version": schema_version,
+        "supported_schema_version": supported_schema_version,
+        "database_schema_version": actual_schema_version,
         "database_size": _format_bytes(db_size if isinstance(db_size, int) else None),
         "last_run_at": last_run_at or "unknown",
     }
@@ -622,7 +624,20 @@ def _print_doctor(payload: dict[str, object]) -> None:
     print(json.dumps(payload["config"], ensure_ascii=False, indent=2))
     print(f"Database path: {payload['database_path']}")
     print(f"Database exists: {str(payload['database_exists']).lower()}")
+    print(f"Supported schema version: {payload['supported_schema_version']}")
     print(f"Database schema version: {payload['database_schema_version']}")
+    supported_schema_version = payload["supported_schema_version"]
+    database_schema_version = payload["database_schema_version"]
+    if (
+        isinstance(supported_schema_version, int)
+        and isinstance(database_schema_version, int)
+        and database_schema_version > supported_schema_version
+    ):
+        print(
+            "Warning: database schema "
+            f"({database_schema_version}) is newer than supported by this version "
+            f"({supported_schema_version})."
+        )
     print(f"Database size: {payload['database_size']}")
     print(f"Last run at: {payload['last_run_at']}")
 

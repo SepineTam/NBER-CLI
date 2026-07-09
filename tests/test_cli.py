@@ -34,6 +34,7 @@ from nber_cli.cli import (
     _parse_non_negative_int,
     _parse_paper_id,
     _parse_positive_int,
+    _print_doctor,
     _read_db_last_run,
     _resolve_paper_ids,
     main,
@@ -164,6 +165,8 @@ class TestDoctorHelpers:
         ):
             payload = _doctor_payload()
         assert payload["database_exists"] is False
+        assert payload["supported_schema_version"] == 2
+        assert payload["database_schema_version"] == 0
         assert payload["database_size"] == "unknown"
         assert payload["last_run_at"] == "unknown"
 
@@ -177,7 +180,8 @@ class TestDoctorHelpers:
             patch("nber_cli.cli.db.get_schema_version", side_effect=ValueError("future schema")),
         ):
             payload = _doctor_payload()
-        assert payload["database_schema_version"] == "error"
+        assert payload["supported_schema_version"] == 2
+        assert payload["database_schema_version"] == "unknown"
         assert payload["database_size"] == "10 B"
         assert payload["last_run_at"] == "unknown"
 
@@ -194,8 +198,48 @@ class TestDoctorHelpers:
         ):
             payload = _doctor_payload()
         assert payload["database_exists"] is True
+        assert payload["supported_schema_version"] == 2
         assert payload["database_schema_version"] == 2
         assert payload["last_run_at"] == "2026-01-02T00:00:00"
+
+    def test_doctor_payload_schema_newer_than_supported(self, tmp_path, capsys):
+        db_path = tmp_path / "nber.db"
+        db_path.touch()
+        with (
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
+            patch("nber_cli.cli.db.get_database_path", return_value=db_path),
+            patch("nber_cli.cli.db.SCHEMA_VERSION", 2),
+            patch("nber_cli.cli.db.get_schema_version", return_value=3),
+        ):
+            payload = _doctor_payload()
+        assert payload["supported_schema_version"] == 2
+        assert payload["database_schema_version"] == 3
+        _print_doctor(payload)
+        captured = capsys.readouterr()
+        assert "Warning: database schema (3) is newer than supported by this version (2)." in captured.out
+
+    def test_print_doctor_warning_when_schema_newer(self, capsys):
+        payload = {
+            "current_version": "0.7.0",
+            "latest_pypi_version": "0.7.0",
+            "command_path": "/tmp/nber-cli",
+            "package_path": "/tmp/nber_cli",
+            "python_executable": sys.executable,
+            "config_path": "/tmp/config.json",
+            "config": {},
+            "database_path": "/tmp/nber.db",
+            "database_exists": True,
+            "supported_schema_version": 2,
+            "database_schema_version": 3,
+            "database_size": "4.0 KiB",
+            "last_run_at": "unknown",
+        }
+        _print_doctor(payload)
+        captured = capsys.readouterr()
+        assert "Supported schema version: 2" in captured.out
+        assert "Database schema version: 3" in captured.out
+        assert "Warning: database schema (3) is newer than supported by this version (2)." in captured.out
 
     def test_fix_doctor_version_success(self, capsys):
         with (
