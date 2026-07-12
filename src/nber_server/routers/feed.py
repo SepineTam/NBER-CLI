@@ -10,12 +10,12 @@ from starlette.concurrency import run_in_threadpool
 
 from nber_cli import db
 from nber_cli.feed import fetch_feed
-from nber_cli.server.errors import (
+from nber_server.errors import (
     ApiError,
     EXTERNAL_SERVICE_ERROR_CODE,
     api_success,
 )
-from nber_cli.server.schemas import FeedItemResponse, FeedListResponse, FeedRefreshResponse
+from nber_server.schemas import FeedItemResponse, FeedListResponse, FeedRefreshResponse
 
 router = APIRouter(prefix="/api/v1/feed", tags=["feed"])
 

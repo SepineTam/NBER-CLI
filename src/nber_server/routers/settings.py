@@ -6,8 +6,8 @@ from fastapi import APIRouter, Request
 from pydantic import ValidationError
 
 from nber_cli import config_store
-from nber_cli.server.errors import ApiError, PARAMETER_ERROR_CODE, api_success
-from nber_cli.server.schemas import SettingsPatch, SettingsResponse
+from nber_server.errors import ApiError, PARAMETER_ERROR_CODE, api_success
+from nber_server.schemas import SettingsPatch, SettingsResponse
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 

@@ -5,8 +5,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Request
 
-from nber_cli.server.errors import api_success
-from nber_cli.server.schemas import HealthResponse
+from nber_server.errors import api_success
+from nber_server.schemas import HealthResponse
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
 

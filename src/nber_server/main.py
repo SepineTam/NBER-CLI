@@ -12,13 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from nber_cli import config_store
-from nber_cli.server.errors import (
+from nber_server.errors import (
     ApiError,
     PARAMETER_ERROR_CODE,
     api_error_handler,
 )
-from nber_cli.server.migrations import upgrade_database
-from nber_cli.server.routers import feed, health, papers, settings
+from nber_server.migrations import upgrade_database
+from nber_server.routers import feed, health, papers, settings
 
 DEFAULT_ALLOWED_ORIGINS = [
     "http://localhost:1420",

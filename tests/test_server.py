@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from nber_cli import db
 from nber_cli.core.models import NBERFeedItem
-from nber_cli.server.main import create_app
-from nber_cli.server.migrations import upgrade_database
+from nber_server.main import create_app
+from nber_server.migrations import upgrade_database
 
 
 def _client(db_path: Path):
@@ -158,7 +158,7 @@ def test_refresh_feed_returns_counts_without_network(tmp_path, monkeypatch):
             ],
         )
 
-    monkeypatch.setattr("nber_cli.server.routers.feed.fetch_feed", fake_fetch_feed)
+    monkeypatch.setattr("nber_server.routers.feed.fetch_feed", fake_fetch_feed)
 
     with _client(db_path) as client:
         response = client.post("/api/v1/feed/refresh")
@@ -176,7 +176,7 @@ def test_refresh_feed_maps_external_failure_to_503(tmp_path, monkeypatch):
     def fake_fetch_feed(display_all=False, db_path=None, max_items=None):
         raise OSError("network unavailable")
 
-    monkeypatch.setattr("nber_cli.server.routers.feed.fetch_feed", fake_fetch_feed)
+    monkeypatch.setattr("nber_server.routers.feed.fetch_feed", fake_fetch_feed)
 
     with _client(db_path) as client:
         response = client.post("/api/v1/feed/refresh")

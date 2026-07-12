@@ -8,13 +8,13 @@ from starlette.concurrency import run_in_threadpool
 
 from nber_cli import db
 from nber_cli.info_cache import get_paper_with_info_cache_result
-from nber_cli.server.errors import (
+from nber_server.errors import (
     ApiError,
     EXTERNAL_SERVICE_ERROR_CODE,
     PARAMETER_ERROR_CODE,
     api_success,
 )
-from nber_cli.server.schemas import PaperResponse, ReadStatusResponse, ReadStatusUpdate
+from nber_server.schemas import PaperResponse, ReadStatusResponse, ReadStatusUpdate
 
 router = APIRouter(prefix="/api/v1/papers", tags=["papers"])
 

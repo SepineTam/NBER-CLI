@@ -41,7 +41,7 @@ dependencies = [
 
 [project.scripts]
 nber-cli = "nber_cli:main"
-nber-sidecar = "nber_cli.server.main:main"
+nber-server = "nber_server.main:main"
 
 [project.urls]
 Homepage = "https://github.com/sepinetam/nber-cli"

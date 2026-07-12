@@ -13,7 +13,7 @@ def upgrade_database(db_path: Path | str) -> Path:
     config = Config()
     config.set_main_option(
         "script_location",
-        str(Path(__file__).resolve().parents[1] / "migrations"),
+        str(Path(db.__file__).resolve().parent / "migrations"),
     )
     config.set_main_option("sqlalchemy.url", f"sqlite:///{resolved.as_posix()}")
     command.upgrade(config, "head")
