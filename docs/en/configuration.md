@@ -28,8 +28,10 @@ The following list is exhaustive — values not listed here are constants.
 | `info.cache_enabled` | Yes | `~/.nber-cli/config.json`; toggle via `nber-cli info cache --turn-on/--off` |
 | `info.cache_ttl_days` | Yes | `~/.nber-cli/config.json`; set via `nber-cli info cache --set-refresh <N>` |
 | `feed.db-path` (database path or `sqlite:///...` URL) | Yes | `~/.nber-cli/config.json`; set via `nber-cli db init --db-path ...` or `nber-cli db migrate ...` |
-| `download.restrict_dir` | Yes | `~/.nber-cli/config.json`; set via `nber-cli config set download.restrict_dir true\|false` |
+| `download.restrict_dir` | Stored, not used as the CLI default | `~/.nber-cli/config.json`; the current CLI still defaults `--restrict` to `true` on every invocation |
 | `download.concurrency` | Yes | `~/.nber-cli/config.json`; set via `nber-cli config set download.concurrency <N>` |
+| `desktop.server_port` | Yes | `~/.nber-cli/config.json` or Desktop Settings; takes effect after restarting Desktop |
+| `desktop.feed_refresh_interval_minutes` | Yes | `~/.nber-cli/config.json` or Desktop Settings |
 | Request timeout | **No** | Code constant in `NBERCLIConfig` |
 | Retry count / request attempts | **No** | Code constant in `NBERCLIConfig` |
 | Download connection limits | **No** | Code constant in `NBERCLIConfig` |
@@ -71,13 +73,13 @@ Current schema:
 
 `feed.db-path` points to the local database used by `info`, `search`, `download`, and `feed`. It may be a normal filesystem path or a SQLite URL such as `sqlite:///relative/nber.db` or `sqlite:////Users/name/data/nber.db`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
 
-`download.restrict_dir` controls whether downloads are restricted to the current working directory and its subdirectories. It defaults to `true` and can be overridden per invocation with `--restrict false`.
+`download.restrict_dir` is currently stored and schema-validated, but the CLI does not use it as the default for downloads. Each invocation defaults to restricted mode. Use `--restrict false` explicitly for an unrestricted invocation.
 
 `download.concurrency` caps the number of concurrent downloads. It defaults to `3` and can be overridden per invocation with `--concurrency <N>`.
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
 
-`desktop.server_port` selects the loopback port used by the local HTTP sidecar. `desktop.feed_refresh_interval_minutes` controls automatic feed refresh in the Desktop app.
+`desktop.server_port` selects the loopback port used by the local HTTP sidecar and must be between `1024` and `65535`; a changed port takes effect after Desktop restarts. `desktop.feed_refresh_interval_minutes` controls automatic feed refresh in the Desktop app and must be a positive integer.
 
 `info.cache_enabled` controls the `info_cache` lookup globally. Set to `false` to force every `info` call (and the MCP `get_paper_info` tool) to go straight to NBER. Defaults to `true`.
 
@@ -150,7 +152,7 @@ The database is created and upgraded automatically the first time any command th
 
 ### CLI vs MCP Differences
 
-- The CLI and the MCP `get_paper_info` tool both write to `info_log` and `info_cache` when the cache is enabled. The CLI also writes a one-line stderr hint when the result came from the cache; the MCP tool does not.
+- The CLI and the MCP `get_paper_info` tool both write to `info_log` and `info_cache` when the cache is enabled. Neither surface emits a separate cache-hit hint.
 - `feed fetch` behaves identically in both surfaces; the MCP layer does not currently expose it.
 - The CLI is the only surface that writes `query_log` (via `search`) and `download_log` (via `download`). The MCP `search_papers` and `download_paper` tools do **not** write those tables in the current version.
 

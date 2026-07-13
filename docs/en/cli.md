@@ -85,7 +85,7 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 - **Parent directories are auto-created.** The parent of the resolved output path is created with `mkdir(parents=True, exist_ok=True)`. Missing intermediate directories do not cause a failure, but the process needs write permission on the deepest existing ancestor.
 - **Path resolution is literal.** The string passed to `--file` (or `<paper_id>.pdf` derived from `--save-base`) is used verbatim. Relative paths resolve against the current working directory. Tilde expansion (`~`) is **not** performed; if you want `~`-relative paths, your shell needs to expand them.
 - **Single download is fully in-memory.** The full PDF body is buffered before any disk write, so a single download holds the entire PDF in memory for the duration of the transfer. Very large PDFs may briefly use several hundred MB of RAM.
-- **Python API callers own their session.** When you call `download_paper` / `download_paper_to_file` / `download_multiple_papers` with a custom `session=...`, you own the underlying `ClientSession` (or `RetryClient`), its timeouts, its connector limits, and any retry behavior. NBER-CLI does not wrap your session in a retry client. The default NBER_CLI_CONFIG timeout and retry settings only apply when the function creates its own session.
+- **Python API callers own sessions they provide.** `download_paper` and `download_paper_to_file` accept a custom `session=...`; the caller owns that `ClientSession` (or `RetryClient`), including its timeout, connector limits, and retry behavior. `download_multiple_papers` does not currently accept a session argument.
 
 For the Python API, see [Python API — Download PDF](python-api.md#download-a-pdf).
 
@@ -457,6 +457,6 @@ A few extra rules that are easy to miss:
 The rule of thumb for scripting:
 
 - **stdout** carries the human-readable output or the JSON payload (with `--format json`).
-- **stderr** carries the cache-hit hint, every per-paper error message, every per-paper success line that is incidental to the main payload, the `warning: ...` line for failed background logging, and the confirmation prompts for destructive commands.
+- **stderr** carries per-paper error messages, success lines that are incidental to the main payload, `warning: ...` lines for failed background logging, and confirmation prompts for destructive commands. Cache hits do not produce a separate stderr hint.
 
 This means a script that wants the JSON payload can capture stdout with `2>/dev/null` (or simply `2>&-`), and a script that wants only errors can capture stderr with `2>&1 >/dev/null`.

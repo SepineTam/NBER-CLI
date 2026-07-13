@@ -419,7 +419,7 @@ from nber_cli.formatters import feed_results_text, info_text, search_results_tex
 
 ## JSON 输出结构
 
-`info`、`search` 和 `feed fetch` 的 `--format json` 输出的字典与对应 `*_results` formatter 构造的字典完全一致。JSON 负载始终写入 **stdout**，而缓存命中提示（`info` 命令）和错误信息则写入 **stderr**。这种分离让脚本可以通过 `>` 重定向或管道捕获 JSON 负载，而不会混入提示或错误。
+`info`、`search` 和 `feed fetch` 的 `--format json` 输出与对应 `*_results` formatter 构造的字典一致。JSON 负载写入 **stdout**，错误信息写入 **stderr**。缓存命中不会额外输出 stderr 提示，因此脚本可以通过重定向或管道捕获负载，而不会混入缓存状态文本。
 
 ### `info --format json`
 

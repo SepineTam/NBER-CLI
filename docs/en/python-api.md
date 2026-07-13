@@ -419,7 +419,7 @@ from nber_cli.formatters import feed_results_text, info_text, search_results_tex
 
 ## JSON Output Structures
 
-`--format json` for `info`, `search`, and `feed fetch` produces the same dictionaries that the matching `*_results` formatters build. The JSON payload is always written to **stdout**, while the cache hit hint (for `info`) and any error message are written to **stderr**. This split lets scripts capture the payload with `>` redirection or pipes without picking up hint or error text.
+`--format json` for `info`, `search`, and `feed fetch` produces the same dictionaries that the matching `*_results` formatters build. The JSON payload is written to **stdout**, while errors are written to **stderr**. Cache hits do not produce a separate stderr hint, so scripts can capture the payload with redirection or pipes without extra cache-status text.
 
 ### `info --format json`
 

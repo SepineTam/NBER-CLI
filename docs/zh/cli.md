@@ -85,7 +85,7 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 - **父目录会自动创建。** 解析后的输出路径的父目录会用 `mkdir(parents=True, exist_ok=True)` 创建。中间目录缺失不会导致失败，但进程需要对最深的已存在祖先目录有写权限。
 - **路径按字面值解析。** 传给 `--file` 的字符串（或者由 `--save-base` 推导出的 `<paper_id>.pdf`）会按字面值使用。相对路径相对于当前工作目录解析。`~` **不会** 被展开；如果需要 `~` 相对路径，请让 shell 先做展开。
 - **单篇下载是全内存的。** 在任何磁盘写入发生之前，PDF 的完整内容会先被缓冲进内存，因此单篇下载在传输过程中始终把整篇 PDF 放在内存里。非常大的 PDF 可能短暂占用数百 MB 内存。
-- **Python API 调用方负责自己传入的 session。** 当你用自定义 `session=...` 调用 `download_paper` / `download_paper_to_file` / `download_multiple_papers` 时，底层的 `ClientSession`（或 `RetryClient`）、它的超时、连接器限制和重试行为都由调用方负责。NBER-CLI 不会把你的 session 再包一层 retry 客户端。默认的 `NBER_CLI_CONFIG` 超时和重试设置只在函数自己创建 session 时生效。
+- **Python API 调用方负责自己传入的 session。** `download_paper` 和 `download_paper_to_file` 接受自定义 `session=...`；底层 `ClientSession`（或 `RetryClient`）的超时、连接器限制和重试行为都由调用方负责。`download_multiple_papers` 目前不接受 session 参数。
 
 Python API 部分请参见 [Python API — 下载 PDF](python-api.md#pdf)。
 
@@ -457,6 +457,6 @@ nber-cli mcp-server --transport streamable-http --port 9000 --yes
 脚本可参考的简单规则：
 
 - **stdout** 承载人类可读的输出，或 `--format json` 时的 JSON 负载。
-- **stderr** 承载缓存命中提示、每条论文的错误信息、与主负载无关的每条成功信息、后台日志失败时的 `warning: ...` 行，以及破坏性命令的确认提示。
+- **stderr** 承载每条论文的错误信息、与主负载无关的成功信息、后台日志失败时的 `warning: ...` 行，以及破坏性命令的确认提示。缓存命中不会额外输出 stderr 提示。
 
 也就是说，想要 JSON 负载的脚本可以用 `2>/dev/null`（或 `2>&-`）屏蔽 stderr；只想要错误信息的脚本可以用 `2>&1 >/dev/null` 把 stderr 提取出来。
