@@ -144,6 +144,6 @@ curl -X PATCH \
 | Field | Rules | Effect |
 | --- | --- | --- |
 | `server_port` | Integer from `1024` through `65535` | Saved immediately; the running server keeps its current port until restart |
-| `feed_refresh_interval_minutes` | Positive integer | Used by Desktop automatic refresh |
+| `feed_refresh_interval_minutes` | Positive integer; use `1`–`65535` for Desktop | Used by Desktop automatic refresh. The API accepts larger values, but the current Rust shell falls back to `60` on its next start. |
 
 Unknown fields are rejected with HTTP `422` and `code: 1`. This endpoint cannot change the database or log path.

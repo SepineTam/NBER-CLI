@@ -48,7 +48,7 @@ flowchart TD
 | Paper info | `cli.py` or `mcp.py` -> `info_cache.py` -> `db.py` cache lookup -> `fetcher.get_nber` on miss | Reads and writes `info_cache` when enabled; both surfaces record `info_log`. |
 | Download | `cli.py` or `mcp.py` -> `download.py` -> NBER PDF endpoint | CLI download records `download_log`; MCP download does not. |
 | Feed | `cli.py` -> `feed.py` -> NBER RSS -> `db.py` | Stores feed items in `feed_items` and fetch summaries in `feed_fetches`. |
-| Desktop feed | React -> local FastAPI -> `feed.py` / `db.py` | Shares the CLI database and stores per-paper state in `read_status`. |
+| Desktop feed | React -> local FastAPI -> `feed.py` / `db.py` | Uses the default `~/.nber-cli/nber.db` and stores per-paper state in `read_status`; Desktop 0.8.0 does not honor a custom CLI database path. |
 | Config | `cli.py` -> `config_store.py` | Reads and writes `~/.nber-cli/config.json`. |
 
 ## Network Layer
@@ -67,7 +67,7 @@ The CLI keeps the human-readable output separate from the structured payloads:
 - `formatters.search_results` and `formatters.search_results_text` format search results.
 - `formatters.feed_results` and `formatters.feed_results_text` format RSS feed results.
 
-The MCP server returns dictionaries rather than CLI text. The local HTTP server returns a stable JSON envelope. These surfaces let agents and the Desktop app consume the same underlying data without scraping terminal output.
+The MCP server returns dictionaries rather than CLI text. Handled local HTTP successes, validation failures, and explicit API errors use a common JSON envelope; an unexpected internal exception can still use FastAPI's default HTTP 500 response. These surfaces let agents and the Desktop app consume structured data without scraping terminal output.
 
 ## Trust Boundaries
 

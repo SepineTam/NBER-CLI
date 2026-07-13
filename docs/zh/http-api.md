@@ -144,6 +144,6 @@ curl -X PATCH \
 | 字段 | 规则 | 效果 |
 | --- | --- | --- |
 | `server_port` | `1024` 至 `65535` 的整数 | 立即保存；当前 server 在重启前仍继续使用旧端口 |
-| `feed_refresh_interval_minutes` | 正整数 | 供 Desktop 自动刷新使用 |
+| `feed_refresh_interval_minutes` | 正整数；Desktop 请使用 `1`–`65535` | 供 Desktop 自动刷新使用。API 会接受更大的值，但当前 Rust 外壳下次启动时会回退到 `60`。 |
 
 未知字段会返回 HTTP `422` 和 `code: 1`。该端点不能修改数据库或日志路径。

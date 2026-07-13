@@ -48,7 +48,7 @@ flowchart TD
 | 论文信息 | `cli.py` 或 `mcp.py` -> `info_cache.py` -> `db.py` 缓存读取 -> 未命中时 `fetcher.get_nber` | 缓存开启时读写 `info_cache`；两个入口都会写 `info_log`。 |
 | 下载 | `cli.py` 或 `mcp.py` -> `download.py` -> NBER PDF endpoint | CLI 下载写入 `download_log`；MCP 下载不写。 |
 | Feed | `cli.py` -> `feed.py` -> NBER RSS -> `db.py` | 写入 `feed_items` 和 `feed_fetches`。 |
-| Desktop feed | React -> 本地 FastAPI -> `feed.py` / `db.py` | 与 CLI 共用数据库，并把逐篇状态写入 `read_status`。 |
+| Desktop feed | React -> 本地 FastAPI -> `feed.py` / `db.py` | 使用默认的 `~/.nber-cli/nber.db`，并把逐篇状态写入 `read_status`；Desktop 0.8.0 暂不读取 CLI 自定义数据库路径。 |
 | 配置 | `cli.py` -> `config_store.py` | 读写 `~/.nber-cli/config.json`。 |
 
 ## 网络层
@@ -67,7 +67,7 @@ CLI 把人类可读输出和结构化 payload 分开：
 - `formatters.search_results` 和 `formatters.search_results_text` 格式化搜索结果。
 - `formatters.feed_results` 和 `formatters.feed_results_text` 格式化 RSS feed 结果。
 
-MCP server 返回字典，而不是 CLI 文本；本地 HTTP server 返回稳定的 JSON envelope。这样 Agent 和 Desktop 可以直接消费底层数据，不需要解析终端输出。
+MCP server 返回字典而不是 CLI 文本。本地 HTTP 的正常响应、参数校验失败和明确 API 错误使用统一 JSON envelope；未预期的内部异常仍可能使用 FastAPI 默认 HTTP 500 结构。这样 Agent 和 Desktop 可以消费结构化数据，不需要解析终端输出。
 
 ## 信任边界
 

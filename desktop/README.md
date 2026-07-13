@@ -1,6 +1,6 @@
 # NBER-CLI Desktop
 
-NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, TypeScript, a local FastAPI sidecar, and the existing SQLite database at `~/.nber-cli/nber.db`.
+NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, TypeScript, a local FastAPI sidecar, and the default SQLite database at `~/.nber-cli/nber.db`. Desktop 0.8.0 does not yet honor the CLI's custom `feed.db-path`; see the [Desktop user guide](../docs/en/desktop.md).
 
 ## Development
 

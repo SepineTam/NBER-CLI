@@ -44,6 +44,9 @@ The service stops when the Desktop application exits normally.
 !!! warning "Current database-path limitation"
     Desktop 0.8.0 always starts its sidecar with `~/.nber-cli/nber.db`. It does not yet honor a custom `feed.db-path` created by `nber-cli db migrate`, and starting Desktop may write the default path back to `config.json`. Back up the config and database before opening Desktop if you use a custom or legacy database path.
 
+!!! warning "Invalid configuration files"
+    Desktop 0.8.0 treats malformed `config.json` content as an empty object and writes defaults back to the file. Back up and repair an invalid configuration before opening Desktop if it contains settings you need to preserve.
+
 ## Main Workflows
 
 - **Refresh the feed** to fetch the latest NBER working-paper RSS items.
@@ -60,7 +63,7 @@ Opening a paper can make a network request to NBER when its metadata is not alre
 The Settings page exposes:
 
 - **Local service port**: `31527` by default; valid range `1024`–`65535`. Restart Desktop after changing it.
-- **Feed refresh interval**: `60` minutes by default. The app refreshes only while it is running, the local service is ready, and the window is visible.
+- **Feed refresh interval**: `60` minutes by default. Use a value from `1` through `65535`; larger values may save successfully but fall back to `60` after restart. The app refreshes only while it is running, the local service is ready, and the window is visible.
 - **Local paths**: shows the database and config locations and can open the sidecar log directory.
 
 Configuration remains on the local machine. See [Configuration](configuration.md) and [Persistence Layer](persistence.md) for the complete storage model.
