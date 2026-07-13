@@ -6,6 +6,8 @@ site_url: https://sepinetam.github.io/nber-cli/
 theme:
   name: material
   language: en
+  logo: assets/logo.jpg
+  favicon: assets/favicon.png
   features:
     - content.code.copy
     - content.code.select

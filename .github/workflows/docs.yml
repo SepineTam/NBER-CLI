@@ -33,6 +33,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --group docs
 
+      - name: Copy logo assets
+        run: |
+          mkdir -p docs/en/assets docs/zh/assets
+          cp desktop/assets/brand/nber-cli-desktop-logo.jpg docs/en/assets/logo.jpg
+          cp desktop/assets/brand/nber-cli-desktop-logo.jpg docs/zh/assets/logo.jpg
+          cp desktop/src-tauri/icons/Square150x150Logo.png docs/en/assets/favicon.png
+          cp desktop/src-tauri/icons/Square150x150Logo.png docs/zh/assets/favicon.png
+
       - name: Build documentation
         run: uv run --group docs mkdocs build --strict
 
