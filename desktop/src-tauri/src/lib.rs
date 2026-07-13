@@ -16,9 +16,11 @@ use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
 const DEFAULT_PORT: u16 = 31527;
 const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
+const OPEN_FEED_EVENT: &str = "open-feed";
 const REFRESH_FEED_EVENT: &str = "refresh-feed";
 const OPEN_SEARCH_EVENT: &str = "open-search";
 const OPEN_SETTINGS_EVENT: &str = "open-settings";
+const FEED_MENU_ID: &str = "feed";
 const REFRESH_MENU_ID: &str = "refresh-feed";
 const SEARCH_MENU_ID: &str = "search";
 const SETTINGS_MENU_ID: &str = "settings";
@@ -420,10 +422,13 @@ fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 submenu.append_items(&[&separator, &search_item])?;
             } else if submenu_text == "View" {
                 let separator = PredefinedMenuItem::separator(app)?;
+                let feed_item = MenuItemBuilder::with_id(FEED_MENU_ID, "论文流")
+                    .accelerator("CmdOrCtrl+1")
+                    .build(app)?;
                 let refresh_item = MenuItemBuilder::with_id(REFRESH_MENU_ID, "同步最新论文")
                     .accelerator("CmdOrCtrl+R")
                     .build(app)?;
-                submenu.append_items(&[&separator, &refresh_item])?;
+                submenu.append_items(&[&separator, &feed_item, &refresh_item])?;
             }
         }
     }
@@ -455,6 +460,9 @@ pub fn run() {
 
     builder
         .on_menu_event(|app, event| match event.id().as_ref() {
+            FEED_MENU_ID => {
+                let _ = app.emit(OPEN_FEED_EVENT, ());
+            }
             SEARCH_MENU_ID => {
                 let _ = app.emit(OPEN_SEARCH_EVENT, ());
             }

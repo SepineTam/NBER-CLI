@@ -1,6 +1,10 @@
 import { fireEvent, renderHook } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { usePaperSearchShortcuts, useRefreshShortcut } from './keyboardShortcuts'
+import {
+  useOpenFeedShortcut,
+  usePaperSearchShortcuts,
+  useRefreshShortcut,
+} from './keyboardShortcuts'
 
 describe('paper search keyboard shortcuts', () => {
   it.each([
@@ -24,5 +28,16 @@ describe('feed refresh keyboard shortcut', () => {
     fireEvent.keyDown(document, { key: 'r', metaKey: true })
 
     expect(refreshFeed).toHaveBeenCalledOnce()
+  })
+})
+
+describe('feed navigation keyboard shortcut', () => {
+  it('opens the paper feed with Command+1', () => {
+    const openFeed = vi.fn()
+    renderHook(() => useOpenFeedShortcut(openFeed))
+
+    fireEvent.keyDown(document, { key: '1', metaKey: true })
+
+    expect(openFeed).toHaveBeenCalledOnce()
   })
 })

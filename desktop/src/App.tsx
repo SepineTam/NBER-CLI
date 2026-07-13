@@ -7,10 +7,16 @@ import { SettingsPage } from './pages/SettingsPage'
 import { useAppStore } from './stores/appStore'
 import { autoRefreshIntervalMs, canAutoRefresh } from './autoRefresh'
 import { useNativeMenu } from './nativeMenu'
-import { PAPER_SEARCH_INPUT_ID, usePaperSearchShortcuts, useRefreshShortcut } from './keyboardShortcuts'
+import {
+  PAPER_SEARCH_INPUT_ID,
+  useOpenFeedShortcut,
+  usePaperSearchShortcuts,
+  useRefreshShortcut,
+} from './keyboardShortcuts'
 
 function App() {
   const { activeView, setActiveView, boot, error, notice, refresh, settings, sidecar } = useAppStore()
+  const openFeed = useCallback(() => setActiveView('feed'), [setActiveView])
   const openSettings = useCallback(() => setActiveView('settings'), [setActiveView])
   const openSearch = useCallback(() => {
     setActiveView('feed')
@@ -22,7 +28,8 @@ function App() {
     void refresh()
   }, [refresh])
 
-  useNativeMenu({ openSearch, openSettings, refreshFeed })
+  useNativeMenu({ openFeed, openSearch, openSettings, refreshFeed })
+  useOpenFeedShortcut(openFeed)
   usePaperSearchShortcuts(openSearch)
   useRefreshShortcut(refreshFeed)
 

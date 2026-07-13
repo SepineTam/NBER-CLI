@@ -31,3 +31,17 @@ export function useRefreshShortcut(refreshFeed: () => void) {
     return () => document.removeEventListener('keydown', handleRefreshShortcut)
   }, [refreshFeed])
 }
+
+export function useOpenFeedShortcut(openFeed: () => void) {
+  useEffect(() => {
+    function handleOpenFeedShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === '1') {
+        event.preventDefault()
+        openFeed()
+      }
+    }
+
+    document.addEventListener('keydown', handleOpenFeedShortcut)
+    return () => document.removeEventListener('keydown', handleOpenFeedShortcut)
+  }, [openFeed])
+}
