@@ -1,150 +1,38 @@
 # Codex
 
-这页写给需要把 NBER-CLI 安装进 Codex 的 Agent。不要猜，按步骤做。
+这页说明当前版本如何把 NBER-CLI 接入 Codex。
 
-## 要安装什么
+## 准备工作
 
-使用 NBER-CLI 的 Codex plugin。
-
-仓库地址：
-
-```text
-https://github.com/sepinetam/nber-cli
-```
-
-marketplace 名称：
-
-```text
-nber-cli
-```
-
-plugin 名称：
-
-```text
-nber-cli
-```
-
-MCP server 名称：
-
-```text
-nber-cli-mcp
-```
-
-Codex marketplace 文件是：
-
-```text
-.agents/plugins/marketplace.json
-```
-
-Codex plugin manifest 是：
-
-```text
-plugins/nber-cli/.codex-plugin/plugin.json
-```
-
-这个 plugin 包含：
-
-- `NBER-CLI` skill
-- `.mcp.json` MCP server 配置
-- 启动 MCP server 的 `uvx nber-cli mcp-server` 命令
-
-## 从 GitHub 安装
-
-当 Codex 可以访问 GitHub 时，使用这个路径。
-
-运行：
+安装 [`uv`](https://docs.astral.sh/uv/getting-started/installation/)，并确认下面两个命令可用：
 
 ```bash
-codex plugin marketplace add sepinetam/nber-cli
-codex plugin add nber-cli@nber-cli
+uvx --version
+codex --version
 ```
 
-每条命令的含义：
+不需要 clone 本仓库，也不需要全局安装 NBER-CLI。`uvx` 会在隔离环境中下载并运行已发布的软件包。
 
-- `codex plugin marketplace add sepinetam/nber-cli` 把这个 GitHub 仓库添加为 Codex marketplace source。
-- `codex plugin add nber-cli@nber-cli` 从 `nber-cli` marketplace 安装 `nber-cli` plugin。
+## 添加 MCP Server
 
-如果仓库刚刚更新，而 Codex 已经知道这个 marketplace，刷新后重新安装：
+把 NBER-CLI 注册为本地 stdio MCP server：
 
 ```bash
-codex plugin marketplace upgrade
-codex plugin add nber-cli@nber-cli
+codex mcp add nber-cli-mcp -- uvx nber-cli mcp-server
 ```
 
-## 从本地 checkout 安装
+Codex 需要使用时会执行 `uvx nber-cli mcp-server`。这里不会启动可选的 HTTP API，因此不需要安装 `server` extra。
 
-只有用户已经 clone 本仓库时，才使用这个路径。
+## 验证配置
 
-在任意位置运行：
-
-```bash
-codex plugin marketplace add /absolute/path/to/nber-cli
-codex plugin add nber-cli@nber-cli
-```
-
-把 `/absolute/path/to/nber-cli` 替换成真实仓库根目录。仓库根目录是包含 `.agents/plugins/marketplace.json` 的目录。
-
-## 验证 Plugin
-
-列出 marketplaces：
-
-```bash
-codex plugin marketplace list
-```
-
-列出 plugins：
-
-```bash
-codex plugin list
-codex plugin list --marketplace nber-cli
-```
-
-预期结果：
-
-- 可以看到 `nber-cli` marketplace
-- 可以看到 `nber-cli` plugin
-- 执行 `codex plugin add nber-cli@nber-cli` 后，`nber-cli` plugin 已安装
-
-如果看不到 plugin，说明 marketplace source 错了或过期。重新添加仓库，或运行：
-
-```bash
-codex plugin marketplace upgrade
-```
-
-## 验证 MCP Server
-
-安装后的 plugin 应提供名为下面这个的 MCP server：
-
-```text
-nber-cli-mcp
-```
-
-检查 MCP servers：
+确认 MCP server 已注册：
 
 ```bash
 codex mcp list
-codex mcp list --json
-```
-
-查看 server 详情：
-
-```bash
 codex mcp get nber-cli-mcp
-codex mcp get nber-cli-mcp --json
 ```
 
-如果 server 启动失败，运行：
-
-```bash
-uvx nber-cli --help
-uvx nber-cli mcp-server
-```
-
-如果 `uvx nber-cli --help` 失败，先安装 `uv` 或修复 PATH。如果 `uvx nber-cli mcp-server` 失败，向用户报告完整错误。
-
-## 验证 NBER-CLI 行为
-
-运行直接 CLI 检查：
+再单独检查底层 CLI：
 
 ```bash
 uvx nber-cli --help
@@ -158,61 +46,47 @@ uvx nber-cli search "labor economics" --format json
 Use NBER-CLI to show the abstract for NBER paper w25000.
 ```
 
-预期行为：
+如果启动失败，直接运行 `uvx nber-cli mcp-server` 并查看完整错误。如果找不到 `uvx`，请安装 `uv` 或修复 `PATH`。
 
-- Codex 应使用 NBER-CLI skill 或 MCP server。
-- 不应该要求用户 clone 仓库。
-- 不应该假设用户已经安装了 `nber-cli`。
-- 可以使用 `uvx nber-cli ...`。
+## 可选的 Skill 指令
 
-## 如果 Plugin 安装失败
-
-只有 plugin 路径不可用时，才使用这个备用方案。
-
-手动添加 MCP server：
-
-```bash
-codex mcp add nber-cli-mcp -- uvx nber-cli mcp-server
-```
-
-然后给 Codex 提供这个 skill 的内容：
+仓库中还提供了可复用的操作指令：
 
 ```text
 plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
-如果用户没有 checkout 本仓库，让它读取：
+如果本地没有 checkout 仓库，可以读取 GitHub 上被追踪的文件：
 
 ```text
 https://github.com/sepinetam/nber-cli/blob/master/plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ```
 
-等价的手动 MCP JSON：
+不复制这个 skill 文件也能使用 MCP server；它只是为 Codex 补充操作流程指导。
 
-```json
-{
-  "mcpServers": {
-    "nber-cli-mcp": {
-      "command": "uvx",
-      "args": ["nber-cli", "mcp-server"]
-    }
-  }
-}
+## Plugin 可用性
+
+仓库目前追踪了 Codex plugin manifest：
+
+```text
+plugins/nber-cli/.codex-plugin/plugin.json
 ```
 
-## 常见错误
+但是，当前版本没有追踪把仓库作为 Codex marketplace 所需的 `.agents/plugins/marketplace.json` 清单。因此，当前版本不要执行下面这些命令：
 
-使用这些精确值：
+```bash
+codex plugin marketplace add sepinetam/nber-cli
+codex plugin add nber-cli@nber-cli
+```
 
-| 配置项 | 值 |
-| --- | --- |
-| 仓库 | `https://github.com/sepinetam/nber-cli` |
-| Marketplace | `nber-cli` |
-| Plugin | `nber-cli` |
-| MCP server | `nber-cli-mcp` |
+在未来版本加入 marketplace 清单之前，请使用上面的 MCP 配置方式。
 
-顺序很重要：先添加 `sepinetam/nber-cli` marketplace，再安装 plugin。如果使用本地 checkout，marketplace source 必须是仓库根目录，也就是包含 `.agents/plugins/marketplace.json` 的目录。不要为了运行 CLI 而 clone 仓库；使用 `uvx nber-cli ...`。
+## 移除配置
+
+```bash
+codex mcp remove nber-cli-mcp
+```
 
 ## 访问策略
 
-NBER-CLI 不绕过 NBER 访问控制。如果 NBER 返回 `403`、`404`、access denied 页面或 download limit 响应，向用户报告这个结果。不要轮换代理、共享凭据、绕过 CAPTCHA 或伪装流量。
+NBER-CLI 不绕过 NBER 访问控制。如果 NBER 返回 `403`、`404`、access denied 页面或 download limit 响应，请如实向用户报告。不要轮换代理、共享凭据、绕过 CAPTCHA 或伪装流量。
