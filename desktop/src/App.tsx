@@ -35,16 +35,17 @@ function App() {
   }, [settings?.feed_refresh_interval_minutes, sidecar?.ready])
 
   return (
-    <div className="app-shell">
-      <Sidebar activeView={activeView} onChange={setActiveView} />
+    <div className={`app-shell ${activeView === 'settings' ? 'settings-view' : ''}`}>
+      <Sidebar
+        activeView={activeView}
+        onChange={setActiveView}
+        sidecarReady={Boolean(sidecar?.ready)}
+      />
       <div className="main-shell">
-        <div className="status-strip">
-          <span className={sidecar?.ready ? 'status-dot ready' : 'status-dot'} />
-          <span>{sidecar?.ready ? '本地服务已连接' : '正在连接本地服务'}</span>
+        <div className="app-notifications" aria-live="polite">
+          {error ? <div className="banner error-banner" role="alert">{error}</div> : null}
+          {notice ? <div className="banner notice-banner">{notice}</div> : null}
         </div>
-
-        {error ? <div className="banner error-banner">{error}</div> : null}
-        {notice ? <div className="banner notice-banner">{notice}</div> : null}
 
         {activeView === 'feed' ? <FeedPage /> : <SettingsPage />}
       </div>

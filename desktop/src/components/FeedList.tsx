@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import type { FeedItem } from '../types'
 import { FeedItemRow } from './FeedItemRow'
 
@@ -43,14 +44,20 @@ export function FeedList({
 
   return (
     <div className="feed-list">
-      {items.map((item) => (
-        <FeedItemRow
-          item={item}
-          key={item.paper_id}
-          selected={selectedPaperId === item.paper_id}
-          onOpen={onOpenPaper}
-        />
-      ))}
+      {items.map((item, index) => {
+        const dayKey = dateKey(item.last_seen_at)
+        const previousDayKey = index > 0 ? dateKey(items[index - 1].last_seen_at) : null
+        return (
+          <Fragment key={item.paper_id}>
+            {dayKey !== previousDayKey ? <div className="date-label">{formatDay(item.last_seen_at)}</div> : null}
+            <FeedItemRow
+              item={item}
+              selected={selectedPaperId === item.paper_id}
+              onOpen={onOpenPaper}
+            />
+          </Fragment>
+        )
+      })}
       {hasMore ? (
         <div className="load-more-row">
           <button className="secondary-button" type="button" onClick={onLoadMore} disabled={loadingMore}>
@@ -60,4 +67,23 @@ export function FeedList({
       ) : null}
     </div>
   )
+}
+
+function dateKey(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : date.toISOString().slice(0, 10)
+}
+
+function formatDay(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value.slice(0, 10)
+  }
+  const today = new Date()
+  const todayKey = dateKey(today.toISOString())
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const prefix = dateKey(value) === todayKey ? '今天' : dateKey(value) === dateKey(yesterday.toISOString()) ? '昨天' : ''
+  const formatted = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric' }).format(date)
+  return prefix ? `${prefix} · ${formatted}` : formatted
 }
