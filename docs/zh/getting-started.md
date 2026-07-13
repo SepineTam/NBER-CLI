@@ -168,6 +168,7 @@ nber-cli download --batch w34567 w25000 w32000 --save-base ~/papers/nber
 ## 下一步
 
 - 安装并使用 [Desktop 应用](desktop.md)。
+- 通过[本地 HTTP API](http-api.md)进行集成。
 - 阅读 [CLI 参考](cli.md) 了解全部命令和选项。
 - 配置 [MCP Server](mcp.md) 用于 Agent 工作流。
 - 在自己的异步代码中使用 [Python API](python-api.md)。

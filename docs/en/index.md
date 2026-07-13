@@ -68,6 +68,7 @@ Add it to an MCP client:
 - [Agent Guides](agents/index.md): plugin, MCP, and skill setup for Claude Code, Codex, OpenClaw, and other agents.
 - [CLI Reference](cli.md): command syntax, options, output formats, and examples.
 - [MCP Server](mcp.md): agent configuration, transports, and available tools.
+- [Local HTTP API](http-api.md): server startup, security boundary, endpoint contracts, response shapes, and side effects.
 - [Python API](python-api.md): async functions and data models.
 - [Configuration](configuration.md): runtime defaults and operational behavior.
 - [Persistence Layer](persistence.md): local SQLite schema, cache behavior, logs, migration, and cleanup limits.

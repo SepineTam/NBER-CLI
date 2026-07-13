@@ -107,7 +107,7 @@ HTTP API 属于可选依赖，不会进入普通 CLI 环境。可以直接运行
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
 ```
 
-Server 启动时会把本地 SQLite 数据库升级到 schema v3，并在 `/api/v1` 下提供健康检查、feed、论文详情、已读状态和设置接口。
+Server 启动时会把本地 SQLite 数据库升级到 schema v3，并在 `/api/v1` 下提供健康检查、feed、论文详情、已读状态和设置接口。参数、响应 envelope、副作用和 loopback-only 安全边界见[本地 HTTP API 参考](docs/zh/http-api.md)。
 
 ### Desktop 应用
 

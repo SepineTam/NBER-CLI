@@ -108,7 +108,7 @@ The HTTP API is an optional extra. Run it without installing the server dependen
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
 ```
 
-The server upgrades the local SQLite database to schema v3 on startup and exposes health, feed, paper, read-status, and settings endpoints under `/api/v1`.
+The server upgrades the local SQLite database to schema v3 on startup and exposes health, feed, paper, read-status, and settings endpoints under `/api/v1`. See the [Local HTTP API reference](docs/en/http-api.md) for parameters, response envelopes, side effects, and the loopback-only security boundary.
 
 ### Desktop App
 

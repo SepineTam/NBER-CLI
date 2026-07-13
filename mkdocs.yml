@@ -58,6 +58,7 @@ plugins:
                 - Configuration: configuration.md
                 - Persistence Layer: persistence.md
             - API Reference:
+                - Local HTTP API: http-api.md
                 - Python API: python-api.md
             - Architecture:
                 - System Architecture: architecture.md
@@ -87,6 +88,7 @@ plugins:
                 - 配置: configuration.md
                 - 持久化层: persistence.md
             - API 参考:
+                - 本地 HTTP API: http-api.md
                 - Python API: python-api.md
             - 架构:
                 - 系统架构: architecture.md
@@ -144,6 +146,7 @@ nav:
       - Configuration: configuration.md
       - Persistence Layer: persistence.md
   - API Reference:
+      - Local HTTP API: http-api.md
       - Python API: python-api.md
   - Architecture:
       - System Architecture: architecture.md

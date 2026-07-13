@@ -68,6 +68,7 @@ uvx nber-cli mcp-server
 - [Agent 指南](agents/index.md)：Claude Code、Codex、OpenClaw 和其他 Agent 的 plugin、MCP 与 skill 配置。
 - [CLI 参考](cli.md)：命令语法、选项、输出格式和示例。
 - [MCP Server](mcp.md)：Agent 配置、传输方式和可用工具。
+- [本地 HTTP API](http-api.md)：Server 启动、安全边界、端点契约、响应结构和副作用。
 - [Python API](python-api.md)：异步函数和数据模型。
 - [配置](configuration.md)：运行时默认值和操作行为。
 - [持久化层](persistence.md)：本地 SQLite schema、缓存行为、日志、迁移和清理边界。

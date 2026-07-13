@@ -35,6 +35,8 @@ Useful endpoints:
 - `GET /api/v1/settings`
 - `PATCH /api/v1/settings`
 
+See the [Local HTTP API reference](../docs/en/http-api.md) for query parameters, request bodies, response envelopes, error codes, and endpoint side effects.
+
 ## Build Sidecar
 
 ```bash
