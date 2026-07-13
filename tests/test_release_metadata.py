@@ -51,10 +51,13 @@ def test_release_changelogs_include_current_version():
         assert heading in (ROOT / path).read_text(encoding="utf-8")
 
 
-def test_desktop_release_does_not_publish_python_package():
-    workflow = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
+def test_python_and_desktop_use_the_same_release_tag():
+    desktop_workflow = (ROOT / ".github/workflows/desktop.yml").read_text(encoding="utf-8")
+    publish_workflow = (ROOT / ".github/workflows/publish.yml").read_text(encoding="utf-8")
 
-    assert "if: startsWith(github.event.release.tag_name, 'v')" in workflow
+    assert '- "v*"' in desktop_workflow
+    assert "desktop-v" not in desktop_workflow
+    assert "if: startsWith(github.event.release.tag_name, 'v')" in publish_workflow
 
 
 def test_desktop_signing_checks_are_opt_in():

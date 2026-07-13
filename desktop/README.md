@@ -80,7 +80,7 @@ On Windows CI or a Windows machine, use the same release checker and smoke scrip
 
 ## Release
 
-GitHub Actions builds release artifacts when a `desktop-v*` tag is pushed or the Desktop workflow is manually dispatched. The build job depends on the full check job, so Python lint/tests and frontend lint/tests must pass before installers are produced. A tag such as `desktop-v0.8.0` creates a draft Desktop release and does not trigger the Python package publication workflow; Python releases use tags such as `v0.8.0`.
+GitHub Actions builds Desktop artifacts from the same `v*` tag used by the Python package release, or when the Desktop workflow is manually dispatched. Pushing a tag such as `v0.8.0` runs the full checks and creates one draft GitHub Release containing the macOS and Windows installers. Publishing that same Release triggers the PyPI workflow, so the CLI and Desktop ship under one version and one Release.
 
 Desktop releases are unsigned by default. To require signed Windows artifacts plus signed and notarized macOS artifacts in the future, set the repository variable `DESKTOP_REQUIRE_SIGNING` to `true` and configure the signing secrets below.
 

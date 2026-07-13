@@ -7,7 +7,7 @@ on:
       - main
       - master
     tags:
-      - "desktop-v*"
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -59,7 +59,7 @@ jobs:
 
   build:
     needs: check
-    if: startsWith(github.ref, 'refs/tags/desktop-v') || github.event_name == 'workflow_dispatch'
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     permissions:
       contents: write
     strategy:
@@ -113,7 +113,7 @@ jobs:
       # Once certificates are funded, configure the secrets and set
       # DESKTOP_REQUIRE_SIGNING=true to restore mandatory signing checks.
       - name: Validate macOS release signing secrets
-        if: startsWith(github.ref, 'refs/tags/desktop-v') && runner.os == 'macOS' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'macOS' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -125,7 +125,7 @@ jobs:
         run: uv run python scripts/validate-desktop-signing.py --platform macos --require-signed
 
       - name: Validate Windows release signing secrets
-        if: startsWith(github.ref, 'refs/tags/desktop-v') && runner.os == 'Windows' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && runner.os == 'Windows' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
@@ -215,11 +215,11 @@ jobs:
         run: uv run python scripts/smoke-desktop-app.py --install-from-package
 
       - name: Check signed and notarized macOS release artifacts
-        if: startsWith(github.ref, 'refs/tags/desktop-v') && matrix.release-platform == 'macos' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.release-platform == 'macos' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
         run: uv run python scripts/check-desktop-release.py --platform macos --max-mb 80 --require-signed --require-notarized
 
       - name: Check signed Windows release artifacts
-        if: startsWith(github.ref, 'refs/tags/desktop-v') && matrix.release-platform == 'windows' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.release-platform == 'windows' && vars.DESKTOP_REQUIRE_SIGNING == 'true'
         run: uv run python scripts/check-desktop-release.py --platform ${{ matrix.release-platform }} --max-mb 80 --require-signed
 
       - name: Upload desktop artifacts
@@ -233,7 +233,7 @@ jobs:
             desktop/src-tauri/target/**/release/bundle/**/*.msi
 
       - name: Upload GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
           draft: true
