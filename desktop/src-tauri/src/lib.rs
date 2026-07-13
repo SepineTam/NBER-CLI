@@ -9,10 +9,15 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
+
+#[cfg(target_os = "macos")]
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
 const DEFAULT_PORT: u16 = 31527;
 const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
+const OPEN_SETTINGS_EVENT: &str = "open-settings";
+const SETTINGS_MENU_ID: &str = "settings";
 
 #[derive(Default)]
 struct SidecarManager {
@@ -389,9 +394,25 @@ fn kill_sidecar(manager: &SidecarManager) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() else {
+        return Ok(menu);
+    };
+
+    let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "设置…")
+        .accelerator("CmdOrCtrl+,")
+        .build(app)?;
+    let separator = PredefinedMenuItem::separator(app)?;
+    app_menu.insert_items(&[&settings_item, &separator], 2)?;
+
+    Ok(menu)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -406,7 +427,17 @@ pub fn run() {
             sidecar_health,
             start_sidecar,
             stop_sidecar
-        ])
+        ]);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(build_macos_menu);
+
+    builder
+        .on_menu_event(|app, event| {
+            if event.id().as_ref() == SETTINGS_MENU_ID {
+                let _ = app.emit(OPEN_SETTINGS_EVENT, ());
+            }
+        })
         .on_window_event(|window, event| {
             if matches!(event, WindowEvent::CloseRequested { .. }) {
                 let manager = window.state::<SidecarManager>();
