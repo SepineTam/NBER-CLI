@@ -8,6 +8,8 @@ wheels/
 
 release/
 output/
+desktop/prototypes/
+.superpowers/
 
 # Virtual environments
 .venv
