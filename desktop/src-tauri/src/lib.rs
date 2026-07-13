@@ -16,7 +16,9 @@ use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
 const DEFAULT_PORT: u16 = 31527;
 const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
+const OPEN_SEARCH_EVENT: &str = "open-search";
 const OPEN_SETTINGS_EVENT: &str = "open-settings";
+const SEARCH_MENU_ID: &str = "search";
 const SETTINGS_MENU_ID: &str = "settings";
 
 #[derive(Default)]
@@ -397,15 +399,26 @@ fn kill_sidecar(manager: &SidecarManager) -> Result<(), String> {
 #[cfg(target_os = "macos")]
 fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::default(app)?;
-    let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() else {
-        return Ok(menu);
-    };
+    if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+        let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "设置…")
+            .accelerator("CmdOrCtrl+,")
+            .build(app)?;
+        let separator = PredefinedMenuItem::separator(app)?;
+        app_menu.insert_items(&[&settings_item, &separator], 2)?;
+    }
 
-    let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "设置…")
-        .accelerator("CmdOrCtrl+,")
-        .build(app)?;
-    let separator = PredefinedMenuItem::separator(app)?;
-    app_menu.insert_items(&[&settings_item, &separator], 2)?;
+    for item in menu.items()? {
+        if let MenuItemKind::Submenu(submenu) = item {
+            if submenu.text()? == "Edit" {
+                let separator = PredefinedMenuItem::separator(app)?;
+                let search_item = MenuItemBuilder::with_id(SEARCH_MENU_ID, "查找…")
+                    .accelerator("CmdOrCtrl+F")
+                    .build(app)?;
+                submenu.append_items(&[&separator, &search_item])?;
+                break;
+            }
+        }
+    }
 
     Ok(menu)
 }
@@ -433,10 +446,14 @@ pub fn run() {
     let builder = builder.menu(build_macos_menu);
 
     builder
-        .on_menu_event(|app, event| {
-            if event.id().as_ref() == SETTINGS_MENU_ID {
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            SEARCH_MENU_ID => {
+                let _ = app.emit(OPEN_SEARCH_EVENT, ());
+            }
+            SETTINGS_MENU_ID => {
                 let _ = app.emit(OPEN_SETTINGS_EVENT, ());
             }
+            _ => {}
         })
         .on_window_event(|window, event| {
             if matches!(event, WindowEvent::CloseRequested { .. }) {

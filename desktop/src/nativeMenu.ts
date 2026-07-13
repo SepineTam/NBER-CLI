@@ -2,9 +2,17 @@ import { useEffect } from 'react'
 import { isTauri } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
-const OPEN_SETTINGS_EVENT = 'open-settings'
+export interface NativeMenuHandlers {
+  openSearch: () => void
+  openSettings: () => void
+}
 
-export function useNativeMenu(openSettings: () => void) {
+export function useNativeMenu({ openSearch, openSettings }: NativeMenuHandlers) {
+  useNativeMenuEvent('open-search', openSearch)
+  useNativeMenuEvent('open-settings', openSettings)
+}
+
+function useNativeMenuEvent(eventName: string, handler: () => void) {
   useEffect(() => {
     if (!isTauri()) {
       return undefined
@@ -13,7 +21,7 @@ export function useNativeMenu(openSettings: () => void) {
     let disposed = false
     let unlisten: UnlistenFn | undefined
 
-    void listen(OPEN_SETTINGS_EVENT, openSettings).then((stopListening) => {
+    void listen(eventName, handler).then((stopListening) => {
       if (disposed) {
         stopListening()
       } else {
@@ -25,5 +33,5 @@ export function useNativeMenu(openSettings: () => void) {
       disposed = true
       unlisten?.()
     }
-  }, [openSettings])
+  }, [eventName, handler])
 }
