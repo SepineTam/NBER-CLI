@@ -22,7 +22,7 @@ def test_build_base_name_uses_tauri_version():
 
     assert (
         normalizer.build_base_name("windows", "x86_64-pc-windows-msvc")
-        == "NBER-CLI-Desktop-v0-7-0-Windows-x64"
+        == "NBER-CLI-Desktop-v0-8-0-Windows-x64"
     )
 
 
@@ -31,12 +31,12 @@ def test_rename_windows_artifact(tmp_path, monkeypatch):
     monkeypatch.setattr(normalizer, "TARGET_DIR", tmp_path)
     bundle_dir = tmp_path / "x86_64-pc-windows-msvc" / "release" / "bundle" / "nsis"
     bundle_dir.mkdir(parents=True)
-    installer = bundle_dir / "NBER-CLI Desktop_0.7.0_x64-setup.exe"
+    installer = bundle_dir / "NBER-CLI Desktop_0.8.0_x64-setup.exe"
     installer.write_bytes(b"installer")
 
-    renamed = normalizer.rename_windows_artifacts("NBER-CLI-Desktop-v0-7-0-Windows-x64")
+    renamed = normalizer.rename_windows_artifacts("NBER-CLI-Desktop-v0-8-0-Windows-x64")
 
-    assert renamed == [bundle_dir / "NBER-CLI-Desktop-v0-7-0-Windows-x64.exe"]
+    assert renamed == [bundle_dir / "NBER-CLI-Desktop-v0-8-0-Windows-x64.exe"]
     assert renamed[0].read_bytes() == b"installer"
     assert not installer.exists()
 
@@ -46,11 +46,11 @@ def test_rename_macos_artifact(tmp_path, monkeypatch):
     monkeypatch.setattr(normalizer, "TARGET_DIR", tmp_path)
     bundle_dir = tmp_path / "aarch64-apple-darwin" / "release" / "bundle" / "dmg"
     bundle_dir.mkdir(parents=True)
-    installer = bundle_dir / "NBER-CLI Desktop_0.7.0_aarch64.dmg"
+    installer = bundle_dir / "NBER-CLI Desktop_0.8.0_aarch64.dmg"
     installer.write_bytes(b"installer")
 
-    renamed = normalizer.rename_macos_artifacts("NBER-CLI-Desktop-v0-7-0-macOS-arm64")
+    renamed = normalizer.rename_macos_artifacts("NBER-CLI-Desktop-v0-8-0-macOS-arm64")
 
-    assert renamed == [bundle_dir / "NBER-CLI-Desktop-v0-7-0-macOS-arm64.dmg"]
+    assert renamed == [bundle_dir / "NBER-CLI-Desktop-v0-8-0-macOS-arm64.dmg"]
     assert renamed[0].read_bytes() == b"installer"
     assert not installer.exists()

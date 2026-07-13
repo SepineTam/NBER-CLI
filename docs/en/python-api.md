@@ -254,7 +254,7 @@ Return the resolved SQLite database path. `db_path` may be a `Path`, a filesyste
 
 ### `get_schema_version(db_path=None) -> int`
 
-Return the current `PRAGMA user_version` of the database. Returns `0` when the file does not exist. The package sets the user version to `2` after `init_database` or an automatic v1-to-v2 upgrade.
+Return the current `PRAGMA user_version` of the database. Returns `0` when the file does not exist. The package sets the user version to `3` after `init_database` or an automatic v1/v2-to-v3 upgrade.
 
 ### `record_query(db_path, keyword, conditions, result_count)`
 

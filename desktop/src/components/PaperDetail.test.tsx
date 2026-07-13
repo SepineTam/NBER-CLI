@@ -2,11 +2,20 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { PaperDetail } from './PaperDetail'
+import { copyText } from '../citation'
 import type { Paper } from '../types'
 
 vi.mock('@tauri-apps/plugin-opener', () => ({
   openUrl: vi.fn(),
 }))
+
+vi.mock('../citation', async () => {
+  const actual = await vi.importActual<typeof import('../citation')>('../citation')
+  return {
+    ...actual,
+    copyText: vi.fn().mockResolvedValue(undefined),
+  }
+})
 
 const paper: Paper = {
   paper_id: 'w12345',
@@ -66,5 +75,34 @@ describe('PaperDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: '重试' }))
 
     expect(onRetry).toHaveBeenCalledWith('w12345')
+  })
+
+  it('copies BibTeX by default and supports the approved citation menu', async () => {
+    render(
+      <PaperDetail
+        paperId={paper.paper_id}
+        paper={paper}
+        error={null}
+        loading={false}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+        onToggleRead={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /下载并打开/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '复制 BibTeX' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '选择引用格式' }))
+
+    expect(screen.getByRole('menuitem', { name: /APA 7th/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /MLA 9th/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Harvard/ })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: /Chicago 18th/ })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('menuitem', { name: /GB\/T 7714—2025/ }))
+    await userEvent.click(screen.getByRole('button', { name: '复制 GB/T 7714—2025' }))
+
+    expect(copyText).toHaveBeenCalledWith(expect.stringContaining('LOVELACE A.'))
   })
 })

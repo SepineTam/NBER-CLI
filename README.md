@@ -21,6 +21,7 @@ A command line interface for reaching the National Bureau of Economic Research (
 - Cache paper metadata locally (`nber-cli info` writes to `info_cache`) with a sliding TTL, plus a behavior log for `search`, `download`, and `info` lookups.
 - Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db`, managed through SQLModel/SQLAlchemy and configurable with a filesystem path or `sqlite:///...` URL.
 - Expose the same core workflows as MCP tools for AI agents.
+- Provide an optional loopback-only HTTP server for the Desktop app and local integrations.
 - Return human-readable output by default, with JSON output for automation.
 - Provide `--verbose` debug logging and a rotating log file for troubleshooting.
 - Use `-c/--config <path>` to temporarily override the config file for a single run.
@@ -97,6 +98,16 @@ Example MCP client configuration:
 ```
 
 The MCP server exposes tools for paper lookup, search, and PDF download.
+
+### Local HTTP Server
+
+The HTTP API is an optional extra. Run it without installing the server dependencies into the normal CLI environment:
+
+```bash
+uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
+```
+
+The server upgrades the local SQLite database to schema v3 on startup and exposes health, feed, paper, read-status, and settings endpoints under `/api/v1`.
 
 ## Documentation
 

@@ -50,7 +50,7 @@ Current schema:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "feed": {
     "db-path": "/Users/name/.nber-cli/nber.db"
   },
@@ -61,6 +61,10 @@ Current schema:
   "download": {
     "restrict_dir": true,
     "concurrency": 3
+  },
+  "desktop": {
+    "server_port": 31527,
+    "feed_refresh_interval_minutes": 60
   }
 }
 ```
@@ -72,6 +76,8 @@ Current schema:
 `download.concurrency` caps the number of concurrent downloads. It defaults to `3` and can be overridden per invocation with `--concurrency <N>`.
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
+
+`desktop.server_port` selects the loopback port used by the local HTTP sidecar. `desktop.feed_refresh_interval_minutes` controls automatic feed refresh in the Desktop app.
 
 `info.cache_enabled` controls the `info_cache` lookup globally. Set to `false` to force every `info` call (and the MCP `get_paper_info` tool) to go straight to NBER. Defaults to `true`.
 

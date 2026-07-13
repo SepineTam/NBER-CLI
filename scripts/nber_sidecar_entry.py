@@ -1,4 +1,4 @@
-from nber_cli.server.main import main
+from nber_server.main import main
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, 
 From the repository root:
 
 ```bash
-uv sync
+uv sync --dev --extra server
 cd desktop
 npm install
 npm run tauri dev
@@ -38,6 +38,7 @@ Useful endpoints:
 ## Build Sidecar
 
 ```bash
+uv sync --extra server --group desktop-build
 uv run python scripts/build-sidecar.py --clean
 ```
 
@@ -51,7 +52,7 @@ npm run build
 npm run tauri build
 ```
 
-Code signing requires the Apple Developer ID and Windows code signing secrets described in `docs/desktop/ci-cd-signing.md`.
+Code signing requires the Apple Developer ID and Windows code signing secrets listed in the Release section below.
 
 ## Verification
 
@@ -79,7 +80,16 @@ On Windows CI or a Windows machine, use the same release checker and smoke scrip
 
 ## Release
 
-GitHub Actions builds release artifacts when a `desktop-v*` tag is pushed or the Desktop workflow is manually dispatched. The build job depends on the full check job, so Python lint/tests and frontend lint/tests must pass before installers are produced.
+GitHub Actions builds Desktop artifacts from the same `v*` tag used by the Python package release, or when the Desktop workflow is manually dispatched. Pushing a tag such as `v0.8.0` runs the full checks and creates one draft GitHub Release containing the macOS and Windows installers. Publishing that same Release triggers the PyPI workflow, so the CLI and Desktop ship under one version and one Release.
+
+Desktop releases are unsigned by default. To require signed Windows artifacts plus signed and notarized macOS artifacts in the future, set the repository variable `DESKTOP_REQUIRE_SIGNING` to `true` and configure the signing secrets below.
+
+Before tagging, keep these versions aligned:
+
+- `pyproject.toml`
+- `desktop/package.json` and `desktop/package-lock.json`
+- `desktop/src-tauri/tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`
+- Claude and Codex plugin manifests
 
 Required release signing inputs:
 

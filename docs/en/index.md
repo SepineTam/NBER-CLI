@@ -79,4 +79,4 @@ Add it to an MCP client:
 
 ## Project Status
 
-The current public command model is `nber-cli` v0.7.0. The CLI is intentionally small and script-friendly: text output is optimized for human reading, and `--format json` is available where structured output matters.
+The current public command model is `nber-cli` v0.8.0. The CLI is intentionally small and script-friendly: text output is optimized for human reading, and `--format json` is available where structured output matters.

@@ -254,7 +254,7 @@ print(f"Deleted: {result.deleted_count}")
 
 ### `get_schema_version(db_path=None) -> int`
 
-返回数据库当前的 `PRAGMA user_version`。文件不存在时返回 `0`。包代码在 `init_database` 或自动 v1 → v2 升级后把该值设为 `2`。
+返回数据库当前的 `PRAGMA user_version`。文件不存在时返回 `0`。包代码在 `init_database` 或自动从 v1/v2 升级到 v3 后把该值设为 `3`。
 
 ### `record_query(db_path, keyword, conditions, result_count)`
 

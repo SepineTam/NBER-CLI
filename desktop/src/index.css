@@ -1,29 +1,59 @@
+@font-face {
+  font-family: 'Source Sans 3';
+  src: url('./assets/fonts/SourceSans3VF-Upright.woff2') format('woff2-variations');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('./assets/fonts/SourceSerif4Variable-Roman.woff2') format('woff2-variations');
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+}
+
 :root {
-  font-family:
-    Avenir Next,
-    Avenir,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    Segoe UI,
-    sans-serif;
-  color: #20242a;
-  background: #f2f0eb;
+  color: #14233a;
+  background: #f7f5ef;
+  font-family: 'Source Sans 3', 'Source Han Sans SC', 'PingFang SC', sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --ink: #14233a;
+  --ink-soft: #526174;
+  --muted: #8290a2;
+  --navy: #083f78;
+  --navy-deep: #062c54;
+  --blue-wash: #edf4fa;
+  --paper: #f7f5ef;
+  --surface: #fffefa;
+  --line: #dedfdc;
+  --line-strong: #c9ced2;
+  --accent: #df6f35;
+  --accent-soft: #f8e6dc;
+  --success: #2c8062;
+  --serif: 'Source Serif 4', 'Source Han Serif SC', 'Songti SC', serif;
+  --sans: 'Source Sans 3', 'Source Han Sans SC', 'PingFang SC', sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  min-width: 980px;
+  height: 100%;
+  min-height: 680px;
+}
+
 body {
   margin: 0;
-  min-width: 920px;
-  min-height: 620px;
   overflow: hidden;
 }
 
@@ -33,14 +63,20 @@ input {
 }
 
 button {
+  color: inherit;
+}
+
+button:not(:disabled) {
   cursor: pointer;
 }
 
 button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
-#root {
-  min-height: 100vh;
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #4b89bd;
+  outline-offset: 2px;
 }

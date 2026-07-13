@@ -17,12 +17,13 @@ NBER-CLI uses a local SQLite database plus a JSON config file. The database stor
 | --- | --- | --- | --- |
 | `feed_items` | Cached RSS paper entries keyed by paper ID. | `feed fetch` | `feed clean` |
 | `feed_fetches` | Audit trail for RSS fetch attempts and counts. | `feed fetch` | No CLI cleanup command. |
+| `read_status` | Per-paper read/unread state used by the local HTTP API and Desktop app. | Desktop / HTTP API | No CLI cleanup command. |
 | `info_cache` | Cached paper metadata used by `info` and `get_paper_info`. | `info`, MCP `get_paper_info` | `info cache clear` |
 | `query_log` | CLI search query history and result counts. | CLI `search` | No CLI cleanup command. |
 | `download_log` | CLI download successes and failures. | CLI `download` | No CLI cleanup command. |
 | `info_log` | Paper info lookup history. | CLI `info`, MCP `get_paper_info` | No CLI cleanup command. |
 
-The schema version is stored in SQLite `PRAGMA user_version`. Version `2` is the current schema. NBER-CLI refuses to write to a database created by a newer schema version.
+The schema version is stored in SQLite `PRAGMA user_version`. Version `3` is the current schema. Existing v1 and v2 databases upgrade automatically on the next database-backed CLI operation or when the local HTTP server starts. The v2-to-v3 migration adds `read_status` without removing existing feed, cache, or log rows. NBER-CLI refuses to write to a database created by a newer schema version.
 
 ## Info Cache Behavior
 

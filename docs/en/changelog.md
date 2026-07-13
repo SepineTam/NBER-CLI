@@ -6,8 +6,23 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-13
+
 ### Added
 - Added `nber-cli doctor` to show installed and PyPI versions, executable/package locations, config contents, database path, schema version, size, and last recorded activity. Added `nber-cli doctor --fix-version` to refresh `uvx` caches or upgrade installations detected as `uv tool`, `pipx`, or `pip`.
+- Added the optional `server` extra plus the `nber-server` and `nber-sidecar` entry points for a loopback FastAPI service.
+- Added a Tauri 2 Desktop app for macOS and Windows with a React research workspace, local feed sync, unread filtering, paper details, settings, and BibTeX/APA/MLA/Harvard/Chicago/GB/T citation copying.
+- Added Alembic-managed database migrations and schema v3 with the `read_status` table. Existing v1 and v2 databases upgrade automatically without removing existing records.
+- Added cross-platform Desktop build, artifact normalization, package validation, smoke-test, signing-validation, and notarization workflows.
+
+### Changed
+- Split the HTTP service into the independent `nber_server` package while continuing to reuse the existing `nber_cli` core and SQLite database.
+- Kept FastAPI, Uvicorn, and Alembic out of the default CLI installation; local HTTP users install them through `nber-cli[server]`.
+- Expanded the English and Chinese architecture, persistence, configuration, getting-started, testing, and Desktop documentation.
+
+### Fixed
+- Stabilized Desktop smoke tests on alternate local ports and added checks for bundled sidecars, installer signatures, and macOS notarization.
+- Replaced the default Tauri branding and application icons with NBER-CLI Desktop assets.
 
 ## 0.7.0 - 2026-07-08
 

@@ -9,16 +9,16 @@ interface FeedItemRowProps {
 export function FeedItemRow({ item, selected, onOpen }: FeedItemRowProps) {
   return (
     <button
-      className={`feed-row ${selected ? 'selected' : ''} ${item.is_read ? 'read' : 'unread'}`}
+      className={`paper-card ${selected ? 'selected' : ''} ${item.is_read ? 'read' : 'unread'}`}
       type="button"
       onClick={() => onOpen(item.paper_id)}
     >
       <span className="read-dot" aria-label={item.is_read ? '已读' : '未读'} />
       <span className="paper-main">
-        <strong>{item.title}</strong>
-        <span>{formatAuthors(item.authors)}</span>
+        <strong className="paper-title">{item.title}</strong>
+        <span className="paper-authors">{formatAuthors(item.authors)}</span>
       </span>
-      <span className="paper-date">{formatDate(item.last_seen_at)}</span>
+      <time className="paper-time">{formatTime(item.last_seen_at)}</time>
     </button>
   )
 }
@@ -33,14 +33,14 @@ function formatAuthors(authors: string[]) {
   return `${authors.slice(0, 3).join(', ')} et al.`
 }
 
-function formatDate(value: string) {
+function formatTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
     return value.slice(0, 10)
   }
   return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   }).format(date)
 }

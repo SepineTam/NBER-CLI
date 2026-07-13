@@ -20,6 +20,7 @@
 - 本地缓存论文元数据（`nber-cli info` 会写入 `info_cache`），采用滑动 TTL；同时为 `search`、`download` 和 `info` 查询记录行为日志。
 - 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`，由 SQLModel/SQLAlchemy 管理，路径可用普通文件路径或 `sqlite:///...` URL 配置。
 - 通过 MCP 工具把核心能力暴露给 AI Agent。
+- 提供可选的 loopback-only HTTP server，供 Desktop 应用和本地集成使用。
 - 默认输出适合阅读的文本，也支持 JSON 输出用于自动化流程。
 - 提供 `--verbose` 调试日志与轮转日志文件，便于排查问题。
 - 通过 `-c/--config <path>` 可在单次运行中临时指定配置文件。
@@ -96,6 +97,16 @@ MCP 客户端配置示例：
 ```
 
 MCP server 提供论文查询、搜索和 PDF 下载工具。
+
+### 本地 HTTP Server
+
+HTTP API 属于可选依赖，不会进入普通 CLI 环境。可以直接运行：
+
+```bash
+uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
+```
+
+Server 启动时会把本地 SQLite 数据库升级到 schema v3，并在 `/api/v1` 下提供健康检查、feed、论文详情、已读状态和设置接口。
 
 ## 文档
 
