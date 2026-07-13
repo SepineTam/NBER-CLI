@@ -16,8 +16,10 @@ use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
 const DEFAULT_PORT: u16 = 31527;
 const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
+const REFRESH_FEED_EVENT: &str = "refresh-feed";
 const OPEN_SEARCH_EVENT: &str = "open-search";
 const OPEN_SETTINGS_EVENT: &str = "open-settings";
+const REFRESH_MENU_ID: &str = "refresh-feed";
 const SEARCH_MENU_ID: &str = "search";
 const SETTINGS_MENU_ID: &str = "settings";
 
@@ -409,13 +411,19 @@ fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
     for item in menu.items()? {
         if let MenuItemKind::Submenu(submenu) = item {
-            if submenu.text()? == "Edit" {
+            let submenu_text = submenu.text()?;
+            if submenu_text == "Edit" {
                 let separator = PredefinedMenuItem::separator(app)?;
                 let search_item = MenuItemBuilder::with_id(SEARCH_MENU_ID, "查找…")
                     .accelerator("CmdOrCtrl+F")
                     .build(app)?;
                 submenu.append_items(&[&separator, &search_item])?;
-                break;
+            } else if submenu_text == "View" {
+                let separator = PredefinedMenuItem::separator(app)?;
+                let refresh_item = MenuItemBuilder::with_id(REFRESH_MENU_ID, "同步最新论文")
+                    .accelerator("CmdOrCtrl+R")
+                    .build(app)?;
+                submenu.append_items(&[&separator, &refresh_item])?;
             }
         }
     }
@@ -449,6 +457,9 @@ pub fn run() {
         .on_menu_event(|app, event| match event.id().as_ref() {
             SEARCH_MENU_ID => {
                 let _ = app.emit(OPEN_SEARCH_EVENT, ());
+            }
+            REFRESH_MENU_ID => {
+                let _ = app.emit(REFRESH_FEED_EVENT, ());
             }
             SETTINGS_MENU_ID => {
                 let _ = app.emit(OPEN_SETTINGS_EVENT, ());

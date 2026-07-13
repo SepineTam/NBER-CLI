@@ -25,9 +25,11 @@ describe('useNativeMenu', () => {
   it.each([
     ['open-search', 'openSearch'],
     ['open-settings', 'openSettings'],
+    ['refresh-feed', 'refreshFeed'],
   ] as const)('handles the %s native menu event', async (eventName, handlerName) => {
     const openSearch = vi.fn()
     const openSettings = vi.fn()
+    const refreshFeed = vi.fn()
     const stopListening = vi.fn<UnlistenFn>()
     const eventCallbacks = new Map<string, EventCallback<unknown>>()
 
@@ -36,22 +38,26 @@ describe('useNativeMenu', () => {
       return stopListening
     })
 
-    const { unmount } = renderHook(() => useNativeMenu({ openSearch, openSettings }))
+    const { unmount } = renderHook(() => useNativeMenu({ openSearch, openSettings, refreshFeed }))
     await act(async () => undefined)
 
     act(() => {
       eventCallbacks.get(eventName)?.({ event: eventName, id: 1, payload: null } as Event<unknown>)
     })
 
-    expect({ openSearch, openSettings }[handlerName]).toHaveBeenCalledOnce()
+    expect({ openSearch, openSettings, refreshFeed }[handlerName]).toHaveBeenCalledOnce()
     unmount()
-    expect(stopListening).toHaveBeenCalledTimes(2)
+    expect(stopListening).toHaveBeenCalledTimes(3)
   })
 
   it('does not register native events in a regular browser', () => {
     isTauriMock.mockReturnValue(false)
 
-    renderHook(() => useNativeMenu({ openSearch: vi.fn(), openSettings: vi.fn() }))
+    renderHook(() => useNativeMenu({
+      openSearch: vi.fn(),
+      openSettings: vi.fn(),
+      refreshFeed: vi.fn(),
+    }))
 
     expect(listenMock).not.toHaveBeenCalled()
   })

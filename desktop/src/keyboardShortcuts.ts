@@ -17,3 +17,17 @@ export function usePaperSearchShortcuts(openSearch: () => void) {
     return () => document.removeEventListener('keydown', handleSearchShortcut)
   }, [openSearch])
 }
+
+export function useRefreshShortcut(refreshFeed: () => void) {
+  useEffect(() => {
+    function handleRefreshShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'r') {
+        event.preventDefault()
+        refreshFeed()
+      }
+    }
+
+    document.addEventListener('keydown', handleRefreshShortcut)
+    return () => document.removeEventListener('keydown', handleRefreshShortcut)
+  }, [refreshFeed])
+}

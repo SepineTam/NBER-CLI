@@ -5,11 +5,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 export interface NativeMenuHandlers {
   openSearch: () => void
   openSettings: () => void
+  refreshFeed: () => void
 }
 
-export function useNativeMenu({ openSearch, openSettings }: NativeMenuHandlers) {
+export function useNativeMenu({ openSearch, openSettings, refreshFeed }: NativeMenuHandlers) {
   useNativeMenuEvent('open-search', openSearch)
   useNativeMenuEvent('open-settings', openSettings)
+  useNativeMenuEvent('refresh-feed', refreshFeed)
 }
 
 function useNativeMenuEvent(eventName: string, handler: () => void) {
