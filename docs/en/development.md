@@ -45,7 +45,7 @@ npm run tauri dev
 ## Tests
 
 ```bash
-uv run pytest
+uv run pytest tests
 cd desktop
 npm run test
 ```
@@ -108,7 +108,7 @@ The following checks all need to pass before tagging a release. Each one catches
 
 ### Static checks
 
-4. Run `uv run pytest -q`.
+4. Run `uv run pytest tests -q`.
 5. Run `uv run ruff check .`.
 6. Run `uv run --group docs mkdocs build --strict`.
 7. In `desktop/`, run `npm ci`, `npm run lint`, `npm run test`, and `npm run build`; then run `cargo check` in `desktop/src-tauri/`.

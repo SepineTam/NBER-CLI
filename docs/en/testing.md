@@ -5,9 +5,9 @@ The repository uses Pytest for Python and release tooling, Vitest for the React 
 ## Run Tests
 
 ```bash
-uv run pytest
+uv run pytest tests
 uv run pytest tests/test_cli.py
-uv run pytest -m "not slow"
+uv run pytest tests -m "not slow"
 cd desktop
 npm run lint
 npm run test

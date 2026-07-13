@@ -45,7 +45,7 @@ npm run tauri dev
 ## 测试
 
 ```bash
-uv run pytest
+uv run pytest tests
 cd desktop
 npm run test
 ```
@@ -108,7 +108,7 @@ uv run --group docs mkdocs build --strict
 
 ### 静态检查
 
-4. 运行 `uv run pytest -q`。
+4. 运行 `uv run pytest tests -q`。
 5. 运行 `uv run ruff check .`。
 6. 运行 `uv run --group docs mkdocs build --strict`。
 7. 在 `desktop/` 运行 `npm ci`、`npm run lint`、`npm run test` 和 `npm run build`，然后在 `desktop/src-tauri/` 运行 `cargo check`。

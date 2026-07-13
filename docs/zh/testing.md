@@ -5,9 +5,9 @@
 ## 运行测试
 
 ```bash
-uv run pytest
+uv run pytest tests
 uv run pytest tests/test_cli.py
-uv run pytest -m "not slow"
+uv run pytest tests -m "not slow"
 cd desktop
 npm run lint
 npm run test

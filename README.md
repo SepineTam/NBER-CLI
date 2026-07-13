@@ -122,7 +122,7 @@ More usage details, command references, MCP setup, Python API examples, developm
 
 ```bash
 uv sync --dev --group docs
-uv run pytest
+uv run pytest tests
 uv run ruff check .
 uv run --group docs mkdocs serve
 ```

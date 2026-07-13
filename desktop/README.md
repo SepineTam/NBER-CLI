@@ -62,7 +62,7 @@ Run the repository gates before preparing a desktop build:
 
 ```bash
 uv run ruff check .
-uv run pytest
+uv run pytest tests
 cd desktop
 npm run lint
 npm run test

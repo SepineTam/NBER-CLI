@@ -16,7 +16,7 @@ Run the local checks:
 
 ```bash
 uv sync --dev --group docs
-uv run pytest
+uv run pytest tests
 uv run ruff check .
 uv run --group docs mkdocs build --strict
 ```
