@@ -6,10 +6,11 @@ NBER-CLI uses a local SQLite database plus a JSON config file. The database stor
 
 | File | Default path | Purpose |
 | --- | --- | --- |
-| Config | `~/.nber-cli/config.json` | Stores `schema_version`, `feed.db-path`, `info` cache settings, and `download` settings. |
+| Config | `~/.nber-cli/config.json` | Stores `schema_version`, database path, cache, download, and Desktop settings. |
 | Database | `~/.nber-cli/nber.db` | Stores feed cache, paper info cache, and behavior logs. |
 | Legacy database | `~/.nber-cli/feed.db` | Used only as a fallback when upgrading from older releases and no `nber.db` exists. |
 | Debug log | `~/.nber-cli/debug.log` | Rotating log file for warnings, errors, and debug output when enabled. |
+| Desktop sidecar logs | `~/.nber-cli/logs/sidecar.stdout.log`, `sidecar.stderr.log` | Output and errors from the bundled local HTTP service. |
 
 ## Database Tables
 
@@ -94,7 +95,7 @@ Both cleanup commands show a preview and require confirmation before deleting ro
 
 ## Backup
 
-For a safe backup, stop any running CLI or MCP process and copy `nber.db` together with any `nber.db-wal` and `nber.db-shm` sidecar files. For live systems, use SQLite's backup command:
+For a safe backup, close Desktop and stop any running CLI, MCP, or local HTTP server process. Copy `nber.db` together with any `nber.db-wal` and `nber.db-shm` sidecar files. For a database that must remain online, use SQLite's backup command:
 
 ```bash
 sqlite3 ~/.nber-cli/nber.db ".backup '/path/to/nber-backup.db'"

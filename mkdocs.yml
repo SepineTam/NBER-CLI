@@ -52,6 +52,7 @@ plugins:
                 - OpenClaw: agents/openclaw.md
                 - Others: agents/others.md
             - User Guide:
+                - Desktop App: desktop.md
                 - CLI Reference: cli.md
                 - MCP Server: mcp.md
                 - Configuration: configuration.md
@@ -80,6 +81,7 @@ plugins:
                 - OpenClaw: agents/openclaw.md
                 - 其他 Agent: agents/others.md
             - 使用指南:
+                - Desktop 应用: desktop.md
                 - CLI 参考: cli.md
                 - MCP Server: mcp.md
                 - 配置: configuration.md
@@ -136,6 +138,7 @@ nav:
       - OpenClaw: agents/openclaw.md
       - Others: agents/others.md
   - User Guide:
+      - Desktop App: desktop.md
       - CLI Reference: cli.md
       - MCP Server: mcp.md
       - Configuration: configuration.md

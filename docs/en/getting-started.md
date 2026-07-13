@@ -167,6 +167,7 @@ Batch mode supports `--save-base`; it does not support `--file`.
 
 ## Next Steps
 
+- Install and use the [Desktop App](desktop.md).
 - Read the [CLI Reference](cli.md) for all commands and options.
 - Configure the [MCP Server](mcp.md) for agent workflows.
 - Use the [Python API](python-api.md) in your own async code.

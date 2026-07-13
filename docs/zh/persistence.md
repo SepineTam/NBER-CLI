@@ -6,10 +6,11 @@ NBER-CLI 使用一个本地 SQLite 数据库和一个 JSON 配置文件。数据
 
 | 文件 | 默认路径 | 用途 |
 | --- | --- | --- |
-| 配置 | `~/.nber-cli/config.json` | 保存 `schema_version`、`feed.db-path`、`info` 缓存设置和 `download` 设置。 |
+| 配置 | `~/.nber-cli/config.json` | 保存 `schema_version`、数据库路径、缓存、下载和 Desktop 设置。 |
 | 数据库 | `~/.nber-cli/nber.db` | 保存 feed 缓存、论文信息缓存和行为日志。 |
 | 旧数据库 | `~/.nber-cli/feed.db` | 仅在从旧版本升级且没有 `nber.db` 时作为回退使用。 |
 | 调试日志 | `~/.nber-cli/debug.log` | 轮转日志文件；默认记录 warning/error，开启调试后记录 debug。 |
+| Desktop sidecar 日志 | `~/.nber-cli/logs/sidecar.stdout.log`、`sidecar.stderr.log` | 内置本地 HTTP 服务的输出和错误。 |
 
 ## 数据库表
 
@@ -94,7 +95,7 @@ nber-cli info cache clear --all
 
 ## 备份
 
-安全备份时，先停止任何正在运行的 CLI 或 MCP 进程，然后复制 `nber.db` 以及存在的 `nber.db-wal`、`nber.db-shm`。在线系统可以使用 SQLite 备份命令：
+安全备份时，先关闭 Desktop，并停止正在运行的 CLI、MCP 或本地 HTTP server 进程，然后复制 `nber.db` 以及存在的 `nber.db-wal`、`nber.db-shm`。必须保持数据库在线时，可以使用 SQLite 备份命令：
 
 ```bash
 sqlite3 ~/.nber-cli/nber.db ".backup '/path/to/nber-backup.db'"

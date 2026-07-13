@@ -64,6 +64,7 @@ Add it to an MCP client:
 ## Documentation Map
 
 - [Getting Started](getting-started.md): install options and first commands.
+- [Desktop App](desktop.md): installer selection, unsigned-release warnings, local data, settings, and troubleshooting.
 - [Agent Guides](agents/index.md): plugin, MCP, and skill setup for Claude Code, Codex, OpenClaw, and other agents.
 - [CLI Reference](cli.md): command syntax, options, output formats, and examples.
 - [MCP Server](mcp.md): agent configuration, transports, and available tools.

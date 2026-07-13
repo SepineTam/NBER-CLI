@@ -64,6 +64,7 @@ uvx nber-cli mcp-server
 ## 文档导航
 
 - [快速开始](getting-started.md)：安装方式和第一组命令。
+- [Desktop 应用](desktop.md)：安装包选择、未签名警告、本地数据、设置和故障排查。
 - [Agent 指南](agents/index.md)：Claude Code、Codex、OpenClaw 和其他 Agent 的 plugin、MCP 与 skill 配置。
 - [CLI 参考](cli.md)：命令语法、选项、输出格式和示例。
 - [MCP Server](mcp.md)：Agent 配置、传输方式和可用工具。

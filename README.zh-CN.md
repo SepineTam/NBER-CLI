@@ -21,6 +21,7 @@
 - 把缓存、RSS 条目和行为日志统一存放在本地 SQLite 数据库 `~/.nber-cli/nber.db`，由 SQLModel/SQLAlchemy 管理，路径可用普通文件路径或 `sqlite:///...` URL 配置。
 - 通过 MCP 工具把核心能力暴露给 AI Agent。
 - 提供可选的 loopback-only HTTP server，供 Desktop 应用和本地集成使用。
+- 提供 macOS 和 Windows Desktop 论文工作台，支持 Feed 同步、未读状态、论文详情和引用复制。
 - 默认输出适合阅读的文本，也支持 JSON 输出用于自动化流程。
 - 提供 `--verbose` 调试日志与轮转日志文件，便于排查问题。
 - 通过 `-c/--config <path>` 可在单次运行中临时指定配置文件。
@@ -107,6 +108,10 @@ uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
 ```
 
 Server 启动时会把本地 SQLite 数据库升级到 schema v3，并在 `/api/v1` 下提供健康检查、feed、论文详情、已读状态和设置接口。
+
+### Desktop 应用
+
+从 [GitHub Releases](https://github.com/sepinetam/nber-cli/releases) 下载 macOS 或 Windows 安装包。当前安装包尚未签名；在绕过 macOS Gatekeeper 或 Windows SmartScreen 警告前，请先阅读 [Desktop 指南](docs/zh/desktop.md)。其中也说明了支持平台、本地文件、设置、备份方式和当前自定义数据库路径限制。
 
 ## 文档
 
