@@ -50,7 +50,7 @@ class TestGetVersion:
 
     def test_returns_fallback_when_package_not_installed(self):
         with patch("nber_cli.cli.get_version", side_effect=Exception("not found")):
-            assert _get_version() == "0.7.0"
+            assert _get_version() == "0.8.0"
 
 
 class TestDoctorHelpers:
@@ -157,7 +157,7 @@ class TestDoctorHelpers:
     def test_doctor_payload_database_missing(self, tmp_path):
         db_path = tmp_path / "missing.db"
         with (
-            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.8.0"),
             patch("nber_cli.cli.shutil.which", return_value="/tmp/nber-cli"),
             patch("nber_cli.cli.config_store.default_config_path", return_value=tmp_path / "config.json"),
             patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
@@ -175,7 +175,7 @@ class TestDoctorHelpers:
         db_path = tmp_path / "nber.db"
         db_path.write_bytes(b"not sqlite")
         with (
-            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.8.0"),
             patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
             patch("nber_cli.cli.db.get_database_path", return_value=db_path),
             patch("nber_cli.cli.db.get_schema_version", side_effect=ValueError("future schema")),
@@ -192,7 +192,7 @@ class TestDoctorHelpers:
             connection.execute("CREATE TABLE query_log (created_at TEXT)")
             connection.execute("INSERT INTO query_log VALUES ('2026-01-02T00:00:00')")
         with (
-            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.8.0"),
             patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
             patch("nber_cli.cli.db.get_database_path", return_value=db_path),
             patch("nber_cli.cli.db.get_schema_version", return_value=2),
@@ -207,7 +207,7 @@ class TestDoctorHelpers:
         db_path = tmp_path / "nber.db"
         db_path.touch()
         with (
-            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.7.0"),
+            patch("nber_cli.cli._get_latest_pypi_version", return_value="0.8.0"),
             patch("nber_cli.cli.config_store.read_config", return_value={"info": {}}),
             patch("nber_cli.cli.db.get_database_path", return_value=db_path),
             patch("nber_cli.cli.db.SCHEMA_VERSION", 2),
@@ -222,8 +222,8 @@ class TestDoctorHelpers:
 
     def test_print_doctor_warning_when_schema_newer(self, capsys):
         payload = {
-            "current_version": "0.7.0",
-            "latest_pypi_version": "0.7.0",
+            "current_version": "0.8.0",
+            "latest_pypi_version": "0.8.0",
             "command_path": "/tmp/nber-cli",
             "package_path": "/tmp/nber_cli",
             "python_executable": sys.executable,

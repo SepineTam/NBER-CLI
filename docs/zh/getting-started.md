@@ -41,6 +41,16 @@ pipx install nber-cli
 nber-cli --version
 ```
 
+## 运行可选的本地 HTTP Server
+
+FastAPI、Uvicorn 和 Alembic 不会进入普通 CLI 依赖集合。需要使用 NBER-CLI Desktop 的本地 API 时，通过 `server` extra 启动：
+
+```bash
+uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
+```
+
+Server 默认只绑定 loopback 地址，启动时把本地数据库升级到 schema v3，并在 `/api/v1` 下提供接口。
+
 ## 以 Python 模块方式运行
 
 包还提供了模块入口。当 `nber-cli` console script 不在你的 `PATH` 上时（例如从 checkout 的工作区直接运行，或者在没生成 wrapper 脚本的虚拟环境里）这个入口会很有用：

@@ -9,6 +9,7 @@ from nber_cli import db
 from nber_cli.core.models import NBERFeedItem
 from nber_server.main import create_app
 from nber_server.migrations import upgrade_database
+from nber_server.routers.health import _package_version
 
 
 def _client(db_path: Path):
@@ -87,6 +88,15 @@ def test_health_returns_status_and_database_path(tmp_path):
     assert payload["code"] == 0
     assert payload["data"]["status"] == "ok"
     assert payload["data"]["db_path"] == str(db_path)
+
+
+def test_health_version_falls_back_to_release_version(monkeypatch):
+    def fail_version_lookup(package_name: str) -> str:
+        raise RuntimeError(package_name)
+
+    monkeypatch.setattr("nber_server.routers.health.get_version", fail_version_lookup)
+
+    assert _package_version() == "0.8.0"
 
 
 def test_upgrade_database_creates_read_status_and_records_revision(tmp_path):

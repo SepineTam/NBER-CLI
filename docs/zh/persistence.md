@@ -17,12 +17,13 @@ NBER-CLI 使用一个本地 SQLite 数据库和一个 JSON 配置文件。数据
 | --- | --- | --- | --- |
 | `feed_items` | 按论文编号缓存 RSS 论文条目。 | `feed fetch` | `feed clean` |
 | `feed_fetches` | RSS 获取次数和数量的审计记录。 | `feed fetch` | 没有 CLI 清理命令。 |
+| `read_status` | 本地 HTTP API 和 Desktop 使用的逐篇已读/未读状态。 | Desktop / HTTP API | 没有 CLI 清理命令。 |
 | `info_cache` | `info` 和 `get_paper_info` 使用的论文元数据缓存。 | `info`、MCP `get_paper_info` | `info cache clear` |
 | `query_log` | CLI 搜索关键词和结果数量历史。 | CLI `search` | 没有 CLI 清理命令。 |
 | `download_log` | CLI 下载成功与失败记录。 | CLI `download` | 没有 CLI 清理命令。 |
 | `info_log` | 论文信息查询历史。 | CLI `info`、MCP `get_paper_info` | 没有 CLI 清理命令。 |
 
-Schema 版本保存在 SQLite 的 `PRAGMA user_version` 中。当前 schema 版本是 `2`。如果数据库来自更新的 schema 版本，NBER-CLI 会拒绝写入。
+Schema 版本保存在 SQLite 的 `PRAGMA user_version` 中。当前 schema 版本是 `3`。已有 v1、v2 数据库会在下一次执行数据库相关 CLI 操作或启动本地 HTTP server 时自动升级。v2 到 v3 的迁移只新增 `read_status`，不会删除已有的 feed、缓存或日志记录。如果数据库来自更新的 schema 版本，NBER-CLI 会拒绝写入。
 
 ## Info Cache 行为
 

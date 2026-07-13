@@ -41,6 +41,16 @@ pipx install nber-cli
 nber-cli --version
 ```
 
+## Run the Optional Local HTTP Server
+
+FastAPI, Uvicorn, and Alembic are kept out of the normal CLI dependency set. Use the `server` extra when you need the local API used by NBER-CLI Desktop:
+
+```bash
+uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
+```
+
+The server binds to loopback by default, upgrades the local database to schema v3, and serves endpoints under `/api/v1`.
+
 ## Run as a Python Module
 
 The package also exposes a module entry point. This is useful when the `nber-cli` console script is not on your `PATH` (for example, when running from a checked-out working tree or inside a virtual environment where the wrapper was not generated):

@@ -6,8 +6,23 @@
 
 ## Unreleased
 
+## 0.8.0 - 2026-07-13
+
 ### Added
 - 新增 `nber-cli doctor`，用于显示已安装版本、PyPI 最新版本、可执行文件和包位置、配置内容、数据库路径、schema 版本、占用空间与最后记录的活动时间。新增 `nber-cli doctor --fix-version`，可刷新 `uvx` 缓存，或按检测到的 `uv tool`、`pipx`、`pip` 安装方式升级。
+- 新增可选的 `server` extra，以及用于启动 loopback FastAPI 服务的 `nber-server` 和 `nber-sidecar` 入口。
+- 新增面向 macOS 和 Windows 的 Tauri 2 Desktop 应用，包含 React 研究工作台、本地 feed 同步、未读筛选、论文详情、设置，以及 BibTeX、APA、MLA、Harvard、Chicago、GB/T 引用复制。
+- 新增由 Alembic 管理的数据库迁移和带 `read_status` 表的 schema v3。已有 v1、v2 数据库会自动升级且不会删除原有记录。
+- 新增跨平台 Desktop 构建、产物重命名、安装包校验、smoke test、签名校验和 macOS notarization 工作流。
+
+### Changed
+- 将 HTTP 服务拆分为独立的 `nber_server` 包，同时继续复用现有 `nber_cli` 核心和 SQLite 数据库。
+- FastAPI、Uvicorn 和 Alembic 不进入默认 CLI 安装；需要本地 HTTP 服务时通过 `nber-cli[server]` 安装。
+- 扩充中英文架构、持久化、配置、快速开始、测试和 Desktop 文档。
+
+### Fixed
+- 稳定 Desktop 在备用本地端口上的 smoke test，并增加内置 sidecar、安装包签名和 macOS notarization 检查。
+- 用 NBER-CLI Desktop 品牌资源替换默认 Tauri 品牌和应用图标。
 
 ## 0.7.0 - 2026-07-08
 
