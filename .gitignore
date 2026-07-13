@@ -30,3 +30,7 @@ site/
 
 # Files
 *.pdf
+
+# uv
+.python-version
+uv.lock

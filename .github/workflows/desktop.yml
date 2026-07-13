@@ -33,7 +33,7 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
 
       - name: Install Python dependencies
-        run: uv sync --dev
+        run: uv sync --dev --extra server
 
       - name: Run Python lint
         run: uv run ruff check .
@@ -103,7 +103,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Python dependencies
-        run: uv sync --dev
+        run: uv sync --dev --extra server --group desktop-build
 
       - name: Install desktop dependencies
         working-directory: desktop

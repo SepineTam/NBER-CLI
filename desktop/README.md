@@ -7,7 +7,7 @@ NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, 
 From the repository root:
 
 ```bash
-uv sync
+uv sync --dev --extra server
 cd desktop
 npm install
 npm run tauri dev
@@ -38,6 +38,7 @@ Useful endpoints:
 ## Build Sidecar
 
 ```bash
+uv sync --extra server --group desktop-build
 uv run python scripts/build-sidecar.py --clean
 ```
 
