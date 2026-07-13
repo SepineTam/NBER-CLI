@@ -9,8 +9,10 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
@@ -201,7 +203,8 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
             .ok_or_else(|| "failed to locate repository root".to_string())?
             .to_path_buf();
         let (stdout_log, stderr_log) = sidecar_stdio(config)?;
-        return Command::new("uv")
+        let mut command = Command::new("uv");
+        command
             .args([
                 "run",
                 "nber-sidecar",
@@ -217,14 +220,17 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
             .current_dir(repo_root)
             .stdin(Stdio::null())
             .stdout(stdout_log)
-            .stderr(stderr_log)
+            .stderr(stderr_log);
+        configure_sidecar_process(&mut command);
+        return command
             .spawn()
             .map_err(|error| format!("failed to start development sidecar: {error}"));
     }
 
     let sidecar_path = production_sidecar_path(app)?;
     let (stdout_log, stderr_log) = sidecar_stdio(config)?;
-    Command::new(sidecar_path)
+    let mut command = Command::new(sidecar_path);
+    command
         .args([
             "--host",
             "127.0.0.1",
@@ -237,10 +243,20 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
         ])
         .stdin(Stdio::null())
         .stdout(stdout_log)
-        .stderr(stderr_log)
+        .stderr(stderr_log);
+    configure_sidecar_process(&mut command);
+    command
         .spawn()
         .map_err(|error| format!("failed to start bundled sidecar: {error}"))
 }
+
+#[cfg(unix)]
+fn configure_sidecar_process(command: &mut Command) {
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn configure_sidecar_process(_command: &mut Command) {}
 
 fn sidecar_stdio(config: &DesktopConfig) -> Result<(Stdio, Stdio), String> {
     let log_dir = PathBuf::from(&config.log_dir);
@@ -394,10 +410,34 @@ fn kill_sidecar(manager: &SidecarManager) -> Result<(), String> {
         .lock()
         .map_err(|_| "failed to lock sidecar state".to_string())?;
     if let Some(mut child) = slot.take() {
-        let _ = child.kill();
-        let _ = child.wait();
+        terminate_sidecar_process(&mut child);
     }
     Ok(())
+}
+
+fn terminate_sidecar_process(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        let process_group = format!("-{}", child.id());
+        let _ = Command::new("kill")
+            .args(["-TERM", &process_group])
+            .status();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while Instant::now() < deadline {
+            match child.try_wait() {
+                Ok(Some(_)) | Err(_) => return,
+                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
+            }
+        }
+        let _ = Command::new("kill")
+            .args(["-KILL", &process_group])
+            .status();
+    }
+
+    #[cfg(not(unix))]
+    let _ = child.kill();
+
+    let _ = child.wait();
 }
 
 #[cfg(target_os = "macos")]
@@ -458,7 +498,7 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     let builder = builder.menu(build_macos_menu);
 
-    builder
+    let app = builder
         .on_menu_event(|app, event| match event.id().as_ref() {
             FEED_MENU_ID => {
                 let _ = app.emit(OPEN_FEED_EVENT, ());
@@ -490,6 +530,13 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    app.run(|app_handle, event| {
+        if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+            let manager = app_handle.state::<SidecarManager>();
+            let _ = kill_sidecar(manager.inner());
+        }
+    });
 }
