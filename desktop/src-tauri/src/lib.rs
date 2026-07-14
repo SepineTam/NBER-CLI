@@ -109,8 +109,8 @@ fn start_sidecar(
         });
     }
 
-    let _ = child.kill();
-    let _ = child.wait();
+    terminate_sidecar_process(&mut child)
+        .map_err(|error| format!("sidecar startup timed out and cleanup failed: {error}"))?;
     Err("local service did not become ready within 10 seconds".to_string())
 }
 
@@ -410,34 +410,120 @@ fn kill_sidecar(manager: &SidecarManager) -> Result<(), String> {
         .lock()
         .map_err(|_| "failed to lock sidecar state".to_string())?;
     if let Some(mut child) = slot.take() {
-        terminate_sidecar_process(&mut child);
+        terminate_sidecar_process(&mut child)?;
     }
     Ok(())
 }
 
-fn terminate_sidecar_process(child: &mut Child) {
+fn terminate_sidecar_process(child: &mut Child) -> Result<(), String> {
     #[cfg(unix)]
-    {
-        let process_group = format!("-{}", child.id());
-        let _ = Command::new("kill")
-            .args(["-TERM", &process_group])
-            .status();
-        let deadline = Instant::now() + Duration::from_secs(2);
-        while Instant::now() < deadline {
-            match child.try_wait() {
-                Ok(Some(_)) | Err(_) => return,
-                Ok(None) => std::thread::sleep(Duration::from_millis(50)),
-            }
-        }
-        let _ = Command::new("kill")
-            .args(["-KILL", &process_group])
-            .status();
-    }
+    return terminate_unix_sidecar_process(child);
 
     #[cfg(not(unix))]
-    let _ = child.kill();
+    {
+        child
+            .kill()
+            .map_err(|error| format!("failed to stop sidecar process: {error}"))?;
+        child
+            .wait()
+            .map_err(|error| format!("failed to wait for sidecar process: {error}"))?;
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+fn terminate_unix_sidecar_process(child: &mut Child) -> Result<(), String> {
+    let process_group_id = child.id();
+    if !unix_process_group_exists(process_group_id)? {
+        let _ = child.wait();
+        return Ok(());
+    }
+
+    signal_unix_process_group(process_group_id, "-TERM")?;
+    if !wait_for_unix_process_group_exit(child, process_group_id, Duration::from_secs(2))? {
+        signal_unix_process_group(process_group_id, "-KILL")?;
+        if !wait_for_unix_process_group_exit(child, process_group_id, Duration::from_secs(2))? {
+            return Err(format!(
+                "sidecar process group {process_group_id} did not exit"
+            ));
+        }
+    }
 
     let _ = child.wait();
+    Ok(())
+}
+
+#[cfg(unix)]
+fn wait_for_unix_process_group_exit(
+    child: &mut Child,
+    process_group_id: u32,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let _ = child.try_wait();
+        if !unix_process_group_exists(process_group_id)? {
+            return Ok(true);
+        }
+        if Instant::now() >= deadline {
+            return Ok(false);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[cfg(unix)]
+fn unix_process_group_exists(process_group_id: u32) -> Result<bool, String> {
+    let process_group = format!("-{process_group_id}");
+    Command::new("kill")
+        .args(["-0", &process_group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .map_err(|error| format!("failed to inspect sidecar process group: {error}"))
+}
+
+#[cfg(unix)]
+fn signal_unix_process_group(process_group_id: u32, signal: &str) -> Result<(), String> {
+    let process_group = format!("-{process_group_id}");
+    let status = Command::new("kill")
+        .args([signal, &process_group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|error| format!("failed to signal sidecar process group: {error}"))?;
+    if status.success() || !unix_process_group_exists(process_group_id)? {
+        return Ok(());
+    }
+    Err(format!(
+        "failed to send {signal} to sidecar process group {process_group_id}"
+    ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn termination_waits_for_the_entire_process_group() {
+        let mut command = Command::new("sh");
+        command
+            .args(["-c", "trap 'exit 0' TERM; (trap '' TERM; sleep 30) & wait"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        configure_sidecar_process(&mut command);
+        let mut child = command.spawn().expect("test process group should start");
+        let process_group_id = child.id();
+        std::thread::sleep(Duration::from_millis(100));
+
+        assert!(unix_process_group_exists(process_group_id).unwrap());
+        terminate_sidecar_process(&mut child).unwrap();
+        assert!(!unix_process_group_exists(process_group_id).unwrap());
+    }
 }
 
 #[cfg(target_os = "macos")]
