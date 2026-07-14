@@ -105,4 +105,25 @@ describe('PaperDetail', () => {
 
     expect(copyText).toHaveBeenCalledWith(expect.stringContaining('LOVELACE A.'))
   })
+
+  it('closes the citation menu with Escape', async () => {
+    render(
+      <PaperDetail
+        paperId={paper.paper_id}
+        paper={paper}
+        error={null}
+        loading={false}
+        onClose={vi.fn()}
+        onRetry={vi.fn()}
+        onToggleRead={vi.fn()}
+      />,
+    )
+    const citationToggle = screen.getByRole('button', { name: '选择引用格式' })
+
+    await userEvent.click(citationToggle)
+    expect(citationToggle).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.keyboard('{Escape}')
+    expect(citationToggle).toHaveAttribute('aria-expanded', 'false')
+  })
 })
