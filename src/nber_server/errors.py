@@ -1,7 +1,16 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : nber_server/errors.py
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -24,12 +33,13 @@ def api_success(data: Any, message: str = "") -> dict[str, Any]:
     return {"code": SUCCESS_CODE, "data": data, "message": message}
 
 
-async def api_error_handler(_request: Request, error: ApiError) -> JSONResponse:
+async def api_error_handler(_request: Request, error: Exception) -> JSONResponse:
+    api_error = cast(ApiError, error)
     return JSONResponse(
-        status_code=error.status_code,
+        status_code=api_error.status_code,
         content={
-            "code": error.code,
-            "data": error.data or {},
-            "message": error.message,
+            "code": api_error.code,
+            "data": api_error.data or {},
+            "message": api_error.message,
         },
     )

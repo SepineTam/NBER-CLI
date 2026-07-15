@@ -1,9 +1,19 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2026 - Present Sepine Tam, Inc. All Rights Reserved
+#
+# @Author : Sepine Tam (谭淞)
+# @Email  : sepinetam@gmail.com
+# @File   : nber_server/main.py
+
 from __future__ import annotations
 
 import argparse
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import cast
 
 import uvicorn
 from fastapi import FastAPI
@@ -62,12 +72,13 @@ def create_app(
     return app
 
 
-async def _validation_error_handler(_request, error: RequestValidationError) -> JSONResponse:
+async def _validation_error_handler(_request, error: Exception) -> JSONResponse:
+    validation_error = cast(RequestValidationError, error)
     return JSONResponse(
         status_code=422,
         content={
             "code": PARAMETER_ERROR_CODE,
-            "data": {"errors": error.errors()},
+            "data": {"errors": validation_error.errors()},
             "message": "request validation failed",
         },
     )
