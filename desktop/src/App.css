@@ -1132,3 +1132,68 @@
     grid-template-columns: 1fr;
   }
 }
+
+.settings-update {
+  grid-column: 1 / -1;
+}
+
+.update-status,
+.update-message {
+  display: grid;
+  gap: 6px;
+}
+
+.update-status strong,
+.update-message strong {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.update-status span {
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.update-message {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.update-message.available {
+  border-color: rgb(8 63 120 / 24%);
+  background: rgb(8 63 120 / 6%);
+}
+
+.update-message.current {
+  border-color: rgb(47 114 84 / 24%);
+  background: rgb(47 114 84 / 6%);
+}
+
+.update-message p,
+.update-error {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.update-error {
+  color: #9f2d2d;
+}
+
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.update-actions .settings-save,
+.update-actions .open-path-button {
+  min-width: 132px;
+}

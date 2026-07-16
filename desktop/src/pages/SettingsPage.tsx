@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { openPath } from '@tauri-apps/plugin-opener'
+import { openPath, openUrl } from '@tauri-apps/plugin-opener'
 import { DatabaseIcon, FolderIcon } from '../components/Icons'
 import { useAppStore } from '../stores/appStore'
+import { checkForDesktopUpdate } from '../updateCheck'
+import type { UpdateCheckResult } from '../updateCheck'
 
 export function SettingsPage() {
   const { settings, savingSettings, loadSettings, updateSettings } = useAppStore()
   const [port, setPort] = useState('31527')
   const [interval, setIntervalValue] = useState('60')
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
+  const [updateError, setUpdateError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!settings) {
@@ -24,6 +29,19 @@ export function SettingsPage() {
       server_port: Number(port),
       feed_refresh_interval_minutes: Number(interval),
     })
+  }
+
+  async function checkUpdate() {
+    setCheckingUpdate(true)
+    setUpdateError(null)
+    try {
+      setUpdateResult(await checkForDesktopUpdate())
+    } catch (error) {
+      setUpdateResult(null)
+      setUpdateError(error instanceof Error ? error.message : 'Failed to check for updates')
+    } finally {
+      setCheckingUpdate(false)
+    }
   }
 
   return (
@@ -103,6 +121,50 @@ export function SettingsPage() {
             </button>
           </section>
         ) : null}
+
+        <section className="settings-card settings-update">
+          <div className="settings-card-heading">
+            <span>03</span>
+            <div>
+              <strong>桌面端更新</strong>
+              <p>不会自动弹出提示；点击检查后才会访问 GitHub。</p>
+            </div>
+          </div>
+
+          <div className="update-status">
+            <strong>当前版本</strong>
+            <span>v{__APP_VERSION__}</span>
+          </div>
+
+          {updateResult ? (
+            <div className={`update-message ${updateResult.available ? 'available' : 'current'}`}>
+              {updateResult.available ? (
+                <>
+                  <strong>发现新版本 v{updateResult.latestVersion}</strong>
+                  <p>打开 GitHub Releases 下载与你系统匹配的安装包并覆盖安装。</p>
+                </>
+              ) : (
+                <>
+                  <strong>已经是最新版本</strong>
+                  <p>当前版本 v{updateResult.currentVersion} 与 GitHub 最新版本一致。</p>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {updateError ? <p className="update-error">{updateError}</p> : null}
+
+          <div className="update-actions">
+            <button className="settings-save" type="button" onClick={checkUpdate} disabled={checkingUpdate}>
+              {checkingUpdate ? '正在检查' : '检查更新'}
+            </button>
+            {updateResult?.available ? (
+              <button className="open-path-button" type="button" onClick={() => openUrl(updateResult.releaseUrl)}>
+                打开下载页面
+              </button>
+            ) : null}
+          </div>
+        </section>
       </div>
     </main>
   )

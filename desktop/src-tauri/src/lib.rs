@@ -9,10 +9,23 @@ use std::{
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tauri::{AppHandle, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+#[cfg(target_os = "macos")]
+use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
 
 const DEFAULT_PORT: u16 = 31527;
 const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
+const OPEN_FEED_EVENT: &str = "open-feed";
+const REFRESH_FEED_EVENT: &str = "refresh-feed";
+const OPEN_SEARCH_EVENT: &str = "open-search";
+const OPEN_SETTINGS_EVENT: &str = "open-settings";
+const FEED_MENU_ID: &str = "feed";
+const REFRESH_MENU_ID: &str = "refresh-feed";
+const SEARCH_MENU_ID: &str = "search";
+const SETTINGS_MENU_ID: &str = "settings";
 
 #[derive(Default)]
 struct SidecarManager {
@@ -96,8 +109,8 @@ fn start_sidecar(
         });
     }
 
-    let _ = child.kill();
-    let _ = child.wait();
+    terminate_sidecar_process(&mut child)
+        .map_err(|error| format!("sidecar startup timed out and cleanup failed: {error}"))?;
     Err("local service did not become ready within 10 seconds".to_string())
 }
 
@@ -190,7 +203,8 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
             .ok_or_else(|| "failed to locate repository root".to_string())?
             .to_path_buf();
         let (stdout_log, stderr_log) = sidecar_stdio(config)?;
-        return Command::new("uv")
+        let mut command = Command::new("uv");
+        command
             .args([
                 "run",
                 "nber-sidecar",
@@ -206,14 +220,17 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
             .current_dir(repo_root)
             .stdin(Stdio::null())
             .stdout(stdout_log)
-            .stderr(stderr_log)
+            .stderr(stderr_log);
+        configure_sidecar_process(&mut command);
+        return command
             .spawn()
             .map_err(|error| format!("failed to start development sidecar: {error}"));
     }
 
     let sidecar_path = production_sidecar_path(app)?;
     let (stdout_log, stderr_log) = sidecar_stdio(config)?;
-    Command::new(sidecar_path)
+    let mut command = Command::new(sidecar_path);
+    command
         .args([
             "--host",
             "127.0.0.1",
@@ -226,10 +243,20 @@ fn spawn_sidecar(app: &AppHandle, config: &DesktopConfig) -> Result<Child, Strin
         ])
         .stdin(Stdio::null())
         .stdout(stdout_log)
-        .stderr(stderr_log)
+        .stderr(stderr_log);
+    configure_sidecar_process(&mut command);
+    command
         .spawn()
         .map_err(|error| format!("failed to start bundled sidecar: {error}"))
 }
+
+#[cfg(unix)]
+fn configure_sidecar_process(command: &mut Command) {
+    command.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn configure_sidecar_process(_command: &mut Command) {}
 
 fn sidecar_stdio(config: &DesktopConfig) -> Result<(Stdio, Stdio), String> {
     let log_dir = PathBuf::from(&config.log_dir);
@@ -383,15 +410,161 @@ fn kill_sidecar(manager: &SidecarManager) -> Result<(), String> {
         .lock()
         .map_err(|_| "failed to lock sidecar state".to_string())?;
     if let Some(mut child) = slot.take() {
-        let _ = child.kill();
-        let _ = child.wait();
+        terminate_sidecar_process(&mut child)?;
     }
     Ok(())
 }
 
+fn terminate_sidecar_process(child: &mut Child) -> Result<(), String> {
+    #[cfg(unix)]
+    return terminate_unix_sidecar_process(child);
+
+    #[cfg(not(unix))]
+    {
+        child
+            .kill()
+            .map_err(|error| format!("failed to stop sidecar process: {error}"))?;
+        child
+            .wait()
+            .map_err(|error| format!("failed to wait for sidecar process: {error}"))?;
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+fn terminate_unix_sidecar_process(child: &mut Child) -> Result<(), String> {
+    let process_group_id = child.id();
+    if !unix_process_group_exists(process_group_id)? {
+        let _ = child.wait();
+        return Ok(());
+    }
+
+    signal_unix_process_group(process_group_id, "-TERM")?;
+    if !wait_for_unix_process_group_exit(child, process_group_id, Duration::from_secs(2))? {
+        signal_unix_process_group(process_group_id, "-KILL")?;
+        if !wait_for_unix_process_group_exit(child, process_group_id, Duration::from_secs(2))? {
+            return Err(format!(
+                "sidecar process group {process_group_id} did not exit"
+            ));
+        }
+    }
+
+    let _ = child.wait();
+    Ok(())
+}
+
+#[cfg(unix)]
+fn wait_for_unix_process_group_exit(
+    child: &mut Child,
+    process_group_id: u32,
+    timeout: Duration,
+) -> Result<bool, String> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let _ = child.try_wait();
+        if !unix_process_group_exists(process_group_id)? {
+            return Ok(true);
+        }
+        if Instant::now() >= deadline {
+            return Ok(false);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+#[cfg(unix)]
+fn unix_process_group_exists(process_group_id: u32) -> Result<bool, String> {
+    let process_group = format!("-{process_group_id}");
+    Command::new("kill")
+        .args(["-0", &process_group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .map_err(|error| format!("failed to inspect sidecar process group: {error}"))
+}
+
+#[cfg(unix)]
+fn signal_unix_process_group(process_group_id: u32, signal: &str) -> Result<(), String> {
+    let process_group = format!("-{process_group_id}");
+    let status = Command::new("kill")
+        .args([signal, &process_group])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|error| format!("failed to signal sidecar process group: {error}"))?;
+    if status.success() || !unix_process_group_exists(process_group_id)? {
+        return Ok(());
+    }
+    Err(format!(
+        "failed to send {signal} to sidecar process group {process_group_id}"
+    ))
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn termination_waits_for_the_entire_process_group() {
+        let mut command = Command::new("sh");
+        command
+            .args(["-c", "trap 'exit 0' TERM; (trap '' TERM; sleep 30) & wait"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        configure_sidecar_process(&mut command);
+        let mut child = command.spawn().expect("test process group should start");
+        let process_group_id = child.id();
+        std::thread::sleep(Duration::from_millis(100));
+
+        assert!(unix_process_group_exists(process_group_id).unwrap());
+        terminate_sidecar_process(&mut child).unwrap();
+        assert!(!unix_process_group_exists(process_group_id).unwrap());
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.into_iter().next() {
+        let settings_item = MenuItemBuilder::with_id(SETTINGS_MENU_ID, "设置…")
+            .accelerator("CmdOrCtrl+,")
+            .build(app)?;
+        let separator = PredefinedMenuItem::separator(app)?;
+        app_menu.insert_items(&[&settings_item, &separator], 2)?;
+    }
+
+    for item in menu.items()? {
+        if let MenuItemKind::Submenu(submenu) = item {
+            let submenu_text = submenu.text()?;
+            if submenu_text == "Edit" {
+                let separator = PredefinedMenuItem::separator(app)?;
+                let search_item = MenuItemBuilder::with_id(SEARCH_MENU_ID, "查找…")
+                    .accelerator("CmdOrCtrl+F")
+                    .build(app)?;
+                submenu.append_items(&[&separator, &search_item])?;
+            } else if submenu_text == "View" {
+                let separator = PredefinedMenuItem::separator(app)?;
+                let feed_item = MenuItemBuilder::with_id(FEED_MENU_ID, "论文流")
+                    .accelerator("CmdOrCtrl+1")
+                    .build(app)?;
+                let refresh_item = MenuItemBuilder::with_id(REFRESH_MENU_ID, "同步最新论文")
+                    .accelerator("CmdOrCtrl+R")
+                    .build(app)?;
+                submenu.append_items(&[&separator, &feed_item, &refresh_item])?;
+            }
+        }
+    }
+
+    Ok(menu)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -406,7 +579,27 @@ pub fn run() {
             sidecar_health,
             start_sidecar,
             stop_sidecar
-        ])
+        ]);
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(build_macos_menu);
+
+    let app = builder
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            FEED_MENU_ID => {
+                let _ = app.emit(OPEN_FEED_EVENT, ());
+            }
+            SEARCH_MENU_ID => {
+                let _ = app.emit(OPEN_SEARCH_EVENT, ());
+            }
+            REFRESH_MENU_ID => {
+                let _ = app.emit(REFRESH_FEED_EVENT, ());
+            }
+            SETTINGS_MENU_ID => {
+                let _ = app.emit(OPEN_SETTINGS_EVENT, ());
+            }
+            _ => {}
+        })
         .on_window_event(|window, event| {
             if matches!(event, WindowEvent::CloseRequested { .. }) {
                 let manager = window.state::<SidecarManager>();
@@ -423,6 +616,13 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    app.run(|app_handle, event| {
+        if matches!(event, RunEvent::ExitRequested { .. } | RunEvent::Exit) {
+            let manager = app_handle.state::<SidecarManager>();
+            let _ = kill_sidecar(manager.inner());
+        }
+    });
 }

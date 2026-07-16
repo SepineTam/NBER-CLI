@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import './App.css'
 import { Sidebar } from './components/Sidebar'
@@ -6,9 +6,32 @@ import { FeedPage } from './pages/FeedPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { useAppStore } from './stores/appStore'
 import { autoRefreshIntervalMs, canAutoRefresh } from './autoRefresh'
+import { useNativeMenu } from './nativeMenu'
+import {
+  PAPER_SEARCH_INPUT_ID,
+  useOpenFeedShortcut,
+  usePaperSearchShortcuts,
+  useRefreshShortcut,
+} from './keyboardShortcuts'
 
 function App() {
-  const { activeView, setActiveView, boot, error, notice, settings, sidecar } = useAppStore()
+  const { activeView, setActiveView, boot, error, notice, refresh, settings, sidecar } = useAppStore()
+  const openFeed = useCallback(() => setActiveView('feed'), [setActiveView])
+  const openSettings = useCallback(() => setActiveView('settings'), [setActiveView])
+  const openSearch = useCallback(() => {
+    setActiveView('feed')
+    window.requestAnimationFrame(() => {
+      document.getElementById(PAPER_SEARCH_INPUT_ID)?.focus()
+    })
+  }, [setActiveView])
+  const refreshFeed = useCallback(() => {
+    void refresh()
+  }, [refresh])
+
+  useNativeMenu({ openFeed, openSearch, openSettings, refreshFeed })
+  useOpenFeedShortcut(openFeed)
+  usePaperSearchShortcuts(openSearch)
+  useRefreshShortcut(refreshFeed)
 
   useEffect(() => {
     void boot()

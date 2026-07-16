@@ -1,16 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { FeedList } from '../components/FeedList'
 import { PaperDetail } from '../components/PaperDetail'
 import { RefreshButton } from '../components/RefreshButton'
 import { SearchIcon } from '../components/Icons'
 import { useAppStore } from '../stores/appStore'
+import { PAPER_SEARCH_INPUT_ID } from '../keyboardShortcuts'
 
 type FeedFilter = 'all' | 'unread'
 
 export function FeedPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FeedFilter>('all')
-  const searchRef = useRef<HTMLInputElement>(null)
   const {
     feedItems,
     feedTotalCount,
@@ -28,17 +28,6 @@ export function FeedPage() {
     closePaper,
     toggleRead,
   } = useAppStore()
-
-  useEffect(() => {
-    function focusSearch(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        searchRef.current?.focus()
-      }
-    }
-    document.addEventListener('keydown', focusSearch)
-    return () => document.removeEventListener('keydown', focusSearch)
-  }, [])
 
   const unreadCount = feedItems.filter((item) => !item.is_read).length
   const visibleItems = useMemo(() => {
@@ -71,7 +60,7 @@ export function FeedPage() {
             <label className="feed-search">
               <SearchIcon />
               <input
-                ref={searchRef}
+                id={PAPER_SEARCH_INPUT_ID}
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
