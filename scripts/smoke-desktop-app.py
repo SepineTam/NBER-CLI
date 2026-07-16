@@ -112,7 +112,12 @@ def _default_executable() -> Path:
         if candidates:
             return candidates[0]
         return ROOT / "desktop" / "src-tauri" / "target" / "release" / "app.exe"
-    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS and Windows smoke tests")
+    if system == "Linux":
+        candidates = sorted((ROOT / "desktop" / "src-tauri" / "target").glob("**/release/app"))
+        if candidates:
+            return candidates[0]
+        return ROOT / "desktop" / "src-tauri" / "target" / "release" / "app"
+    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS, Windows and Linux smoke tests")
 
 
 def _default_package() -> Path:
@@ -123,6 +128,10 @@ def _default_package() -> Path:
     elif system == "Windows":
         candidates = sorted(target_dir.glob("**/release/bundle/**/*.exe"))
         candidates.extend(sorted(target_dir.glob("**/release/bundle/**/*.msi")))
+    elif system == "Linux":
+        candidates = sorted(target_dir.glob("**/release/bundle/**/*.AppImage"))
+        candidates.extend(sorted(target_dir.glob("**/release/bundle/**/*.deb")))
+        candidates.extend(sorted(target_dir.glob("**/release/bundle/**/*.rpm")))
     else:
         candidates = []
     if not candidates:
@@ -143,7 +152,11 @@ def _install_package(package: Path, install_dir: Path) -> tuple[Path, Path | Non
         executable = _install_windows_package(package, install_dir)
         print(f"installed_package={package}")
         return executable, None
-    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS and Windows smoke tests")
+    if system == "Linux":
+        executable = _install_linux_package(package, install_dir)
+        print(f"installed_package={package}")
+        return executable, None
+    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS, Windows and Linux smoke tests")
 
 
 def _install_macos_package(package: Path, install_dir: Path) -> tuple[Path, Path | None]:
@@ -221,6 +234,56 @@ def _install_windows_package(package: Path, install_dir: Path) -> Path:
             _assert_windows_sidecar_installed(candidate)
             return candidate
     raise SystemExit(f"installed Windows app executable not found under {install_dir}")
+
+
+def _install_linux_package(package: Path, install_dir: Path) -> Path:
+    suffix = package.suffix.lower()
+    if suffix == ".appimage":
+        subprocess.run(
+            [str(package), "--appimage-extract"],
+            cwd=install_dir,
+            check=True,
+            timeout=180,
+        )
+        app_dir = install_dir / "squashfs-root" / "usr" / "bin"
+    elif suffix == ".deb":
+        subprocess.run(
+            ["dpkg-deb", "-x", str(package), str(install_dir)],
+            check=True,
+            timeout=180,
+        )
+        app_dir = install_dir / "usr" / "bin"
+    elif suffix == ".rpm":
+        subprocess.run(
+            ["sh", "-c", f"rpm2cpio {package} | cpio -idm"],
+            cwd=install_dir,
+            check=True,
+            timeout=180,
+        )
+        app_dir = install_dir / "usr" / "bin"
+    else:
+        raise SystemExit(f"Linux package is not an AppImage, DEB or RPM: {package}")
+
+    app = app_dir / "app"
+    sidecar = app_dir / "nber-sidecar"
+    if not app.exists():
+        # Fallback in case the binary layout differs between bundle formats.
+        candidates = sorted(install_dir.glob("**/app"))
+        if not candidates:
+            raise SystemExit(f"installed Linux app executable not found under {install_dir}")
+        app = candidates[0]
+        sidecar_candidates = sorted(install_dir.glob("**/nber-sidecar"))
+        if sidecar_candidates:
+            sidecar = sidecar_candidates[0]
+
+    for path in (app, sidecar):
+        if path.exists():
+            path.chmod(path.stat().st_mode | 0o111)
+
+    if not sidecar.exists():
+        raise SystemExit(f"installed Linux sidecar not found next to app executable: {sidecar}")
+
+    return app
 
 
 def _is_windows_app_executable(path: Path) -> bool:

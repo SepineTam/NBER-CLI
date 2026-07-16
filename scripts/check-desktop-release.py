@@ -16,11 +16,13 @@ def main() -> None:
     parser.add_argument("--max-mb", type=float, default=80.0)
     parser.add_argument("--require-signed", action="store_true")
     parser.add_argument("--require-notarized", action="store_true")
-    parser.add_argument("--platform", choices=["macos", "windows"], default=_default_platform())
+    parser.add_argument("--platform", choices=["macos", "windows", "linux"], default=_default_platform())
     args = parser.parse_args()
 
     if args.platform == "macos":
         _check_macos(args.max_mb, args.require_signed, args.require_notarized)
+    elif args.platform == "linux":
+        _check_linux(args.max_mb, args.require_signed)
     else:
         _check_windows(args.max_mb, args.require_signed)
 
@@ -52,6 +54,30 @@ def _check_macos(max_mb: float, require_signed: bool, require_notarized: bool) -
             print(f"macos_notarized={notarized} path={path}")
             if not notarized:
                 raise SystemExit(f"macOS artifact is not notarized: {path}")
+
+
+def _check_linux(max_mb: float, require_signed: bool) -> None:
+    installers = (
+        _bundle_paths("appimage", "*.AppImage")
+        + _bundle_paths("deb", "*.deb")
+        + _bundle_paths("rpm", "*.rpm")
+    )
+    if not installers:
+        raise SystemExit("missing Linux installer")
+
+    app = _first_existing(root / "app" for root in _release_roots())
+    if app is None:
+        raise SystemExit("missing Linux app executable")
+
+    sidecar = _first_existing(root / "nber-sidecar" for root in _release_roots())
+    if sidecar is None:
+        raise SystemExit("missing bundled Linux sidecar")
+
+    for path in installers:
+        _check_size(path, max_mb)
+
+    if require_signed:
+        print("linux_signed=skipped (code signing is not applicable on Linux)")
 
 
 def _check_windows(max_mb: float, require_signed: bool) -> None:
@@ -161,7 +187,12 @@ def _windows_signature_is_valid(path: Path) -> bool:
 
 
 def _default_platform() -> str:
-    return "windows" if platform.system() == "Windows" else "macos"
+    system = platform.system()
+    if system == "Windows":
+        return "windows"
+    if system == "Linux":
+        return "linux"
+    return "macos"
 
 
 if __name__ == "__main__":

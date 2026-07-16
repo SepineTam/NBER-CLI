@@ -81,6 +81,11 @@ jobs:
             bundles: nsis
             artifact-name: nber-cli-desktop-windows-x64
             release-platform: windows
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb
+            artifact-name: nber-cli-desktop-linux-x64
+            release-platform: linux
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -101,6 +106,23 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            pkg-config \
+            patchelf
 
       - name: Install Python dependencies
         run: uv sync --dev --extra server --group desktop-build
@@ -231,6 +253,9 @@ jobs:
             desktop/src-tauri/target/**/release/bundle/**/*.app
             desktop/src-tauri/target/**/release/bundle/**/*.exe
             desktop/src-tauri/target/**/release/bundle/**/*.msi
+            desktop/src-tauri/target/**/release/bundle/**/*.AppImage
+            desktop/src-tauri/target/**/release/bundle/**/*.deb
+            desktop/src-tauri/target/**/release/bundle/**/*.rpm
 
       - name: Upload GitHub Release assets
         if: startsWith(github.ref, 'refs/tags/v')
@@ -241,3 +266,6 @@ jobs:
             desktop/src-tauri/target/**/release/bundle/**/*.dmg
             desktop/src-tauri/target/**/release/bundle/**/*.exe
             desktop/src-tauri/target/**/release/bundle/**/*.msi
+            desktop/src-tauri/target/**/release/bundle/**/*.AppImage
+            desktop/src-tauri/target/**/release/bundle/**/*.deb
+            desktop/src-tauri/target/**/release/bundle/**/*.rpm

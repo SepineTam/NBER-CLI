@@ -13,11 +13,13 @@ TARGET_DIR = ROOT / "desktop" / "src-tauri" / "target"
 PLATFORM_LABELS = {
     "macos": "macOS",
     "windows": "Windows",
+    "linux": "Linux",
 }
 ARCH_LABELS = {
     "aarch64-apple-darwin": "arm64",
     "x86_64-apple-darwin": "x64",
     "x86_64-pc-windows-msvc": "x64",
+    "x86_64-unknown-linux-gnu": "x64",
 }
 
 
@@ -30,6 +32,8 @@ def main() -> None:
     base_name = build_base_name(args.platform, args.target_triple)
     if args.platform == "macos":
         renamed = rename_macos_artifacts(base_name)
+    elif args.platform == "linux":
+        renamed = rename_linux_artifacts(base_name)
     else:
         renamed = rename_windows_artifacts(base_name)
 
@@ -60,6 +64,20 @@ def rename_macos_artifacts(base_name: str) -> list[Path]:
     renamed: list[Path] = []
     for dmg in _bundle_paths("dmg", "*.dmg"):
         renamed.append(_rename(dmg, f"{base_name}.dmg"))
+    return renamed
+
+
+def rename_linux_artifacts(base_name: str) -> list[Path]:
+    renamed: list[Path] = []
+    for pattern, suffix in (
+        ("appimage", "*.AppImage"),
+        ("deb", "*.deb"),
+        ("rpm", "*.rpm"),
+    ):
+        for path in _bundle_paths(pattern, suffix):
+            if "uninstall" in path.name.lower():
+                continue
+            renamed.append(_rename(path, f"{base_name}{path.suffix}"))
     return renamed
 
 

@@ -20,6 +20,38 @@ def _load_smoke_script():
     return module
 
 
+def test_linux_smoke_requires_sidecar_next_to_installed_app(tmp_path):
+    smoke = _load_smoke_script()
+    app = tmp_path / "app"
+    app.write_bytes(b"app")
+    package = tmp_path / "dummy.AppImage"
+    package.write_bytes(b"#!/bin/sh\nmkdir -p squashfs-root/usr/bin")
+    package.chmod(package.stat().st_mode | 0o111)
+
+    with pytest.raises(SystemExit, match="installed Linux sidecar not found"):
+        smoke._install_linux_package(package, tmp_path)
+
+
+def test_linux_smoke_installs_appimage_and_finds_sidecar(tmp_path):
+    smoke = _load_smoke_script()
+    package = tmp_path / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage"
+    # Simulate --appimage-extract output layout.
+    (tmp_path / "squashfs-root" / "usr" / "bin").mkdir(parents=True)
+    app = tmp_path / "squashfs-root" / "usr" / "bin" / "app"
+    sidecar = tmp_path / "squashfs-root" / "usr" / "bin" / "nber-sidecar"
+    app.write_bytes(b"app")
+    sidecar.write_bytes(b"sidecar")
+
+    # The helper expects the package to exist, so create a dummy executable script.
+    package.write_text("#!/bin/sh\n:\n", encoding="utf-8")
+    package.chmod(package.stat().st_mode | 0o111)
+
+    executable = smoke._install_linux_package(package, tmp_path)
+
+    assert executable == app
+    assert sidecar.exists()
+
+
 def test_windows_smoke_requires_sidecar_next_to_installed_app(tmp_path):
     smoke = _load_smoke_script()
     app = tmp_path / "NBER-CLI Desktop.exe"

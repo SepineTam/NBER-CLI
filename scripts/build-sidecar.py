@@ -78,7 +78,9 @@ def detect_target_triple() -> str:
         return "aarch64-apple-darwin" if machine in {"arm64", "aarch64"} else "x86_64-apple-darwin"
     if system == "Windows":
         return "x86_64-pc-windows-msvc"
-    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS and Windows sidecar builds")
+    if system == "Linux":
+        return "x86_64-unknown-linux-gnu"
+    raise RuntimeError("NBER-CLI Desktop V1 only supports macOS, Windows and Linux sidecar builds")
 
 
 if __name__ == "__main__":

@@ -25,11 +25,37 @@ def test_windows_release_check_requires_bundled_sidecar(tmp_path, monkeypatch):
     release_dir = tmp_path / "release"
     bundle_dir = release_dir / "bundle" / "nsis"
     bundle_dir.mkdir(parents=True)
-    (bundle_dir / "NBER-CLI Desktop_0.8.0_x64-setup.exe").write_bytes(b"installer")
+    (bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe").write_bytes(b"installer")
     (release_dir / "app.exe").write_bytes(b"app")
 
     with pytest.raises(SystemExit, match="missing bundled Windows sidecar"):
         checker._check_windows(max_mb=80, require_signed=False)
+
+
+def test_linux_release_check_requires_bundled_sidecar(tmp_path, monkeypatch):
+    checker = _load_release_checker()
+    monkeypatch.setattr(checker, "TARGET_DIR", tmp_path)
+    release_dir = tmp_path / "release"
+    bundle_dir = release_dir / "bundle" / "appimage"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage").write_bytes(b"installer")
+    (release_dir / "app").write_bytes(b"app")
+
+    with pytest.raises(SystemExit, match="missing bundled Linux sidecar"):
+        checker._check_linux(max_mb=80, require_signed=False)
+
+
+def test_linux_release_check_accepts_app_and_sidecar(tmp_path, monkeypatch):
+    checker = _load_release_checker()
+    monkeypatch.setattr(checker, "TARGET_DIR", tmp_path)
+    release_dir = tmp_path / "release"
+    bundle_dir = release_dir / "bundle" / "appimage"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage").write_bytes(b"installer")
+    (release_dir / "app").write_bytes(b"app")
+    (release_dir / "nber-sidecar").write_bytes(b"sidecar")
+
+    checker._check_linux(max_mb=80, require_signed=False)
 
 
 def test_windows_release_check_accepts_sidecar_and_app_exe(tmp_path, monkeypatch):
@@ -38,7 +64,7 @@ def test_windows_release_check_accepts_sidecar_and_app_exe(tmp_path, monkeypatch
     release_dir = tmp_path / "release"
     bundle_dir = release_dir / "bundle" / "nsis"
     bundle_dir.mkdir(parents=True)
-    (bundle_dir / "NBER-CLI Desktop_0.8.0_x64-setup.exe").write_bytes(b"installer")
+    (bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe").write_bytes(b"installer")
     (release_dir / "app.exe").write_bytes(b"app")
     (release_dir / "nber-sidecar.exe").write_bytes(b"sidecar")
 
@@ -54,7 +80,7 @@ def test_windows_release_check_requires_signatures_for_installer_app_and_sidecar
     release_dir = tmp_path / "release"
     bundle_dir = release_dir / "bundle" / "nsis"
     bundle_dir.mkdir(parents=True)
-    installer = bundle_dir / "NBER-CLI Desktop_0.8.0_x64-setup.exe"
+    installer = bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe"
     app = release_dir / "app.exe"
     sidecar = release_dir / "nber-sidecar.exe"
     installer.write_bytes(b"installer")
