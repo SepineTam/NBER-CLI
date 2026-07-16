@@ -6,6 +6,16 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.8.1 - 2026-07-16
+
+### Added
+- Added Linux x64 build support to the Desktop release workflow, producing AppImage and Debian packages alongside macOS and Windows artifacts.
+- Added macOS keyboard shortcuts for Desktop: `Command-1` navigates to the feed, `Command-R` refreshes papers, and `Command-F` focuses paper search.
+- Added a manual "Check for Updates" control in the Desktop app.
+
+### Fixed
+- Ensured the Desktop sidecar process is stopped and its process group is cleaned up when the application exits.
+
 ## 0.8.0 - 2026-07-13
 
 ### Added

@@ -6,6 +6,16 @@
 
 ## Unreleased
 
+## 0.8.1 - 2026-07-16
+
+### Added
+- 为 Desktop 发布工作流增加 Linux x64 构建支持，与 macOS 和 Windows 产物一起生成 AppImage 和 Debian 安装包。
+- 为 Desktop 增加 macOS 快捷键：`Command-1` 切换到 Feed，`Command-R` 刷新论文，`Command-F` 聚焦论文搜索。
+- 在 Desktop 应用里增加手动"检查更新"入口。
+
+### Fixed
+- 修复 Desktop 退出时 sidecar 进程未停止、进程组未清理的问题。
+
 ## 0.8.0 - 2026-07-13
 
 ### Added

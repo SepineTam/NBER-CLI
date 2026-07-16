@@ -1,6 +1,6 @@
 # NBER-CLI Desktop
 
-NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, TypeScript, a local FastAPI sidecar, and the default SQLite database at `~/.nber-cli/nber.db`. Desktop 0.8.0 does not yet honor the CLI's custom `feed.db-path`; see the [Desktop user guide](../docs/en/desktop.md).
+NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, TypeScript, a local FastAPI sidecar, and the default SQLite database at `~/.nber-cli/nber.db`. Desktop 0.8.1 does not yet honor the CLI's custom `feed.db-path`; see the [Desktop user guide](../docs/en/desktop.md).
 
 ## Development
 
@@ -82,7 +82,7 @@ On Windows CI or a Windows machine, use the same release checker and smoke scrip
 
 ## Release
 
-GitHub Actions builds Desktop artifacts from the same `v*` tag used by the Python package release, or when the Desktop workflow is manually dispatched. Pushing a tag such as `v0.8.0` runs the full checks and creates one draft GitHub Release containing the macOS and Windows installers. Publishing that same Release triggers the PyPI workflow, so the CLI and Desktop ship under one version and one Release.
+GitHub Actions builds Desktop artifacts from the same `v*` tag used by the Python package release, or when the Desktop workflow is manually dispatched. Pushing a tag such as `v0.8.1` runs the full checks and creates one draft GitHub Release containing the macOS and Windows installers. Publishing that same Release triggers the PyPI workflow, so the CLI and Desktop ship under one version and one Release.
 
 Desktop releases are unsigned by default. To require signed Windows artifacts plus signed and notarized macOS artifacts in the future, set the repository variable `DESKTOP_REQUIRE_SIGNING` to `true` and configure the signing secrets below.
 
