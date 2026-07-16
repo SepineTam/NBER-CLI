@@ -113,6 +113,8 @@ Server 启动时会把本地 SQLite 数据库升级到 schema v3，并在 `/api/
 
 从 [GitHub Releases](https://github.com/sepinetam/nber-cli/releases) 下载 macOS 或 Windows 安装包。当前安装包尚未签名；在绕过 macOS Gatekeeper 或 Windows SmartScreen 警告前，请先阅读 [Desktop 指南](docs/zh/desktop.md)。其中也说明了支持平台、本地文件、设置、备份方式和当前自定义数据库路径限制。
 
+如果 macOS 提示“NBER-CLI Desktop.app”已损坏，无法打开，请在终端执行 `xattr -cr /Applications/NBER-CLI\ Desktop.app`，然后重新打开应用。
+
 ## 文档
 
 更完整的用法、命令参考、MCP 配置、Python API 示例、开发说明和发布记录请见 [中文文档](docs/zh/index.md)。

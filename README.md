@@ -114,6 +114,8 @@ The server upgrades the local SQLite database to schema v3 on startup and expose
 
 Download the macOS or Windows installer from [GitHub Releases](https://github.com/sepinetam/nber-cli/releases). Current installers are unsigned, so read the [Desktop guide](docs/en/desktop.md) before overriding any macOS Gatekeeper or Windows SmartScreen warning. The guide also documents supported platforms, local files, settings, backup, and the current custom-database limitation.
 
+If macOS reports that "NBER-CLI Desktop.app" is damaged and cannot be opened, run `xattr -cr /Applications/NBER-CLI\ Desktop.app` in Terminal, then reopen the app.
+
 ## Documentation
 
 More usage details, command references, MCP setup, Python API examples, development notes, and release history are available in the [documentation](docs/en/index.md).
