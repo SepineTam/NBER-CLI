@@ -54,6 +54,8 @@ def main() -> None:
         migrations_data,
         str(ENTRY),
     ]
+    if platform.system() == "Windows":
+        command.append("--windowed")
     subprocess.run(command, cwd=ROOT, check=True)
 
     source_name = "nber-sidecar.exe" if platform.system() == "Windows" else "nber-sidecar"

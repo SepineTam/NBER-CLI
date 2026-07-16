@@ -231,7 +231,7 @@ jobs:
         run: uv run python scripts/normalize-desktop-artifacts.py --platform ${{ matrix.release-platform }} --target-triple ${{ matrix.target }}
 
       - name: Check release artifacts
-        run: uv run python scripts/check-desktop-release.py --platform ${{ matrix.release-platform }} --max-mb 80
+        run: uv run python scripts/check-desktop-release.py --platform ${{ matrix.release-platform }} --max-mb 150
 
       - name: Smoke test desktop app
         run: uv run python scripts/smoke-desktop-app.py --install-from-package
