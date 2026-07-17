@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from .cli import main
-from .config import NBER_CLI_CONFIG, NBERCLIConfig
-from .config_store import (
+from .config import config_store, NBER_CLI_CONFIG, NBERCLIConfig
+from .config import (
     InfoCacheSettings,
     get_config_value,
     get_info_cache_settings,
@@ -30,6 +30,8 @@ from .db import (
     count_info_cache,
     get_database_path,
     get_info_cache_ttl_days,
+    get_paper_with_info_cache,
+    get_paper_with_info_cache_result,
     get_schema_version,
     init_database,
     is_info_cache_enabled,
@@ -42,16 +44,16 @@ from .db import (
     touch_info_cache,
     write_info_cache,
 )
-from .download import download_multiple_papers, download_paper, download_paper_to_file
-from .feed import (
+from .fetch import download_multiple_papers, download_paper, download_paper_to_file
+from .fetch import (
     clean_feed_cache,
     fetch_feed,
     init_feed_database,
     migrate_feed_database,
     parse_feed_xml,
 )
-from .fetcher import get_nber, search_nber
-from .formatters import feed_results, info, related, search_results
+from .fetch import get_nber, search_nber
+from .utils import feed_results, info, related, search_results
 
 __all__ = [
     "DownloadBatchResult",
@@ -67,6 +69,7 @@ __all__ = [
     "NBERSearchResults",
     "clear_info_cache",
     "clean_feed_cache",
+    "config_store",
     "count_info_cache",
     "download_multiple_papers",
     "download_paper",
@@ -78,6 +81,8 @@ __all__ = [
     "get_info_cache_settings",
     "get_info_cache_ttl_days",
     "get_nber",
+    "get_paper_with_info_cache",
+    "get_paper_with_info_cache_result",
     "get_schema_version",
     "init_database",
     "init_feed_database",

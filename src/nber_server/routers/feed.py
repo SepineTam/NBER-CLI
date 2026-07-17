@@ -9,7 +9,7 @@ from fastapi import APIRouter, Query, Request
 from starlette.concurrency import run_in_threadpool
 
 from nber_cli import db
-from nber_cli.feed import fetch_feed
+from nber_cli.fetch import fetch_feed
 from nber_server.errors import (
     ApiError,
     EXTERNAL_SERVICE_ERROR_CODE,

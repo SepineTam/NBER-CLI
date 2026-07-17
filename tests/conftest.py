@@ -19,7 +19,7 @@ def pytest_configure(config):
 @pytest.fixture(autouse=True)
 def isolated_nber_home(tmp_path):
     with (
-        patch("nber_cli.db.Path.home", return_value=tmp_path),
-        patch("nber_cli.config_store.Path.home", return_value=tmp_path),
+        patch("nber_cli.db.db.Path.home", return_value=tmp_path),
+        patch("nber_cli.config.config_store.Path.home", return_value=tmp_path),
     ):
         yield tmp_path
