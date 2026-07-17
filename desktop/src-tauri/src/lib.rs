@@ -59,6 +59,11 @@ fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if std::env::var_os("NBER_DESKTOP_INIT_ONLY").is_some() {
+        commands::initialize_runtime().expect("failed to initialize native desktop data runtime");
+        return;
+    }
+
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {

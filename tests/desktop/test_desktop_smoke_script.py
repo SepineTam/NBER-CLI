@@ -57,6 +57,12 @@ def test_smoke_seed_uses_native_desktop_settings(tmp_path):
     assert config["desktop"]["feed_refresh_interval_minutes"] == 60
 
 
+def test_smoke_uses_headless_native_runtime_mode():
+    script = (ROOT / "scripts" / "smoke-desktop-app.py").read_text(encoding="utf-8")
+
+    assert 'env["NBER_DESKTOP_INIT_ONLY"] = "1"' in script
+
+
 def test_native_runtime_ready_requires_rust_schema_and_database_path(tmp_path):
     smoke = _load_smoke_script()
     smoke._seed_sample_environment(tmp_path)

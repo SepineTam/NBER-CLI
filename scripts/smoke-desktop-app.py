@@ -47,6 +47,7 @@ def main() -> None:
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
         env["USERPROFILE"] = str(temp_home)
+        env["NBER_DESKTOP_INIT_ONLY"] = "1"
         process = subprocess.Popen(
             [str(executable)],
             cwd=ROOT,
@@ -241,10 +242,10 @@ def _wait_for_native_runtime(
 ) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if process.poll() is not None:
-            return False
         if _native_runtime_ready(temp_home):
             return True
+        if process.poll() is not None:
+            return False
         time.sleep(0.25)
     return False
 
