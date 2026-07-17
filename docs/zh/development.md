@@ -94,7 +94,7 @@ uv run --group docs mkdocs build --strict
 - 在 `v*` tag 或手动触发时构建 macOS、Windows Desktop 安装包。
 - 发布 GitHub release 时发布到 PyPI。
 
-普通 PR 的 Desktop 检查目前会运行 Python、TypeScript、前端测试和 Vite build，但不会运行 `cargo check` 或完整 Tauri build。修改 Rust 时需要在本地执行 `cargo check`；完整平台构建只在 tag 或手动触发时运行。
+普通 PR 的 Desktop 检查会运行 Python、TypeScript、前端测试、Vite build 和 Rust 单元测试。完整平台安装包只在 tag 或手动触发时构建。
 
 ## 发布检查清单
 
@@ -142,7 +142,7 @@ uv run --group docs mkdocs build --strict
     /tmp/nber-cli-smoke/bin/nber-server --help
     /tmp/nber-cli-smoke/bin/nber-sidecar --help
     ```
-16. 在每个发布平台运行 Desktop 产物检查和安装包 smoke test，并确认 macOS arm64/x64、Windows x64 产物均已上传。
+16. 在每个发布平台运行 Desktop 产物检查和原生安装包 smoke test，并确认 macOS arm64/x64、Windows x64、Linux x64 产物均已上传。
 17. **在发布分支上运行 `git diff --check`。** 这一步能抓到行尾空白与冲突标记。
 
 ### 发布

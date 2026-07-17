@@ -10,6 +10,6 @@ export function autoRefreshIntervalMs(intervalMinutes: number | null | undefined
   return Math.max(1, Math.round(intervalMinutes)) * MINUTE_MS
 }
 
-export function canAutoRefresh(visibilityState: DocumentVisibilityState, sidecarReady: boolean) {
-  return sidecarReady && visibilityState === 'visible'
+export function canAutoRefresh(visibilityState: DocumentVisibilityState, localReady: boolean) {
+  return localReady && visibilityState === 'visible'
 }

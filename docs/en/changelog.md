@@ -6,6 +6,21 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.9.0 - 2026-07-17
+
+### Added
+- Added a native Rust data layer for Desktop feed listing, RSS refresh, paper metadata caching, settings, and read/unread state.
+- Added Rust tests for CLI-compatible SQLite schema handling, custom database paths, RSS repair/parsing, paper-page parsing, and read status.
+
+### Changed
+- Desktop now talks directly to the configured SQLite database and NBER endpoints; it no longer starts, bundles, or requires a Python sidecar.
+- Desktop refresh now performs the same RSS upsert and `feed_fetches` accounting as `nber-cli feed fetch`.
+- Desktop now honors the CLI's configured `feed.db-path` and refuses to overwrite malformed configuration files.
+- Release checks and installer smoke tests now require Python sidecar binaries to be absent.
+
+### Removed
+- Removed the Desktop service-port setting and the sidecar build/runtime lifecycle from the Tauri application and release workflow.
+
 ## 0.8.1 - 2026-07-16
 
 ### Added

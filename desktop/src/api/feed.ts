@@ -1,4 +1,4 @@
-import { apiClient, unwrap } from './client'
+import { invoke } from '@tauri-apps/api/core'
 import type { FeedList, FeedRefreshResult } from '../types'
 
 interface FetchFeedInput {
@@ -8,9 +8,9 @@ interface FetchFeedInput {
 
 export function fetchFeed(input: FetchFeedInput = {}) {
   const { limit = 100, offset = 0 } = input
-  return unwrap<FeedList>(apiClient.get('/feed', { params: { limit, offset } }))
+  return invoke<FeedList>('get_feed', { limit, offset })
 }
 
 export function refreshFeed() {
-  return unwrap<FeedRefreshResult>(apiClient.post('/feed/refresh'))
+  return invoke<FeedRefreshResult>('refresh_feed')
 }

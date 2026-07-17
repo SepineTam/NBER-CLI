@@ -8,7 +8,6 @@ import type { UpdateCheckResult } from '../updateCheck'
 
 export function SettingsPage() {
   const { settings, savingSettings, loadSettings, updateSettings } = useAppStore()
-  const [port, setPort] = useState('31527')
   const [interval, setIntervalValue] = useState('60')
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
@@ -19,14 +18,12 @@ export function SettingsPage() {
       void loadSettings()
       return
     }
-    setPort(String(settings.server_port))
     setIntervalValue(String(settings.feed_refresh_interval_minutes))
   }, [loadSettings, settings])
 
   function submit(event: FormEvent) {
     event.preventDefault()
     void updateSettings({
-      server_port: Number(port),
       feed_refresh_interval_minutes: Number(interval),
     })
   }
@@ -60,20 +57,10 @@ export function SettingsPage() {
             <span>01</span>
             <div>
               <strong>运行参数</strong>
-              <p>端口修改需要重启应用后生效。</p>
+                  <p>控制桌面端自动同步最新论文的频率。</p>
             </div>
           </div>
 
-          <label>
-            <span>本地服务端口</span>
-            <input
-              min={1024}
-              max={65535}
-              type="number"
-              value={port}
-              onChange={(event) => setPort(event.target.value)}
-            />
-          </label>
           <label>
             <span>论文同步间隔</span>
             <div className="input-with-unit">

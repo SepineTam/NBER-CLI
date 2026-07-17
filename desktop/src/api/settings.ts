@@ -1,13 +1,16 @@
-import { apiClient, unwrap } from './client'
+import { invoke } from '@tauri-apps/api/core'
 import type { Settings } from '../types'
 
 export function fetchSettings() {
-  return unwrap<Settings>(apiClient.get('/settings'))
+  return invoke<Settings>('get_settings')
 }
 
 export function saveSettings(input: {
-  server_port?: number
   feed_refresh_interval_minutes?: number
 }) {
-  return unwrap<Settings>(apiClient.patch('/settings', input))
+  return invoke<Settings>('save_settings', {
+    input: {
+      feedRefreshIntervalMinutes: input.feed_refresh_interval_minutes,
+    },
+  })
 }

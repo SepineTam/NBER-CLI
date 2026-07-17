@@ -1,6 +1,6 @@
 # Local HTTP API
 
-The optional FastAPI service powers NBER-CLI Desktop and can also be used by trusted local integrations. It reuses the CLI's configuration and persistence modules, feed implementation, and metadata cache.
+The optional FastAPI service is available for trusted local integrations. Desktop 0.9.0 uses native Rust commands instead. The service continues to reuse the CLI's configuration, persistence, feed, and metadata-cache modules.
 
 ## Install and Start
 
@@ -22,7 +22,7 @@ uv run nber-server --host 127.0.0.1 --port 31527
 | `--host` | `127.0.0.1` | Interface to bind. Keep the loopback default. |
 | `--port` | `31527` | Local HTTP port. |
 | `--db-path` | `~/.nber-cli/nber.db` | SQLite database used by this server process. |
-| `--log-dir` | `~/.nber-cli/logs` | Directory exposed in settings and used by the Desktop sidecar. |
+| `--log-dir` | `~/.nber-cli/logs` | Directory exposed by the optional server settings endpoint. |
 
 The server creates or upgrades the database to schema v3 during startup.
 

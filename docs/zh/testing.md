@@ -37,7 +37,7 @@ uv run --group docs mkdocs build --strict
 | 日志 | `tests/test_logging.py`、`tests/test_logs.py` | 日志配置、调试行为、轮转文件设置。 |
 | 本地 HTTP server | `tests/test_server.py` | Schema 升级、envelope、Feed 分页、论文/已读状态、设置和外部错误。 |
 | 发布元数据 | `tests/test_release_metadata.py` | 版本同步、changelog、共用 tag 和签名策略。 |
-| Desktop 发布工具 | `tests/test_desktop_*.py` | Sidecar/产物命名、签名校验、发布检查和 smoke 工具。 |
+| Desktop 发布工具 | `tests/test_desktop_*.py` | 产物命名、签名校验、原生安装包检查和 smoke 工具。 |
 | React 工作台 | `desktop/src/**/*.test.ts(x)` | Feed 渲染、论文详情、引用格式和自动刷新辅助逻辑。 |
 
 ## 隔离模型
@@ -46,7 +46,7 @@ uv run --group docs mkdocs build --strict
 
 测试会按需 patch `Path.home()`、数据库路径、网络函数和 HTTP session。目标是让测试能反复运行，不依赖开发者机器状态或网络可用性。
 
-前端测试使用 jsdom 和 mock API 边界。Desktop 安装包 smoke test 会创建临时 home 和安装目录；其中 live-refresh 选项是会主动访问 NBER 的例外。
+前端测试使用 jsdom 和 mock 原生命令边界。Desktop 安装包 smoke test 会创建临时 home 和安装目录，启动已安装应用，并确认 Rust 在没有 Python sidecar 时完成共享 SQLite schema 初始化。
 
 ```mermaid
 flowchart LR
@@ -86,14 +86,14 @@ flowchart LR
 - CLI 与 MCP 的下载路径限制。
 - Cache refresh、滑动 TTL 和按日期清理。
 - 本地 HTTP 响应结构、Feed 分页、已读状态副作用和设置校验。
-- Desktop 产物命名、体积/签名检查、内置 sidecar 定位和安装包启动。
+- Desktop 产物命名、体积/签名检查、Python sidecar 缺失检查和原生安装包启动。
 
 ## 当前 CI 边界
 
 - PR 会运行 Python lint/test，以及前端 lint/test/build。
 - PR 当前不会运行 `cargo check`，也不会启动真实 Tauri WebView。
 - 完整 Tauri build 和安装包 smoke test 只在 `v*` tag 或手动触发 Desktop workflow 时运行。
-- 安装包 smoke 脚本直接请求 sidecar，因此无法发现只在 WebView 中出现的问题，例如 CORS Origin 不匹配。
+- 安装包 smoke 脚本验证打包后的启动和原生数据库初始化；React 行为由前端测试覆盖。
 - Python 包 CI 仍需要增加“安装构建后的 wheel”检查，才能证明每个已声明 console entry point 确实存在于产物中。
 
 ## 添加测试

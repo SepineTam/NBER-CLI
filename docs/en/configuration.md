@@ -30,8 +30,8 @@ The following list is exhaustive — values not listed here are constants.
 | `feed.db-path` (database path or `sqlite:///...` URL) | Yes | `~/.nber-cli/config.json`; set via `nber-cli db init --db-path ...` or `nber-cli db migrate ...` |
 | `download.restrict_dir` | Stored, not used as the CLI default | `~/.nber-cli/config.json`; the current CLI still defaults `--restrict` to `true` on every invocation |
 | `download.concurrency` | Yes | `~/.nber-cli/config.json`; set via `nber-cli config set download.concurrency <N>` |
-| `desktop.server_port` | Yes | `~/.nber-cli/config.json` or Desktop Settings; takes effect after restarting Desktop |
-| `desktop.feed_refresh_interval_minutes` | Yes | `~/.nber-cli/config.json` or Desktop Settings; use `1`–`65535` for values that survive a Desktop restart |
+| `desktop.server_port` | Legacy / HTTP API only | Ignored by Desktop 0.9.0; retained for optional `nber-server` compatibility |
+| `desktop.feed_refresh_interval_minutes` | Yes | `~/.nber-cli/config.json` or Desktop Settings; valid range `1`–`65535` |
 | Request timeout | **No** | Code constant in `NBERCLIConfig` |
 | Retry count / request attempts | **No** | Code constant in `NBERCLIConfig` |
 | Download connection limits | **No** | Code constant in `NBERCLIConfig` |
@@ -65,7 +65,6 @@ Current schema:
     "concurrency": 3
   },
   "desktop": {
-    "server_port": 31527,
     "feed_refresh_interval_minutes": 60
   }
 }
@@ -79,7 +78,7 @@ Current schema:
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
 
-`desktop.server_port` selects the loopback port used by the local HTTP sidecar and must be between `1024` and `65535`; a changed port takes effect after Desktop restarts. The Python settings API accepts any positive `desktop.feed_refresh_interval_minutes`, but the Rust shell persists only values through `65535`; a larger saved value falls back to `60` the next time Desktop starts. Use `1`–`65535` until that contract is unified.
+Desktop 0.9.0 does not run a local server, so it ignores the legacy `desktop.server_port` value. `desktop.feed_refresh_interval_minutes` controls native automatic RSS refresh and must be between `1` and `65535`.
 
 `info.cache_enabled` controls the `info_cache` lookup globally. Set to `false` to force every `info` call (and the MCP `get_paper_info` tool) to go straight to NBER. Defaults to `true`.
 

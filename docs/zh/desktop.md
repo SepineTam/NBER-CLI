@@ -1,89 +1,62 @@
 # Desktop 应用
 
-NBER-CLI Desktop 提供一个本地论文工作台，用来追踪新发布的 NBER 工作论文。安装包已经内置 Python HTTP sidecar，不需要用户另行安装 Python；配置、数据库和日志都保存在本机。
+NBER-CLI Desktop 是用于追踪 NBER 新工作论文的本地研究工作台。从 0.9.0 开始，Desktop 由 Rust 直接请求数据并读写 SQLite，不会启动或打包 Python、本地 Web 服务或 Python sidecar 进程。
 
-## 选择安装包
+## 下载哪个安装包
 
-只从项目的 [GitHub Releases](https://github.com/sepinetam/nber-cli/releases) 页面下载安装包。
+只从项目官方 [GitHub Releases](https://github.com/sepinetam/nber-cli/releases) 页面下载安装包。
 
-| 平台 | 安装包标识 | 适用设备 |
+| 平台 | 文件标识 | 适用设备 |
 | --- | --- | --- |
-| macOS Apple 芯片 | `macOS-arm64.dmg` | M 系列芯片 Mac |
+| macOS Apple silicon | `macOS-arm64.dmg` | M 系列芯片 Mac |
 | macOS Intel | `macOS-x64.dmg` | Intel 芯片 Mac |
 | Windows | `Windows-x64.exe` | 64 位 Windows |
+| Linux | `Linux-x64.AppImage` 或 `.deb` | 64 位 Linux 桌面 |
 
-目前不提供 Linux 安装包。Desktop 与 Python 包使用同一版本号，并发布在同一个 GitHub Release 中。
+Desktop 与 Python 包使用同一个版本号，并发布在同一个 GitHub Release 中。
 
-## 未签名版本说明
+## 未签名提示
 
-项目目前没有付费的 Apple 和 Windows 证书，因此 Desktop 安装包尚未进行代码签名或 macOS notarization。首次启动时，macOS Gatekeeper 或 Windows SmartScreen 可能显示警告。系统出现警告并不代表文件一定安全。
+项目目前没有付费的 Apple 和 Windows 证书，因此安装包没有代码签名或 macOS notarization。macOS Gatekeeper 或 Windows SmartScreen 可能在首次启动时警告。
 
-决定继续运行前，请先确认：
+放行前，请确认文件来自官方 `SepineTam/NBER-CLI` Release，并检查版本、系统和 CPU 架构是否匹配。不要运行来自镜像、聊天附件或其他不可信来源的文件。
 
-1. 安装包来自官方 `SepineTam/NBER-CLI` GitHub Release。
-2. 文件名、版本、平台和 CPU 架构与所选 Release 一致。
-3. 如果文件来自镜像、聊天附件或其他不可信来源，不要绕过警告。
+## 首次启动与本地数据
 
-macOS 首次拦截后，可以进入**系统设置 → 隐私与安全性**；只有完成上述检查后，才使用**仍要打开**。Windows SmartScreen 中也只有在确认文件可信后，才展开**更多信息**并选择**仍要运行**。
-
-## 首次启动会发生什么
-
-Desktop 会启动一个只监听 `127.0.0.1` 的本地 HTTP 服务，然后读取本地 feed 数据库。如果数据库中没有 feed 条目，应用会自动请求当前的 NBER RSS feed。
-
-以下本地文件或目录可能被创建或更新：
+Desktop 会打开配置中的本地数据库。如果 Feed 为空，Rust 会请求当前 NBER RSS Feed 并保存结果。
 
 | 路径 | 用途 |
 | --- | --- |
-| `~/.nber-cli/config.json` | Desktop 端口与自动刷新间隔 |
-| `~/.nber-cli/nber.db` | Feed、论文元数据缓存、日志与已读状态 |
-| `~/.nber-cli/logs/sidecar.stdout.log` | 本地服务标准输出 |
-| `~/.nber-cli/logs/sidecar.stderr.log` | 本地服务错误与诊断信息 |
+| `~/.nber-cli/config.json` | 数据库路径、缓存设置和自动刷新间隔 |
+| `~/.nber-cli/nber.db` | Feed、论文缓存、历史记录和已读/未读状态 |
+| `~/.nber-cli/logs/` | 本地诊断目录；不会再生成 Python sidecar 日志 |
 
-正常退出 Desktop 时，本地服务会随之停止。
+Desktop 会读取 CLI 共享配置中的 `feed.db-path`，因此 `nber-cli db migrate` 设置的自定义数据库可直接使用。在 macOS 和 Linux 上，路径必须位于用户 home 目录内。
 
-!!! warning "当前数据库路径限制"
-    Desktop 0.8.0 启动 sidecar 时固定使用 `~/.nber-cli/nber.db`，暂时不会读取 `nber-cli db migrate` 产生的自定义 `feed.db-path`，启动时还可能把默认路径写回 `config.json`。如果你使用自定义或旧版数据库路径，请在打开 Desktop 前备份配置和数据库。
+如果 `config.json` 无法解析，Desktop 会报错并停止，不会用默认值覆盖原文件。修复或恢复配置后再打开应用。
 
-!!! warning "无效配置文件"
-    Desktop 0.8.0 会把无法解析的 `config.json` 当作空对象，并把默认值写回文件。如果无效配置中还有需要保留的设置，请先备份和修复，再打开 Desktop。
+## 主要操作
 
-## 主要功能
-
-- **刷新 Feed**：获取最新 NBER 工作论文 RSS 条目。
-- **打开论文**：加载论文元数据，并把它标记为已读。
-- **标记已读或未读**：状态保存在本地 `read_status` 表。
-- **在 NBER 打开**：用系统浏览器访问 NBER 论文页面。
+- **刷新 Feed**：请求公开 NBER RSS Feed，并执行与 `nber-cli feed fetch` 相同的数据库更新。
+- **打开论文**：优先读取有效缓存，否则请求 NBER 论文页面，然后标记为已读。
+- **标记已读或未读**：直接更新共享数据库中的 `read_status` 表。
+- **在 NBER 打开**：打开公开论文页面。
 - **复制引用**：支持 BibTeX、APA、MLA、Harvard、Chicago 和 GB/T 7714。
-- **加载更多**：分页查看本地缓存的 Feed 条目。
-
-论文元数据未命中缓存时，打开论文会向 NBER 发起网络请求。应用不会自动下载 PDF。
+- **加载更多**：从本地 Feed 缓存继续分页。
 
 ## 设置
 
-设置页提供：
-
-- **本地服务端口**：默认 `31527`，有效范围 `1024`–`65535`；修改后需要重启 Desktop。
-- **Feed 刷新间隔**：默认 `60` 分钟，请使用 `1` 至 `65535`；更大的值可能保存成功，但重启后会回退到 `60`。只有应用正在运行、本地服务正常且窗口可见时才会自动刷新。
-- **本地路径**：显示数据库与配置文件位置，并可打开 sidecar 日志目录。
-
-所有配置都保留在本机。完整说明见[配置](configuration.md)和[持久化层](persistence.md)。
+设置页提供自动刷新间隔，以及配置、数据库和日志目录的位置。Desktop 已不再运行本地 HTTP 进程，因此没有服务端口设置。只有在你主动运行可选的 `nber-server` 时，服务器端口配置才有意义。
 
 ## 故障排查
 
-| 现象 | 检查方法 |
+| 情况 | 怎么处理 |
 | --- | --- |
-| 本地服务不可用 | 确认设置的端口没有被其他程序占用，然后重启 Desktop。 |
-| Feed 为空 | 检查能否访问 `nber.org`，然后点击刷新。 |
-| 论文详情加载失败 | 论文可能已移除、受限或暂时不可用；检查 sidecar 日志。 |
-| 修改端口后没有变化 | 端口在重启 Desktop 后生效。 |
-| 找不到预期的自定义数据库 | 查看上面的数据库路径限制；当前 Desktop 固定使用默认数据库。 |
+| Feed 刷新失败 | 检查能否访问 `nber.org` 后重试；已有本地数据不会丢失。 |
+| 论文详情加载失败 | 论文可能被移除、受限或暂时不可用；Feed 摘要仍保存在本地。 |
+| 找不到自定义数据库 | 检查 `~/.nber-cli/config.json` 中的 `feed.db-path`；macOS/Linux 下必须在 home 目录内。 |
+| 提示数据库版本更高 | 升级 Desktop；旧版本会拒绝写入较新的数据库结构。 |
 
-日志位于 `~/.nber-cli/logs/`。其中可能包含错误细节和本地路径，分享前请先检查内容。
+Desktop 不会自动安装更新。请从官方 GitHub Release 下载新版本并覆盖安装。
 
-## 升级、备份与卸载
-
-Desktop 目前不会自动更新。请从官方 GitHub Release 下载新版本安装包，并覆盖安装现有应用。
-
-备份或删除本地数据前，先关闭 Desktop，并停止单独运行的 `nber-server` 或 MCP 进程。备份 `nber.db` 时，如果存在 `nber.db-wal` 和 `nber.db-shm`，也要一起保存。在线 SQLite 备份命令见[持久化层](persistence.md#_6)。
-
-卸载应用不会自动删除 `~/.nber-cli`。只有在确认不再需要配置、数据库、日志和阅读历史后，才单独删除这个目录。
+备份或删除本地数据前，先关闭 Desktop，并停止单独运行的 CLI、MCP 或 HTTP 进程。如果存在 `nber.db-wal` 和 `nber.db-shm`，备份 `nber.db` 时也要一起保存。在线备份方法见[持久化层](persistence.md#_6)。

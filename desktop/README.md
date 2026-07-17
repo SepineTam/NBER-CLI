@@ -1,50 +1,30 @@
 # NBER-CLI Desktop
 
-NBER-CLI Desktop is the desktop shell for NBER-CLI V1. It uses Tauri v2, React, TypeScript, a local FastAPI sidecar, and the default SQLite database at `~/.nber-cli/nber.db`. Desktop 0.8.1 does not yet honor the CLI's custom `feed.db-path`; see the [Desktop user guide](../docs/en/desktop.md).
+NBER-CLI Desktop is a Tauri v2 and React research workspace. Since Desktop 0.9.0, its Rust core talks directly to the shared SQLite database and NBER endpoints. The application does not start, bundle, or require a Python sidecar.
+
+Desktop and the Python CLI share the configured database, including `feed_items`, `info_cache`, and `read_status`. A custom `feed.db-path` created by `nber-cli db migrate` is honored when it points inside the user's home directory.
 
 ## Development
 
 From the repository root:
 
 ```bash
-uv sync --dev --extra server
 cd desktop
 npm install
 npm run tauri dev
 ```
 
-In development, the Tauri shell starts the Python sidecar through:
+The React frontend calls these native Tauri commands:
 
-```bash
-uv run nber-sidecar --port 31527
-```
+- `get_config`
+- `get_feed`
+- `refresh_feed`
+- `get_paper`
+- `set_paper_read_status`
+- `get_settings`
+- `save_settings`
 
-## Python API
-
-```bash
-uv run nber-sidecar --host 127.0.0.1 --port 31527
-```
-
-Useful endpoints:
-
-- `GET /api/v1/health`
-- `GET /api/v1/feed`
-- `POST /api/v1/feed/refresh`
-- `GET /api/v1/papers/{paper_id}`
-- `POST /api/v1/papers/{paper_id}/mark-read`
-- `GET /api/v1/settings`
-- `PATCH /api/v1/settings`
-
-See the [Local HTTP API reference](../docs/en/http-api.md) for query parameters, request bodies, response envelopes, error codes, and endpoint side effects.
-
-## Build Sidecar
-
-```bash
-uv sync --extra server --group desktop-build
-uv run python scripts/build-sidecar.py --clean
-```
-
-The script writes the platform-specific sidecar to `desktop/src-tauri/binaries/` using Tauri's expected target triple naming.
+The optional Python HTTP API remains available for other local integrations, but Desktop does not use it.
 
 ## Build App
 
@@ -54,37 +34,35 @@ npm run build
 npm run tauri build
 ```
 
-Code signing requires the Apple Developer ID and Windows code signing secrets listed in the Release section below.
+No Python runtime or sidecar build step is required. Code signing remains optional because the project currently ships unsigned packages.
 
 ## Verification
 
-Run the repository gates before preparing a desktop build:
+Run the repository gates before preparing a Desktop build:
 
 ```bash
 uv run ruff check .
-uv run pytest tests
+uv run pytest
 cd desktop
 npm run lint
 npm run test
 npm run build
 cd src-tauri
-cargo check
+cargo test --locked
 ```
 
-After building a macOS package, verify size and install/start behavior from the DMG:
+After building a package, verify its contents and native startup flow:
 
 ```bash
 uv run python scripts/check-desktop-release.py --platform macos --max-mb 80
-uv run python scripts/smoke-desktop-app.py --install-from-package --exercise-live-refresh
+uv run python scripts/smoke-desktop-app.py --install-from-package
 ```
 
-On Windows CI or a Windows machine, use the same release checker and smoke script with `--platform windows`.
+Use the corresponding `windows` or `linux` platform argument on those systems. The package check fails if a Python sidecar is present.
 
 ## Release
 
-GitHub Actions builds Desktop artifacts from the same `v*` tag used by the Python package release, or when the Desktop workflow is manually dispatched. Pushing a tag such as `v0.8.1` runs the full checks and creates one draft GitHub Release containing the macOS and Windows installers. Publishing that same Release triggers the PyPI workflow, so the CLI and Desktop ship under one version and one Release.
-
-Desktop releases are unsigned by default. To require signed Windows artifacts plus signed and notarized macOS artifacts in the future, set the repository variable `DESKTOP_REQUIRE_SIGNING` to `true` and configure the signing secrets below.
+GitHub Actions builds macOS arm64/x64, Windows x64, and Linux x64 artifacts from a `v*` tag. The same tag is used for the Python package and Desktop app. Pushing `v0.9.0` creates or updates a draft GitHub Release; publish it after all platform artifacts have uploaded successfully.
 
 Before tagging, keep these versions aligned:
 
@@ -93,12 +71,4 @@ Before tagging, keep these versions aligned:
 - `desktop/src-tauri/tauri.conf.json`, `Cargo.toml`, and `Cargo.lock`
 - Claude and Codex plugin manifests
 
-Required release signing inputs:
-
-- macOS: `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `KEYCHAIN_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`
-- Windows: `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD`
-
-Optional signing inputs:
-
-- macOS: `APPLE_PROVIDER_SHORT_NAME`
-- Windows: `WINDOWS_DIGEST_ALGORITHM`, `WINDOWS_TIMESTAMP_URL`
+Signing is not required. If paid certificates are added later, set `DESKTOP_REQUIRE_SIGNING=true` and configure the signing secrets documented in the release workflow.

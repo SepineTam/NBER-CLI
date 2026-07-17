@@ -1,9 +1,3 @@
-export interface ApiEnvelope<T> {
-  code: number
-  data: T
-  message: string
-}
-
 export interface FeedItem {
   paper_id: string
   title: string
@@ -48,7 +42,6 @@ export interface Paper {
 }
 
 export interface Settings {
-  server_port: number
   feed_refresh_interval_minutes: number
   config_path: string
   db_path: string
@@ -56,16 +49,8 @@ export interface Settings {
 }
 
 export interface DesktopConfig {
-  server_port: number
   feed_refresh_interval_minutes: number
-  api_base_url: string
   config_path: string
   db_path: string
   log_dir: string
-}
-
-export interface SidecarStatus {
-  ready: boolean
-  port: number
-  message: string
 }

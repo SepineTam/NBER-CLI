@@ -21,8 +21,8 @@ A command line interface for reaching the National Bureau of Economic Research (
 - Cache paper metadata locally (`nber-cli info` writes to `info_cache`) with a sliding TTL, plus a behavior log for `search`, `download`, and `info` lookups.
 - Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db`, managed through SQLModel/SQLAlchemy and configurable with a filesystem path or `sqlite:///...` URL.
 - Expose the same core workflows as MCP tools for AI agents.
-- Provide an optional loopback-only HTTP server for the Desktop app and local integrations.
-- Provide a macOS and Windows Desktop research workspace with feed sync, unread tracking, paper details, and citation copying.
+- Provide an optional loopback-only HTTP server for local integrations.
+- Provide a native Rust/SQLite Desktop workspace for macOS, Windows, and Linux without a Python sidecar.
 - Return human-readable output by default, with JSON output for automation.
 - Provide `--verbose` debug logging and a rotating log file for troubleshooting.
 - Use `-c/--config <path>` to temporarily override the config file for a single run.
@@ -112,7 +112,7 @@ The server upgrades the local SQLite database to schema v3 on startup and expose
 
 ### Desktop App
 
-Download the macOS or Windows installer from [GitHub Releases](https://github.com/sepinetam/nber-cli/releases). Current installers are unsigned, so read the [Desktop guide](docs/en/desktop.md) before overriding any macOS Gatekeeper or Windows SmartScreen warning. The guide also documents supported platforms, local files, settings, backup, and the current custom-database limitation.
+Download the macOS, Windows, or Linux installer from [GitHub Releases](https://github.com/sepinetam/nber-cli/releases). Current installers are unsigned. Desktop 0.9.0 talks directly to the shared SQLite database from Rust and does not require Python; see the [Desktop guide](docs/en/desktop.md).
 
 If macOS reports that "NBER-CLI Desktop.app" is damaged and cannot be opened, run `xattr -cr /Applications/NBER-CLI\ Desktop.app` in Terminal, then reopen the app.
 

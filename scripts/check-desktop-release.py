@@ -40,8 +40,8 @@ def _check_macos(max_mb: float, require_signed: bool, require_notarized: bool) -
 
     app = apps[0]
     sidecar = app / "Contents" / "MacOS" / "nber-sidecar"
-    if not sidecar.exists():
-        raise SystemExit(f"missing bundled sidecar: {sidecar}")
+    if sidecar.exists():
+        raise SystemExit(f"unexpected bundled Python sidecar: {sidecar}")
 
     signed = _macos_signature_is_developer_id(app)
     print(f"macos_signed={signed}")
@@ -70,8 +70,8 @@ def _check_linux(max_mb: float, require_signed: bool) -> None:
         raise SystemExit("missing Linux app executable")
 
     sidecar = _first_existing(root / "nber-sidecar" for root in _release_roots())
-    if sidecar is None:
-        raise SystemExit("missing bundled Linux sidecar")
+    if sidecar is not None:
+        raise SystemExit(f"unexpected bundled Linux sidecar: {sidecar}")
 
     for path in installers:
         _check_size(path, max_mb)
@@ -90,13 +90,13 @@ def _check_windows(max_mb: float, require_signed: bool) -> None:
         raise SystemExit("missing Windows app executable")
 
     sidecar = _first_existing(root / "nber-sidecar.exe" for root in _release_roots())
-    if sidecar is None:
-        raise SystemExit("missing bundled Windows sidecar")
+    if sidecar is not None:
+        raise SystemExit(f"unexpected bundled Windows sidecar: {sidecar}")
 
     for path in installers:
         _check_size(path, max_mb)
     if require_signed:
-        for path in [*installers, app_exe, sidecar]:
+        for path in [*installers, app_exe]:
             signed = _windows_signature_is_valid(path)
             print(f"windows_signed={signed} path={path}")
             if not signed:

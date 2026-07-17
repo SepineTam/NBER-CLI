@@ -1,6 +1,6 @@
 # 本地 HTTP API
 
-可选的 FastAPI 服务为 NBER-CLI Desktop 提供后端，也可以用于可信的本地集成。它复用 CLI 的配置与持久化模块、Feed 实现和论文元数据缓存。
+可选 FastAPI 服务面向可信的本地集成；Desktop 0.9.0 已改用 Rust 原生命令。该服务仍复用 CLI 的配置、持久化、Feed 和论文元数据缓存模块。
 
 ## 安装与启动
 
@@ -22,7 +22,7 @@ uv run nber-server --host 127.0.0.1 --port 31527
 | `--host` | `127.0.0.1` | 监听接口；应保留 loopback 默认值。 |
 | `--port` | `31527` | 本地 HTTP 端口。 |
 | `--db-path` | `~/.nber-cli/nber.db` | 当前 server 进程使用的 SQLite 数据库。 |
-| `--log-dir` | `~/.nber-cli/logs` | 设置接口展示的目录，也是 Desktop sidecar 日志目录。 |
+| `--log-dir` | `~/.nber-cli/logs` | 可选服务器设置接口展示的目录。 |
 
 Server 启动时会创建数据库或把它升级到 schema v3。
 
