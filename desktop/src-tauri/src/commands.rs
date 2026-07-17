@@ -103,6 +103,10 @@ pub fn save_settings(input: SaveSettingsInput) -> Result<Settings, String> {
     Ok(runtime.desktop.into())
 }
 
+pub fn initialize_runtime() -> Result<(), String> {
+    runtime().map(|_| ())
+}
+
 async fn download_paper(
     expected_paper_id: &str,
     feed_url: &str,

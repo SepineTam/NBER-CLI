@@ -151,14 +151,19 @@ fn parse_database_path(value: &str, home: &Path) -> Result<PathBuf, String> {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn validate_database_path(path: &Path, home: &Path) -> Result<(), String> {
-    #[cfg(not(target_os = "windows"))]
     if !path.starts_with(home) {
         return Err(format!(
             "database path must be within the home directory: {}",
             path.display()
         ));
     }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn validate_database_path(_path: &Path, _home: &Path) -> Result<(), String> {
     Ok(())
 }
 

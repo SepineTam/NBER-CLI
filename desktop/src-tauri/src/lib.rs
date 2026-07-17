@@ -4,7 +4,10 @@ mod database;
 mod models;
 mod network;
 
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{Emitter, Manager};
+
+#[cfg(target_os = "macos")]
+use tauri::AppHandle;
 
 #[cfg(target_os = "macos")]
 use tauri::menu::{Menu, MenuItemBuilder, MenuItemKind, PredefinedMenuItem};
@@ -94,6 +97,7 @@ pub fn run() {
             _ => {}
         })
         .setup(|app| {
+            commands::initialize_runtime().map_err(std::io::Error::other)?;
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
