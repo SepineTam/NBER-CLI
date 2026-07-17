@@ -8,7 +8,7 @@ describe('auto refresh helpers', () => {
     expect(autoRefreshIntervalMs(undefined)).toBeNull()
   })
 
-  it('only allows automatic refresh while the app is visible and the sidecar is ready', () => {
+  it('only allows automatic refresh while the app is visible and local data is ready', () => {
     expect(canAutoRefresh('visible', true)).toBe(true)
     expect(canAutoRefresh('hidden', true)).toBe(false)
     expect(canAutoRefresh('visible', false)).toBe(false)

@@ -6,6 +6,21 @@
 
 ## Unreleased
 
+## 0.9.0 - 2026-07-17
+
+### Added
+- 为 Desktop 的 Feed 列表、RSS 刷新、论文元数据缓存、设置和已读/未读状态增加 Rust 原生数据层。
+- 增加 Rust 测试，覆盖与 CLI 兼容的 SQLite schema、自定义数据库路径、RSS 修复与解析、论文页面解析和阅读状态。
+
+### Changed
+- Desktop 现在直接访问配置中的 SQLite 数据库和 NBER endpoint，不再启动、打包或依赖 Python sidecar。
+- Desktop 刷新现在执行与 `nber-cli feed fetch` 相同的 RSS upsert 和 `feed_fetches` 计数。
+- Desktop 现在读取 CLI 配置的 `feed.db-path`，并在配置文件损坏时拒绝覆盖原文件。
+- 发布检查和安装包 smoke test 现在要求安装包中不存在 Python sidecar。
+
+### Removed
+- 从 Tauri 应用和发布工作流中移除 Desktop 服务端口设置及 sidecar 构建/生命周期。
+
 ## 0.8.1 - 2026-07-16
 
 ### Added

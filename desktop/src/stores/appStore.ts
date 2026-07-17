@@ -1,23 +1,21 @@
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 import { fetchFeed, refreshFeed } from '../api/feed'
-import { fetchHealth } from '../api/health'
 import { fetchPaper, setPaperReadStatus } from '../api/papers'
 import { fetchSettings, saveSettings } from '../api/settings'
-import { readableError, setApiBaseUrl } from '../api/client'
+import { isTauriRuntime, readableError } from '../api/client'
 import type {
   DesktopConfig,
   FeedItem,
   FeedRefreshResult,
   Paper,
   Settings,
-  SidecarStatus,
 } from '../types'
 
 interface AppState {
   activeView: 'feed' | 'settings'
   config: DesktopConfig | null
-  sidecar: SidecarStatus | null
+  localReady: boolean
   feedItems: FeedItem[]
   feedTotalCount: number
   selectedPaperId: string | null
@@ -42,7 +40,6 @@ interface AppState {
   toggleRead: (paperId: string, isRead: boolean) => Promise<void>
   loadSettings: () => Promise<void>
   updateSettings: (settings: {
-    server_port?: number
     feed_refresh_interval_minutes?: number
   }) => Promise<void>
 }
@@ -50,7 +47,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set, get) => ({
   activeView: 'feed',
   config: null,
-  sidecar: null,
+  localReady: false,
   feedItems: [],
   feedTotalCount: 0,
   selectedPaperId: null,
@@ -73,12 +70,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       const config = isTauriRuntime()
         ? await invoke<DesktopConfig>('get_config')
         : fallbackDesktopConfig()
-      setApiBaseUrl(config.api_base_url)
-      set({ config, error: null })
-      const sidecar = isTauriRuntime()
-        ? await invoke<SidecarStatus>('start_sidecar')
-        : await browserSidecarStatus(config.server_port)
-      set({ sidecar })
+      if (!isTauriRuntime()) {
+        throw new Error('Desktop data commands are available only inside the Tauri application')
+      }
+      set({ config, localReady: true, error: null })
       await get().loadFeed()
       await get().loadSettings()
       if (get().feedItems.length === 0) {
@@ -211,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         settings,
         savingSettings: false,
-        notice: '设置已保存。端口修改将在重启后生效。',
+        notice: '设置已保存。',
       })
     } catch (error) {
       set({ error: readableError(error), savingSettings: false })
@@ -219,34 +214,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 }))
 
-function isTauriRuntime() {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
-
 function fallbackDesktopConfig(): DesktopConfig {
   return {
-    server_port: 31527,
     feed_refresh_interval_minutes: 60,
-    api_base_url: 'http://127.0.0.1:31527/api/v1',
     config_path: '',
     db_path: '',
     log_dir: '',
-  }
-}
-
-async function browserSidecarStatus(port: number): Promise<SidecarStatus> {
-  try {
-    await fetchHealth()
-    return {
-      ready: true,
-      port,
-      message: 'local service is ready',
-    }
-  } catch {
-    return {
-      ready: false,
-      port,
-      message: 'local service is not reachable',
-    }
   }
 }

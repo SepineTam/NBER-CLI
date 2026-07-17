@@ -4,10 +4,10 @@ import { PapersIcon, SettingsIcon } from './Icons'
 interface SidebarProps {
   activeView: 'feed' | 'settings'
   onChange: (view: 'feed' | 'settings') => void
-  sidecarReady: boolean
+  localReady: boolean
 }
 
-export function Sidebar({ activeView, onChange, sidecarReady }: SidebarProps) {
+export function Sidebar({ activeView, onChange, localReady }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="主导航">
       <button className="brand-button" type="button" onClick={() => onChange('feed')} aria-label="NBER Desktop 首页">
@@ -38,7 +38,7 @@ export function Sidebar({ activeView, onChange, sidecarReady }: SidebarProps) {
         <SettingsIcon />
       </button>
 
-      <div className={`local-state ${sidecarReady ? 'ready' : ''}`} title={sidecarReady ? 'Python Server 正在本机运行' : '正在连接本地服务'}>
+      <div className={`local-state ${localReady ? 'ready' : ''}`} title={localReady ? 'Rust 本地数据引擎已就绪' : '正在准备本地数据'}>
         <i />
         <span>Local</span>
       </div>

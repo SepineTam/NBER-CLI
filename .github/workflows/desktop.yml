@@ -32,6 +32,23 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install native desktop system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            pkg-config
+
       - name: Install Python dependencies
         run: uv sync --dev --extra server
 
@@ -56,6 +73,10 @@ jobs:
       - name: Build frontend
         working-directory: desktop
         run: npm run build
+
+      - name: Test native Rust data layer
+        working-directory: desktop/src-tauri
+        run: cargo test --locked
 
   build:
     needs: check
@@ -122,10 +143,11 @@ jobs:
             librsvg2-dev \
             libxdo-dev \
             pkg-config \
-            patchelf
+            patchelf \
+            xvfb
 
       - name: Install Python dependencies
-        run: uv sync --dev --extra server --group desktop-build
+        run: uv sync --dev
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -153,9 +175,6 @@ jobs:
           WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         shell: pwsh
         run: uv run python scripts/validate-desktop-signing.py --platform windows --require-signed
-
-      - name: Build sidecar
-        run: uv run python scripts/build-sidecar.py --clean --target-triple ${{ matrix.target }}
 
       - name: Import Apple Developer ID certificate
         if: runner.os == 'macOS'
@@ -234,7 +253,12 @@ jobs:
         run: uv run python scripts/check-desktop-release.py --platform ${{ matrix.release-platform }} --max-mb 150
 
       - name: Smoke test desktop app
+        if: runner.os != 'Linux'
         run: uv run python scripts/smoke-desktop-app.py --install-from-package
+
+      - name: Smoke test desktop app on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run -a uv run python scripts/smoke-desktop-app.py --install-from-package
 
       - name: Check signed and notarized macOS release artifacts
         if: startsWith(github.ref, 'refs/tags/v') && matrix.release-platform == 'macos' && vars.DESKTOP_REQUIRE_SIGNING == 'true'

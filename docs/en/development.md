@@ -94,7 +94,7 @@ The project uses separate workflows for:
 - Building macOS and Windows Desktop installers on `v*` tags or manual dispatch.
 - Publishing to PyPI when a GitHub release is published.
 
-The normal pull-request Desktop check currently runs Python, TypeScript, frontend tests, and the Vite build, but not `cargo check` or a full Tauri build. Run `cargo check` locally for Rust changes; the full platform build runs only for tags or manual workflow dispatch.
+The normal pull-request Desktop check runs Python, TypeScript, frontend tests, the Vite build, and Rust unit tests. Full platform installer builds run only for tags or manual workflow dispatch.
 
 ## Release Checklist
 
@@ -142,7 +142,7 @@ The following checks all need to pass before tagging a release. Each one catches
     /tmp/nber-cli-smoke/bin/nber-server --help
     /tmp/nber-cli-smoke/bin/nber-sidecar --help
     ```
-16. Run the Desktop package checker and installer smoke test on every release platform, then confirm the expected macOS arm64/x64 and Windows x64 artifacts were uploaded.
+16. Run the Desktop package checker and native installer smoke test on every release platform, then confirm macOS arm64/x64, Windows x64, and Linux x64 artifacts were uploaded.
 17. **Run `git diff --check` on the release branch.** This catches trailing whitespace and conflict markers.
 
 ### Publish

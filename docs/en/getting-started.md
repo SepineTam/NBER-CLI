@@ -43,7 +43,7 @@ nber-cli --version
 
 ## Run the Optional Local HTTP Server
 
-FastAPI, Uvicorn, and Alembic are kept out of the normal CLI dependency set. Use the `server` extra when you need the local API used by NBER-CLI Desktop:
+FastAPI, Uvicorn, and Alembic are kept out of the normal CLI dependency set. Use the `server` extra only when you need the optional local API for another integration; Desktop 0.9.0 does not use it:
 
 ```bash
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527

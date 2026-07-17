@@ -37,7 +37,7 @@ uv run --group docs mkdocs build --strict
 | Logging | `tests/test_logging.py`, `tests/test_logs.py` | Log configuration, debug behavior, rotating file setup. |
 | Local HTTP server | `tests/test_server.py` | Schema upgrades, envelopes, feed pagination, paper/read state, settings, and external errors. |
 | Release metadata | `tests/test_release_metadata.py` | Version synchronization, changelogs, shared tags, and signing policy. |
-| Desktop release tools | `tests/test_desktop_*.py` | Sidecar/artifact normalization, signing validation, release checks, and smoke helpers. |
+| Desktop release tools | `tests/test_desktop_*.py` | Artifact normalization, signing validation, native-package checks, and smoke helpers. |
 | React workspace | `desktop/src/**/*.test.ts(x)` | Feed rendering, paper detail, citation formatting, and automatic refresh helpers. |
 
 ## Isolation Model
@@ -46,7 +46,7 @@ The global fixture in `tests/conftest.py` redirects the NBER-CLI home directory 
 
 Tests patch `Path.home()`, database paths, network functions, and HTTP sessions as needed. The goal is that a test can be run repeatedly without depending on the developer's machine state or network access.
 
-Frontend tests use jsdom and mocked API boundaries. Desktop packaging smoke tests create temporary home and install directories; the live-refresh option is the exception that intentionally contacts NBER.
+Frontend tests use jsdom and mocked native-command boundaries. Desktop package smoke tests create temporary home and install directories, launch the installed app, and verify Rust initializes the shared SQLite schema without a Python sidecar.
 
 ```mermaid
 flowchart LR
@@ -86,14 +86,14 @@ The tests intentionally cover edge cases that are easy to break:
 - Download path restrictions for CLI and MCP surfaces.
 - Cache refresh, sliding TTL, and cleanup date ranges.
 - Local HTTP response shapes, feed pagination, read-state side effects, and settings validation.
-- Desktop artifact names, package size/signing checks, bundled sidecar discovery, and installer startup.
+- Desktop artifact names, package size/signing checks, Python-sidecar absence, and native installer startup.
 
 ## Current CI Boundaries
 
 - Pull requests run Python lint/tests plus frontend lint/tests/build.
 - Pull requests do not currently run `cargo check` or launch a real Tauri WebView.
 - Full Tauri builds and installer smoke tests run only for `v*` tags or manual Desktop workflow dispatch.
-- The installer smoke script calls the sidecar directly and therefore does not detect WebView-only issues such as CORS Origin mismatches.
+- The installer smoke script verifies packaged startup and native database initialization; React behavior remains covered by frontend tests.
 - Python package CI currently needs a built-wheel installation check to prove that every declared console entry point is present in the artifact.
 
 ## Adding Tests

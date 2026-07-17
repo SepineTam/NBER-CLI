@@ -43,7 +43,7 @@ nber-cli --version
 
 ## 运行可选的本地 HTTP Server
 
-FastAPI、Uvicorn 和 Alembic 不会进入普通 CLI 依赖集合。需要使用 NBER-CLI Desktop 的本地 API 时，通过 `server` extra 启动：
+FastAPI、Uvicorn 和 Alembic 不会进入普通 CLI 依赖集合。只有其他集成需要可选本地 API 时才使用 `server` extra；Desktop 0.9.0 不再使用它：
 
 ```bash
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527

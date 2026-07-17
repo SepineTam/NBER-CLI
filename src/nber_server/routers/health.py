@@ -15,7 +15,7 @@ def _package_version() -> str:
     try:
         return get_version("nber-cli")
     except Exception:
-        return "0.8.1"
+        return "0.9.0"
 
 
 @router.get("/health")

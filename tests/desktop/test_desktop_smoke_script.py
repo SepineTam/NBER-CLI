@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sqlite3
 from pathlib import Path
-
-import pytest
-
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -20,27 +18,13 @@ def _load_smoke_script():
     return module
 
 
-def test_linux_smoke_requires_sidecar_next_to_installed_app(tmp_path):
-    smoke = _load_smoke_script()
-    app = tmp_path / "app"
-    app.write_bytes(b"app")
-    package = tmp_path / "dummy.AppImage"
-    package.write_bytes(b"#!/bin/sh\nmkdir -p squashfs-root/usr/bin")
-    package.chmod(package.stat().st_mode | 0o111)
-
-    with pytest.raises(SystemExit, match="installed Linux sidecar not found"):
-        smoke._install_linux_package(package, tmp_path)
-
-
-def test_linux_smoke_installs_appimage_and_finds_sidecar(tmp_path):
+def test_linux_smoke_installs_native_appimage_without_sidecar(tmp_path):
     smoke = _load_smoke_script()
     package = tmp_path / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage"
     # Simulate --appimage-extract output layout.
     (tmp_path / "squashfs-root" / "usr" / "bin").mkdir(parents=True)
     app = tmp_path / "squashfs-root" / "usr" / "bin" / "app"
-    sidecar = tmp_path / "squashfs-root" / "usr" / "bin" / "nber-sidecar"
     app.write_bytes(b"app")
-    sidecar.write_bytes(b"sidecar")
 
     # The helper expects the package to exist, so create a dummy executable script.
     package.write_text("#!/bin/sh\n:\n", encoding="utf-8")
@@ -49,26 +33,6 @@ def test_linux_smoke_installs_appimage_and_finds_sidecar(tmp_path):
     executable = smoke._install_linux_package(package, tmp_path)
 
     assert executable == app
-    assert sidecar.exists()
-
-
-def test_windows_smoke_requires_sidecar_next_to_installed_app(tmp_path):
-    smoke = _load_smoke_script()
-    app = tmp_path / "NBER-CLI Desktop.exe"
-    app.write_bytes(b"app")
-
-    with pytest.raises(SystemExit, match="installed Windows sidecar not found"):
-        smoke._assert_windows_sidecar_installed(app)
-
-
-def test_windows_smoke_accepts_sidecar_next_to_installed_app(tmp_path):
-    smoke = _load_smoke_script()
-    app = tmp_path / "NBER-CLI Desktop.exe"
-    sidecar = tmp_path / "nber-sidecar.exe"
-    app.write_bytes(b"app")
-    sidecar.write_bytes(b"sidecar")
-
-    smoke._assert_windows_sidecar_installed(app)
 
 
 def test_windows_smoke_does_not_treat_sidecar_or_uninstaller_as_app(tmp_path):
@@ -84,11 +48,29 @@ def test_windows_smoke_does_not_treat_sidecar_or_uninstaller_as_app(tmp_path):
     assert smoke._is_windows_app_executable(app) is True
 
 
-def test_smoke_seed_writes_requested_desktop_port(tmp_path):
+def test_smoke_seed_uses_native_desktop_settings(tmp_path):
     smoke = _load_smoke_script()
 
-    smoke._seed_sample_environment(tmp_path, 31528)
+    smoke._seed_sample_environment(tmp_path)
 
     config = json.loads((tmp_path / ".nber-cli" / "config.json").read_text())
-    assert config["desktop"]["server_port"] == 31528
     assert config["desktop"]["feed_refresh_interval_minutes"] == 60
+
+
+def test_native_runtime_ready_requires_rust_schema_and_database_path(tmp_path):
+    smoke = _load_smoke_script()
+    smoke._seed_sample_environment(tmp_path)
+    assert smoke._native_runtime_ready(tmp_path) is False
+
+    config_path = tmp_path / ".nber-cli" / "config.json"
+    db_path = tmp_path / ".nber-cli" / "nber.db"
+    config = json.loads(config_path.read_text())
+    config["feed"] = {"db-path": str(db_path)}
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "CREATE TABLE read_status (paper_id TEXT PRIMARY KEY, is_read BOOLEAN, updated_at TEXT)"
+        )
+        connection.execute("PRAGMA user_version = 3")
+
+    assert smoke._native_runtime_ready(tmp_path) is True

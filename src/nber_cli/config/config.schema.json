@@ -57,7 +57,7 @@
         "server_port": {
           "type": "integer",
           "minimum": 1024,
-          "description": "Local HTTP sidecar port"
+          "description": "Optional local HTTP API service port"
         },
         "feed_refresh_interval_minutes": {
           "type": "integer",
