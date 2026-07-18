@@ -18,6 +18,7 @@ import ssl
 import time
 from collections.abc import Awaitable, Callable
 from datetime import date
+from html.parser import HTMLParser
 from typing import Any, TypeVar
 from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
@@ -52,6 +53,59 @@ _NBER_REQUEST_HEADERS = {
     "Sec-Fetch-User": "?1",
     "Upgrade-Insecure-Requests": "1",
 }
+
+
+class _RelatedInfoParser(HTMLParser):
+    _SECTIONS = {"Topics", "Programs"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.values: dict[str, list[str]] = {section: [] for section in self._SECTIONS}
+        self._div_depth = 0
+        self._item_depth: int | None = None
+        self._section: str | None = None
+        self._heading_parts: list[str] | None = None
+        self._link_parts: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        classes = set((attributes.get("class") or "").split())
+        if tag == "div":
+            self._div_depth += 1
+            if self._item_depth is None and "info-grid__item" in classes:
+                self._item_depth = self._div_depth
+                self._section = None
+            return
+        if self._item_depth is None:
+            return
+        if tag == "h3" and "info-grid__item-title" in classes:
+            self._heading_parts = []
+        elif tag == "a" and self._section in self._SECTIONS:
+            self._link_parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._heading_parts is not None:
+            self._heading_parts.append(data)
+        if self._link_parts is not None:
+            self._link_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "h3" and self._heading_parts is not None:
+            heading = " ".join("".join(self._heading_parts).split())
+            self._section = heading if heading in self._SECTIONS else None
+            self._heading_parts = None
+        elif tag == "a" and self._link_parts is not None:
+            value = " ".join("".join(self._link_parts).split())
+            if value and self._section is not None:
+                self.values[self._section].append(value)
+            self._link_parts = None
+        elif tag == "div":
+            if self._item_depth == self._div_depth:
+                self._item_depth = None
+                self._section = None
+                self._heading_parts = None
+                self._link_parts = None
+            self._div_depth = max(0, self._div_depth - 1)
 
 
 async def get_nber(nber_id: int, session: ClientSession | None = None) -> NBER:
@@ -211,6 +265,7 @@ def parse_page(page: str) -> NBER:
 
     abstract = _extract_abstract(page)
     published_version = _extract_published_version(page)
+    topic, programs = _extract_related_info(page)
 
     return NBER(
         paper_id=paper_id,
@@ -219,6 +274,8 @@ def parse_page(page: str) -> NBER:
         date=date,
         abstract=abstract,
         published_version=published_version,
+        topic=topic,
+        programs=programs,
     )
 
 
@@ -246,6 +303,14 @@ def _extract_published_version(page: str) -> str | None:
         text = re.sub(r"<[^>]+>", "", text)
         return " ".join(text.split())
     return None
+
+
+def _extract_related_info(page: str) -> tuple[str | None, str | None]:
+    parser = _RelatedInfoParser()
+    parser.feed(page)
+    topic = "; ".join(parser.values["Topics"]) or None
+    programs = "; ".join(parser.values["Programs"]) or None
+    return topic, programs
 
 
 def _build_search_params(

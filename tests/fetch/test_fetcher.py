@@ -187,6 +187,20 @@ class TestParsePage:
 </head><body>
 <div class="page-header__intro-inner">  <p>This is the <em>abstract</em> of the paper.</p></div>
 <h2>Published Versions</h2>  <p>Published in <em>Journal of Economics</em>, 2024.</p>
+<div class="info-grid__item">
+  <h3 class="info-grid__item-title">Topics</h3>
+  <div class="info-grid__item-body">
+    <div class="info-grid__link-container"><a href="/topics/labor-economics">Labor Economics</a></div>
+    <div class="info-grid__link-container"><a href="/taxonomy/term/571">Labor Supply &amp; Demand</a></div>
+  </div>
+</div>
+<div class="info-grid__item">
+  <h3 class="info-grid__item-title">Programs</h3>
+  <div class="info-grid__item-body">
+    <div class="info-grid__link-container"><a href="/programs/labor-studies">Labor Studies</a></div>
+    <div class="info-grid__link-container"><a href="/programs/development">Development Economics</a></div>
+  </div>
+</div>
 </body></html>"""
         from nber_cli.fetch.fetcher import parse_page
         result = parse_page(page)
@@ -196,6 +210,8 @@ class TestParsePage:
         assert result.date == "2024/01/15"
         assert result.abstract == "This is the abstract of the paper."
         assert result.published_version == "Published in Journal of Economics, 2024."
+        assert result.topic == "Labor Economics; Labor Supply & Demand"
+        assert result.programs == "Labor Studies; Development Economics"
 
     def test_rejects_missing_required_fields(self):
         page = "<html><head></head><body></body></html>"
@@ -246,6 +262,8 @@ class TestParsePage:
         assert result.date == ""
         assert result.abstract == ""
         assert result.published_version is None
+        assert result.topic is None
+        assert result.programs is None
 
 
 @pytest.mark.asyncio
