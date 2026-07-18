@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from ..config import config_store
 from ..core.models import NBER
@@ -23,8 +24,17 @@ class InfoCacheLookupResult:
     from_cache: bool
 
 
-async def get_paper_with_info_cache(paper_id: int, *, refresh: bool = False) -> NBER:
-    result = await get_paper_with_info_cache_result(paper_id, refresh=refresh)
+async def get_paper_with_info_cache(
+    paper_id: int,
+    *,
+    refresh: bool = False,
+    db_path: Path | str | None = None,
+) -> NBER:
+    result = await get_paper_with_info_cache_result(
+        paper_id,
+        refresh=refresh,
+        db_path=db_path,
+    )
     return result.paper
 
 
@@ -32,21 +42,22 @@ async def get_paper_with_info_cache_result(
     paper_id: int,
     *,
     refresh: bool = False,
+    db_path: Path | str | None = None,
 ) -> InfoCacheLookupResult:
     settings = config_store.get_info_cache_settings()
 
     if settings.cache_enabled and not refresh:
         cached_paper = db.read_info_cache(
-            None,
+            db_path,
             paper_id,
             cache_enabled=True,
             ttl_days=settings.cache_ttl_days,
         )
         if cached_paper is not None:
-            db.touch_info_cache(None, paper_id)
+            db.touch_info_cache(db_path, paper_id)
             return InfoCacheLookupResult(paper=cached_paper, from_cache=True)
 
     paper = await get_nber(paper_id)
     if settings.cache_enabled:
-        db.write_info_cache(None, paper)
+        db.write_info_cache(db_path, paper)
     return InfoCacheLookupResult(paper=paper, from_cache=False)

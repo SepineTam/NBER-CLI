@@ -9,6 +9,7 @@ wheels/
 release/
 output/
 desktop/prototypes/
+desktop/src-tauri/binaries/
 .superpowers/
 
 # Virtual environments

@@ -3,10 +3,11 @@ use crate::{
     models::{
         DesktopConfig, FeedList, FeedRefreshResult, Paper, ReadStatus, SaveSettingsInput, Settings,
     },
-    network,
+    worker,
 };
 use regex::Regex;
 use std::path::Path;
+use tauri::AppHandle;
 
 #[tauri::command]
 pub fn get_config() -> Result<DesktopConfig, String> {
@@ -25,57 +26,51 @@ pub fn get_feed(limit: Option<usize>, offset: Option<usize>) -> Result<FeedList,
 }
 
 #[tauri::command]
-pub async fn refresh_feed() -> Result<FeedRefreshResult, String> {
+pub async fn refresh_feed(app: AppHandle) -> Result<FeedRefreshResult, String> {
     let runtime = runtime()?;
-    let xml = network::download_text(network::NBER_FEED_URL).await?;
-    let items = network::parse_feed(&xml)?;
-    database::save_feed(db_path(&runtime), &items)
+    let path = db_path(&runtime).to_path_buf();
+    let output = tokio::task::spawn_blocking(move || worker::fetch_feed(&app, &path))
+        .await
+        .map_err(|error| format!("Desktop worker task failed: {error}"))??;
+    database::feed_refresh_result(db_path(&runtime), output.fetched_count, output.new_count)
 }
 
 #[tauri::command]
-pub async fn get_paper(paper_id: String) -> Result<Paper, String> {
+pub async fn get_paper(app: AppHandle, paper_id: String) -> Result<Paper, String> {
     let runtime = runtime()?;
     let normalized = normalize_paper_id(&paper_id)?;
-    let feed_url = database::feed_paper_url(db_path(&runtime), &normalized)?
-        .ok_or_else(|| format!("paper not found: {normalized}"))?;
-
-    let (mut metadata, from_cache) = if runtime.info_cache_enabled {
-        if let Some(paper) = database::read_cached_paper(
-            db_path(&runtime),
-            &normalized,
-            runtime.info_cache_ttl_days,
-        )? {
-            (paper, true)
-        } else {
-            (download_paper(&normalized, &feed_url).await?, false)
-        }
-    } else {
-        (download_paper(&normalized, &feed_url).await?, false)
-    };
-
-    if metadata.url.is_none() {
-        metadata.url = Some(feed_url);
+    if !database::feed_paper_exists(db_path(&runtime), &normalized)? {
+        return Err(format!("paper not found: {normalized}"));
     }
-    if !from_cache && runtime.info_cache_enabled {
-        database::write_paper_cache(db_path(&runtime), &metadata)?;
+
+    let path = db_path(&runtime).to_path_buf();
+    let requested = normalized.clone();
+    let output = tokio::task::spawn_blocking(move || worker::fetch_paper(&app, &path, &requested))
+        .await
+        .map_err(|error| format!("Desktop worker task failed: {error}"))??;
+    if output.paper_id != normalized {
+        return Err(format!(
+            "requested paper ID {normalized} does not match response paper ID {}",
+            output.paper_id
+        ));
     }
     database::set_read_status(db_path(&runtime), &normalized, true)?;
 
     Ok(Paper {
         paper_id: normalized.clone(),
-        title: metadata.title,
-        authors: metadata.authors,
-        date: metadata.date,
-        abstract_text: metadata.abstract_text,
-        url: metadata.url,
+        title: output.title,
+        authors: output.authors,
+        date: output.date,
+        abstract_text: output.abstract_text,
+        url: output.url,
         pdf_url: Some(format!(
             "https://www.nber.org/system/files/working_papers/{normalized}/{normalized}.pdf"
         )),
-        published_version: metadata.published_version,
-        topic: metadata.topic,
-        programs: metadata.programs,
+        published_version: output.published_version,
+        topic: output.topic,
+        programs: output.programs,
         is_read: true,
-        from_cache,
+        from_cache: output.from_cache,
     })
 }
 
@@ -98,34 +93,21 @@ pub fn get_settings() -> Result<Settings, String> {
 #[tauri::command]
 pub fn save_settings(input: SaveSettingsInput) -> Result<Settings, String> {
     let runtime = config::save_settings(input)?;
-    database::ensure_schema(db_path(&runtime))?;
+    database::validate_schema(db_path(&runtime))?;
     config::initialize(&runtime)?;
     Ok(runtime.desktop.into())
 }
 
-pub fn initialize_runtime() -> Result<(), String> {
-    runtime().map(|_| ())
-}
-
-async fn download_paper(
-    expected_paper_id: &str,
-    feed_url: &str,
-) -> Result<crate::models::PaperMetadata, String> {
-    let page = network::download_text(feed_url).await?;
-    let mut paper = network::parse_paper(&page)?;
-    if paper.paper_id != expected_paper_id {
-        return Err(format!(
-            "requested paper ID {expected_paper_id} does not match response paper ID {}",
-            paper.paper_id
-        ));
-    }
-    paper.url = Some(feed_url.to_string());
-    Ok(paper)
+pub fn initialize_runtime(app: Option<&AppHandle>) -> Result<(), String> {
+    let runtime = config::load()?;
+    worker::initialize(app, db_path(&runtime))?;
+    database::validate_schema(db_path(&runtime))?;
+    config::initialize(&runtime)
 }
 
 fn runtime() -> Result<config::RuntimeConfig, String> {
     let runtime = config::load()?;
-    database::ensure_schema(db_path(&runtime))?;
+    database::validate_schema(db_path(&runtime))?;
     config::initialize(&runtime)?;
     Ok(runtime)
 }

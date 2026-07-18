@@ -6,6 +6,17 @@
 
 ## Unreleased
 
+## 0.9.1 - 2026-07-18
+
+### Changed
+- 将 Desktop 中重复实现的 Rust RSS 与论文页面解析替换为由现有 Python CLI 代码打包的单次工作程序。
+- Desktop 用户仍无需安装 Python 或 uv；每个平台的安装包都内置所需运行环境，并在每次操作完成后退出。
+- Rust 继续直接读取 Feed 和更新已读/未读状态；NBER 网络请求、解析和论文缓存规则恢复为只有一套 Python 实现。
+
+### Fixed
+- 修正 0.9.0 中需要分别维护 Python 与 Rust 两套 Feed 和论文解析规则的架构问题。
+- 发布检查和安装包 smoke test 现在要求内置工作程序存在，同时继续拒绝旧的长期运行 HTTP sidecar。
+
 ## 0.9.0 - 2026-07-17
 
 ### Added

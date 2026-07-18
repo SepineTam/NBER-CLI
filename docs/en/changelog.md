@@ -6,6 +6,17 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.9.1 - 2026-07-18
+
+### Changed
+- Replaced Desktop's duplicated Rust RSS and paper-page implementation with a bundled one-shot worker built from the existing Python CLI code.
+- Desktop users still do not need to install Python or uv; the required runtime is included in each installer and exits after each operation.
+- Kept direct Rust/SQLite feed reads and read/unread updates while restoring Python as the single implementation for NBER network, parsing, and metadata-cache behavior.
+
+### Fixed
+- Fixed the 0.9.0 architecture that would have required feed and paper parsing rules to be maintained separately in Python and Rust.
+- Release validation and package smoke tests now require the bundled worker and continue to reject the legacy long-running HTTP sidecar.
+
 ## 0.9.0 - 2026-07-17
 
 ### Added

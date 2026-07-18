@@ -43,6 +43,19 @@ def _make_paper(title: str = "Remote Paper") -> NBER:
 
 @pytest.mark.asyncio
 class TestGetPaperWithInfoCache:
+    async def test_explicit_database_path_is_used_for_desktop_worker(self, tmp_path):
+        custom_path = tmp_path / "custom" / "desktop.db"
+        db.init_database(custom_path)
+
+        with patch("nber_cli.db.info_cache.get_nber", new_callable=AsyncMock) as mock_get_nber:
+            mock_get_nber.return_value = _make_paper()
+
+            result = await get_paper_with_info_cache_result(1234, db_path=custom_path)
+
+        assert result.from_cache is False
+        assert db.count_info_cache(custom_path) == 1
+        assert not (tmp_path / "nber.db").exists()
+
     async def test_cache_disabled_fetches_network_and_does_not_write(self, db_path):
         config_store.set_info_cache_enabled(False)
 
