@@ -1,4 +1,4 @@
-use crate::models::{FeedItem, FeedList, FeedRefreshResult};
+use crate::models::{FeedItem, FeedList, FeedRefreshResult, Paper};
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 use std::{path::Path, time::Duration};
@@ -25,6 +25,16 @@ pub fn validate_schema(db_path: &Path) -> Result<(), String> {
 }
 
 pub fn list_feed(db_path: &Path, limit: usize, offset: usize) -> Result<FeedList, String> {
+    if !db_path.exists() {
+        return Ok(FeedList {
+            items: Vec::new(),
+            total_count: 0,
+            limit,
+            offset,
+            last_successful_fetch_at: None,
+        });
+    }
+    validate_schema(db_path)?;
     let connection = open(db_path)?;
     let mut statement = connection
         .prepare(
@@ -73,29 +83,73 @@ pub fn feed_refresh_result(
     db_path: &Path,
     fetched_count: usize,
     new_count: usize,
+    info_fetched_count: usize,
+    info_cached_count: usize,
+    info_failed_count: usize,
 ) -> Result<FeedRefreshResult, String> {
+    validate_schema(db_path)?;
     let connection = open(db_path)?;
     Ok(FeedRefreshResult {
         new_count,
         total_count: feed_total_count(&connection)?,
         fetched_count,
+        info_fetched_count,
+        info_cached_count,
+        info_failed_count,
         last_successful_fetch_at: last_successful_fetch_at(&connection)?,
     })
 }
 
-pub fn feed_paper_exists(db_path: &Path, paper_id: &str) -> Result<bool, String> {
-    open(db_path)?
+pub fn get_paper(db_path: &Path, paper_id: &str) -> Result<Paper, String> {
+    validate_schema(db_path)?;
+    let paper = open(db_path)?
         .query_row(
-            "SELECT 1 FROM feed_items WHERE paper_id = ?1",
+            r#"
+            SELECT
+                feed_items.paper_id,
+                COALESCE(info_cache.title, feed_items.title),
+                COALESCE(info_cache.authors_json, feed_items.authors_json),
+                COALESCE(info_cache.date, ''),
+                COALESCE(info_cache.abstract, feed_items.abstract),
+                COALESCE(info_cache.url, feed_items.url),
+                info_cache.published_version,
+                info_cache.topic,
+                info_cache.programs,
+                COALESCE(read_status.is_read, 0),
+                CASE WHEN info_cache.paper_id IS NULL THEN 0 ELSE 1 END
+            FROM feed_items
+            LEFT JOIN info_cache ON info_cache.paper_id = feed_items.paper_id
+            LEFT JOIN read_status ON read_status.paper_id = feed_items.paper_id
+            WHERE feed_items.paper_id = ?1
+            "#,
             [paper_id],
-            |_| Ok(()),
+            |row| {
+                let authors_json: String = row.get(2)?;
+                Ok(Paper {
+                    paper_id: row.get(0)?,
+                    title: row.get(1)?,
+                    authors: serde_json::from_str(&authors_json).unwrap_or_default(),
+                    date: row.get(3)?,
+                    abstract_text: row.get(4)?,
+                    url: row.get(5)?,
+                    pdf_url: Some(format!(
+                        "https://www.nber.org/system/files/working_papers/{paper_id}/{paper_id}.pdf"
+                    )),
+                    published_version: row.get(6)?,
+                    topic: row.get(7)?,
+                    programs: row.get(8)?,
+                    is_read: row.get(9)?,
+                    from_cache: row.get(10)?,
+                })
+            },
         )
         .optional()
-        .map(|row| row.is_some())
-        .map_err(display_error)
+        .map_err(display_error)?;
+    paper.ok_or_else(|| format!("paper not found: {paper_id}"))
 }
 
 pub fn set_read_status(db_path: &Path, paper_id: &str, is_read: bool) -> Result<(), String> {
+    validate_schema(db_path)?;
     open(db_path)?
         .execute(
             r#"
@@ -148,14 +202,110 @@ fn display_error(error: impl std::fmt::Display) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn temporary_database(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!("nber-cli-desktop-{name}-{}.db", std::process::id()))
+    }
+
+    fn feed_database(name: &str) -> PathBuf {
+        let path = temporary_database(name);
+        let _ = std::fs::remove_file(&path);
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                r#"
+                CREATE TABLE feed_items (
+                    paper_id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                    authors_json TEXT NOT NULL, abstract TEXT NOT NULL,
+                    url TEXT NOT NULL, source_url TEXT NOT NULL,
+                    guid TEXT NOT NULL, first_seen_at TEXT NOT NULL,
+                    last_seen_at TEXT NOT NULL
+                );
+                CREATE TABLE info_cache (
+                    paper_id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                    authors_json TEXT NOT NULL, date TEXT NOT NULL,
+                    abstract TEXT NOT NULL, url TEXT,
+                    published_version TEXT, topic TEXT, programs TEXT,
+                    first_cached_at TEXT NOT NULL, last_fetched_at TEXT NOT NULL,
+                    fetch_count INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE read_status (
+                    paper_id TEXT PRIMARY KEY, is_read BOOLEAN NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                INSERT INTO feed_items VALUES (
+                    'w12345', 'Feed title', '["Feed Author"]', 'Feed abstract',
+                    'https://www.nber.org/papers/w12345',
+                    'https://www.nber.org/papers/w12345#rss', 'w12345',
+                    '2026-07-18T00:00:00Z', '2026-07-18T00:00:00Z'
+                );
+                PRAGMA user_version = 3;
+                "#,
+            )
+            .unwrap();
+        path
+    }
 
     #[test]
     fn rejects_uninitialized_database() {
-        let path =
-            std::env::temp_dir().join(format!("nber-cli-worker-schema-{}.db", std::process::id()));
+        let path = temporary_database("worker-schema");
         let _ = std::fs::remove_file(&path);
         Connection::open(&path).unwrap();
         assert!(validate_schema(&path).is_err());
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn missing_database_is_an_empty_feed() {
+        let path = temporary_database("empty-feed");
+        let _ = std::fs::remove_file(&path);
+
+        let feed = list_feed(&path, 50, 0).unwrap();
+
+        assert!(feed.items.is_empty());
+        assert_eq!(feed.total_count, 0);
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn paper_falls_back_to_feed_without_cached_info() {
+        let path = feed_database("paper-feed-fallback");
+
+        let paper = get_paper(&path, "w12345").unwrap();
+
+        assert_eq!(paper.title, "Feed title");
+        assert_eq!(paper.date, "");
+        assert_eq!(paper.abstract_text, "Feed abstract");
+        assert!(!paper.from_cache);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn paper_prefers_cached_info() {
+        let path = feed_database("paper-info-cache");
+        Connection::open(&path)
+            .unwrap()
+            .execute(
+                r#"
+                INSERT INTO info_cache VALUES (
+                    'w12345', 'Cached title', '["Cached Author"]', '2026/07/18',
+                    'Cached abstract', 'https://www.nber.org/papers/w12345',
+                    'Published paper', 'Economics', 'EFG',
+                    '2026-07-18T00:00:00Z', '2026-07-18T00:00:00Z', 0
+                )
+                "#,
+                [],
+            )
+            .unwrap();
+
+        let paper = get_paper(&path, "w12345").unwrap();
+
+        assert_eq!(paper.title, "Cached title");
+        assert_eq!(paper.authors, vec!["Cached Author"]);
+        assert_eq!(paper.date, "2026/07/18");
+        assert_eq!(paper.topic.as_deref(), Some("Economics"));
+        assert!(paper.from_cache);
         let _ = std::fs::remove_file(path);
     }
 }

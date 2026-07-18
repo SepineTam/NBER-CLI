@@ -62,6 +62,9 @@ pub struct FeedRefreshResult {
     pub new_count: usize,
     pub total_count: usize,
     pub fetched_count: usize,
+    pub info_fetched_count: usize,
+    pub info_cached_count: usize,
+    pub info_failed_count: usize,
     pub last_successful_fetch_at: Option<String>,
 }
 

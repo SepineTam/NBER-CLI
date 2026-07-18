@@ -22,66 +22,167 @@ def test_worker_initializes_database(tmp_path, capsys):
 
 def test_worker_feed_fetch_uses_existing_python_fetcher(tmp_path, monkeypatch, capsys):
     db_path = tmp_path / "nber.db"
-    observed: list[Path] = []
+    observed: list[tuple[bool, Path]] = []
 
-    def fake_fetch_feed(*, db_path):
-        observed.append(db_path)
-        return SimpleNamespace(total_fetched=12, new_count=4)
+    def fake_fetch_feed(*, display_all, db_path):
+        observed.append((display_all, db_path))
+        return SimpleNamespace(
+            total_fetched=12,
+            new_count=4,
+            items=[SimpleNamespace(paper_id="w123")],
+        )
+
+    async def fake_prefetch(paper_ids, *, db_path):
+        assert paper_ids == ["w123"]
+        return desktop_worker.FeedInfoPrefetchResult(1, 10, 1)
 
     monkeypatch.setattr(desktop_worker, "fetch_feed", fake_fetch_feed)
+    monkeypatch.setattr(desktop_worker, "prefetch_feed_info", fake_prefetch)
 
     desktop_worker.main(["--db-path", str(db_path), "feed-fetch"])
 
-    assert observed == [db_path]
+    assert observed == [(True, db_path)]
     assert json.loads(capsys.readouterr().out) == {
         "fetched_count": 12,
         "new_count": 4,
+        "info_fetched_count": 1,
+        "info_cached_count": 10,
+        "info_failed_count": 1,
     }
 
 
-def test_worker_paper_info_uses_existing_python_cache(tmp_path, monkeypatch, capsys):
+@pytest.mark.asyncio
+async def test_prefetch_feed_info_keeps_partial_success(tmp_path, monkeypatch):
     db_path = tmp_path / "nber.db"
-    observed: list[tuple[int, Path]] = []
+    observed: list[int] = []
 
     async def fake_get_paper(paper_id, *, db_path):
-        observed.append((paper_id, db_path))
-        paper = SimpleNamespace(
-            paper_id=12345,
-            title="A Paper",
-            authors=["Ada Lovelace"],
-            date="2026-07-18",
-            abstract="An abstract",
-            url=None,
-            published_version=None,
-            topic="Economics",
-            programs="EFG",
-        )
-        return SimpleNamespace(paper=paper, from_cache=True)
+        observed.append(paper_id)
+        if paper_id == 3:
+            raise TimeoutError
+        return SimpleNamespace(from_cache=paper_id == 2)
 
-    recorded: list[tuple[Path, int]] = []
     monkeypatch.setattr(
         desktop_worker,
         "get_paper_with_info_cache_result",
         fake_get_paper,
     )
     monkeypatch.setattr(
-        desktop_worker.db,
-        "record_info",
-        lambda path, paper_id: recorded.append((path, paper_id)),
+        desktop_worker.config_store,
+        "get_info_cache_settings",
+        lambda: SimpleNamespace(cache_enabled=True),
     )
 
-    desktop_worker.main(["--db-path", str(db_path), "paper-info", "w12345"])
+    result = await desktop_worker.prefetch_feed_info(
+        ["w1", "w2", "w3", "w1"],
+        db_path=db_path,
+        budget_seconds=1,
+    )
+    assert sorted(observed) == [1, 2, 3]
+    assert result == desktop_worker.FeedInfoPrefetchResult(
+        fetched_count=1,
+        cached_count=1,
+        failed_count=1,
+    )
 
-    payload = json.loads(capsys.readouterr().out)
-    assert observed == [(12345, db_path)]
-    assert recorded == [(db_path, 12345)]
-    assert payload["paper_id"] == "w12345"
-    assert payload["url"] == "https://www.nber.org/papers/w12345"
-    assert payload["from_cache"] is True
+
+@pytest.mark.asyncio
+async def test_prefetch_feed_info_respects_concurrency(tmp_path, monkeypatch):
+    active = 0
+    max_active = 0
+
+    async def fake_get_paper(paper_id, *, db_path):
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await desktop_worker.asyncio.sleep(0.01)
+        active -= 1
+        return SimpleNamespace(from_cache=False)
+
+    monkeypatch.setattr(
+        desktop_worker,
+        "get_paper_with_info_cache_result",
+        fake_get_paper,
+    )
+    monkeypatch.setattr(
+        desktop_worker.config_store,
+        "get_info_cache_settings",
+        lambda: SimpleNamespace(cache_enabled=True),
+    )
+
+    result = await desktop_worker.prefetch_feed_info(
+        ["w1", "w2", "w3", "w4"],
+        db_path=tmp_path / "nber.db",
+        concurrency=2,
+        budget_seconds=1,
+    )
+
+    assert max_active == 2
+    assert result.fetched_count == 4
+
+
+@pytest.mark.asyncio
+async def test_prefetch_feed_info_stops_at_budget(tmp_path, monkeypatch):
+    async def slow_get_paper(paper_id, *, db_path):
+        await desktop_worker.asyncio.sleep(1)
+        return SimpleNamespace(from_cache=False)
+
+    monkeypatch.setattr(
+        desktop_worker,
+        "get_paper_with_info_cache_result",
+        slow_get_paper,
+    )
+    monkeypatch.setattr(
+        desktop_worker.config_store,
+        "get_info_cache_settings",
+        lambda: SimpleNamespace(cache_enabled=True),
+    )
+
+    result = await desktop_worker.prefetch_feed_info(
+        ["w1", "w2"],
+        db_path=tmp_path / "nber.db",
+        budget_seconds=0.01,
+    )
+
+    assert result == desktop_worker.FeedInfoPrefetchResult(0, 0, 2)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_feed_info_accepts_empty_feed(tmp_path):
+    result = await desktop_worker.prefetch_feed_info(
+        [],
+        db_path=tmp_path / "nber.db",
+    )
+
+    assert result == desktop_worker.FeedInfoPrefetchResult(0, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_prefetch_feed_info_skips_when_cache_is_disabled(tmp_path, monkeypatch):
+    async def unexpected_get_paper(*args, **kwargs):
+        raise AssertionError("metadata should not be fetched when caching is disabled")
+
+    monkeypatch.setattr(
+        desktop_worker,
+        "get_paper_with_info_cache_result",
+        unexpected_get_paper,
+    )
+    monkeypatch.setattr(
+        desktop_worker.config_store,
+        "get_info_cache_settings",
+        lambda: SimpleNamespace(cache_enabled=False),
+    )
+
+    result = await desktop_worker.prefetch_feed_info(
+        ["w1"],
+        db_path=tmp_path / "nber.db",
+    )
+
+    assert result == desktop_worker.FeedInfoPrefetchResult(0, 0, 0)
 
 
 def test_worker_reports_json_error(tmp_path, monkeypatch, capsys):
-    def fail_fetch(*, db_path):
+    def fail_fetch(*, display_all, db_path):
         raise RuntimeError(f"cannot update {db_path.name}")
 
     monkeypatch.setattr(desktop_worker, "fetch_feed", fail_fetch)

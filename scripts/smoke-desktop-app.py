@@ -14,7 +14,6 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE_PAPER_ID = "w12345"
 
 
 def main() -> None:
@@ -51,6 +50,7 @@ def main() -> None:
         env["HOME"] = str(temp_home)
         env["USERPROFILE"] = str(temp_home)
         env["NBER_DESKTOP_INIT_ONLY"] = "1"
+        env["NBER_WORKER_PATH"] = str(temp_home / "missing-worker")
         env["PATH"] = ""
         process = subprocess.Popen(
             [str(executable)],
@@ -274,6 +274,14 @@ def _desktop_runtime_ready(temp_home: Path) -> bool:
     try:
         config = json.loads(config_path.read_text(encoding="utf-8"))
         configured_db = Path(config["feed"]["db-path"])
+        schema_version = config["schema_version"]
+    except (OSError, KeyError, json.JSONDecodeError):
+        return False
+    if configured_db != db_path or schema_version != 3:
+        return False
+    if not db_path.exists():
+        return True
+    try:
         with sqlite3.connect(db_path, timeout=1) as connection:
             user_version = connection.execute("PRAGMA user_version").fetchone()[0]
             tables = {
@@ -282,10 +290,10 @@ def _desktop_runtime_ready(temp_home: Path) -> bool:
                     "SELECT name FROM sqlite_master WHERE type = 'table'"
                 )
             }
-    except (OSError, KeyError, json.JSONDecodeError, sqlite3.DatabaseError):
+    except sqlite3.DatabaseError:
         return False
     required_tables = {"feed_items", "feed_fetches", "read_status", "info_cache"}
-    return configured_db == db_path and user_version == 3 and required_tables <= tables
+    return user_version == 3 and required_tables <= tables
 
 
 def _seed_sample_environment(temp_home: Path) -> None:
@@ -298,82 +306,6 @@ def _seed_sample_environment(temp_home: Path) -> None:
         )
         + "\n",
         encoding="utf-8",
-    )
-    _seed_sample_database(temp_home)
-
-
-def _seed_sample_database(temp_home: Path) -> None:
-    db_path = temp_home / ".nber-cli" / "nber.db"
-    now = "2026-07-08T00:00:00+00:00"
-    with sqlite3.connect(db_path) as connection:
-        connection.executescript(
-            """
-            CREATE TABLE feed_items (
-                paper_id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                authors_json TEXT NOT NULL,
-                abstract TEXT NOT NULL,
-                url TEXT NOT NULL,
-                source_url TEXT NOT NULL,
-                guid TEXT NOT NULL,
-                first_seen_at TEXT NOT NULL,
-                last_seen_at TEXT NOT NULL
-            );
-            CREATE TABLE feed_fetches (
-                id INTEGER PRIMARY KEY,
-                source_url TEXT NOT NULL,
-                fetched_at TEXT NOT NULL,
-                total_count INTEGER NOT NULL,
-                new_count INTEGER NOT NULL
-            );
-            CREATE TABLE info_cache (
-                paper_id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                authors_json TEXT NOT NULL,
-                date TEXT NOT NULL,
-                abstract TEXT NOT NULL,
-                url TEXT,
-                published_version TEXT,
-                topic TEXT,
-                programs TEXT,
-                first_cached_at TEXT NOT NULL,
-                last_fetched_at TEXT NOT NULL,
-                fetch_count INTEGER DEFAULT 0
-            );
-            PRAGMA user_version = 2;
-            """
-        )
-        authors_json = json.dumps(["Ada Lovelace", "Grace Hopper"])
-        _insert_feed_item(connection, SAMPLE_PAPER_ID, "Desktop Smoke Test Paper", authors_json, now)
-        connection.commit()
-
-
-def _insert_feed_item(
-    connection: sqlite3.Connection,
-    paper_id: str,
-    title: str,
-    authors_json: str,
-    seen_at: str,
-) -> None:
-    connection.execute(
-        """
-        INSERT INTO feed_items (
-            paper_id, title, authors_json, abstract, url, source_url, guid,
-            first_seen_at, last_seen_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            paper_id,
-            title,
-            authors_json,
-            "Seeded feed abstract.",
-            f"https://www.nber.org/papers/{paper_id}",
-            f"https://www.nber.org/papers/{paper_id}#rss",
-            f"https://www.nber.org/papers/{paper_id}",
-            seen_at,
-            seen_at,
-        ),
     )
 
 

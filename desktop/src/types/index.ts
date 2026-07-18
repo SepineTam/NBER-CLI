@@ -23,6 +23,9 @@ export interface FeedRefreshResult {
   new_count: number
   total_count: number
   fetched_count: number
+  info_fetched_count: number
+  info_cached_count: number
+  info_failed_count: number
   last_successful_fetch_at: string | null
 }
 

@@ -32,45 +32,25 @@ pub async fn refresh_feed(app: AppHandle) -> Result<FeedRefreshResult, String> {
     let output = tokio::task::spawn_blocking(move || worker::fetch_feed(&app, &path))
         .await
         .map_err(|error| format!("Desktop worker task failed: {error}"))??;
-    database::feed_refresh_result(db_path(&runtime), output.fetched_count, output.new_count)
+    database::feed_refresh_result(
+        db_path(&runtime),
+        output.fetched_count,
+        output.new_count,
+        output.info_fetched_count,
+        output.info_cached_count,
+        output.info_failed_count,
+    )
 }
 
 #[tauri::command]
-pub async fn get_paper(app: AppHandle, paper_id: String) -> Result<Paper, String> {
+pub fn get_paper(paper_id: String) -> Result<Paper, String> {
     let runtime = runtime()?;
     let normalized = normalize_paper_id(&paper_id)?;
-    if !database::feed_paper_exists(db_path(&runtime), &normalized)? {
-        return Err(format!("paper not found: {normalized}"));
-    }
-
-    let path = db_path(&runtime).to_path_buf();
-    let requested = normalized.clone();
-    let output = tokio::task::spawn_blocking(move || worker::fetch_paper(&app, &path, &requested))
-        .await
-        .map_err(|error| format!("Desktop worker task failed: {error}"))??;
-    if output.paper_id != normalized {
-        return Err(format!(
-            "requested paper ID {normalized} does not match response paper ID {}",
-            output.paper_id
-        ));
-    }
+    let paper = database::get_paper(db_path(&runtime), &normalized)?;
     database::set_read_status(db_path(&runtime), &normalized, true)?;
-
     Ok(Paper {
-        paper_id: normalized.clone(),
-        title: output.title,
-        authors: output.authors,
-        date: output.date,
-        abstract_text: output.abstract_text,
-        url: output.url,
-        pdf_url: Some(format!(
-            "https://www.nber.org/system/files/working_papers/{normalized}/{normalized}.pdf"
-        )),
-        published_version: output.published_version,
-        topic: output.topic,
-        programs: output.programs,
         is_read: true,
-        from_cache: output.from_cache,
+        ..paper
     })
 }
 
@@ -93,23 +73,26 @@ pub fn get_settings() -> Result<Settings, String> {
 #[tauri::command]
 pub fn save_settings(input: SaveSettingsInput) -> Result<Settings, String> {
     let runtime = config::save_settings(input)?;
-    database::validate_schema(db_path(&runtime))?;
+    if db_path(&runtime).exists() {
+        database::validate_schema(db_path(&runtime))?;
+    }
     config::initialize(&runtime)?;
     Ok(runtime.desktop.into())
 }
 
 pub fn initialize_runtime(app: Option<&AppHandle>) -> Result<(), String> {
     let runtime = config::load()?;
-    worker::initialize(app, db_path(&runtime))?;
-    database::validate_schema(db_path(&runtime))?;
+    if db_path(&runtime).exists() && database::validate_schema(db_path(&runtime)).is_err() {
+        worker::initialize(app, db_path(&runtime))?;
+    }
+    if db_path(&runtime).exists() {
+        database::validate_schema(db_path(&runtime))?;
+    }
     config::initialize(&runtime)
 }
 
 fn runtime() -> Result<config::RuntimeConfig, String> {
-    let runtime = config::load()?;
-    database::validate_schema(db_path(&runtime))?;
-    config::initialize(&runtime)?;
-    Ok(runtime)
+    config::load()
 }
 
 fn db_path(runtime: &config::RuntimeConfig) -> &Path {

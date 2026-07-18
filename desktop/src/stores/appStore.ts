@@ -76,9 +76,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ config, localReady: true, error: null })
       await get().loadFeed()
       await get().loadSettings()
-      if (get().feedItems.length === 0) {
-        await get().refresh()
-      }
     } catch (error) {
       set({ error: readableError(error) })
     }
@@ -131,9 +128,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const result = await refreshFeed()
       await get().loadFeed()
+      const preparedCount = result.info_fetched_count + result.info_cached_count
       set({
         refreshing: false,
-        notice: `新增 ${result.new_count} 篇，当前共 ${result.total_count} 篇`,
+        notice: result.info_failed_count > 0
+          ? `新增 ${result.new_count} 篇，已准备 ${preparedCount} 篇详情，${result.info_failed_count} 篇稍后重试`
+          : `新增 ${result.new_count} 篇，已准备 ${preparedCount} 篇详情`,
       })
       return result
     } catch (error) {
