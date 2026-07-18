@@ -78,6 +78,9 @@ pub fn run() {
             commands::refresh_feed,
             commands::get_paper,
             commands::set_paper_read_status,
+            commands::add_paper_tag,
+            commands::rename_paper_tag,
+            commands::remove_paper_tag,
             commands::get_settings,
             commands::save_settings,
         ]);

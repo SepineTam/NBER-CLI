@@ -1,7 +1,8 @@
 use crate::{
     config, database,
     models::{
-        DesktopConfig, FeedList, FeedRefreshResult, Paper, ReadStatus, SaveSettingsInput, Settings,
+        DesktopConfig, FeedList, FeedRefreshResult, Paper, PaperTag, PaperTagSource, ReadStatus,
+        SaveSettingsInput, Settings,
     },
     worker,
 };
@@ -32,6 +33,7 @@ pub async fn refresh_feed(app: AppHandle) -> Result<FeedRefreshResult, String> {
     let output = tokio::task::spawn_blocking(move || worker::fetch_feed(&app, &path))
         .await
         .map_err(|error| format!("Desktop worker task failed: {error}"))??;
+    database::sync_raw_tags(db_path(&runtime))?;
     database::feed_refresh_result(
         db_path(&runtime),
         output.fetched_count,
@@ -66,6 +68,36 @@ pub fn set_paper_read_status(paper_id: String, is_read: bool) -> Result<ReadStat
 }
 
 #[tauri::command]
+pub fn add_paper_tag(paper_id: String, tag: String) -> Result<Vec<PaperTag>, String> {
+    let runtime = runtime()?;
+    let normalized = normalize_paper_id(&paper_id)?;
+    database::add_user_tag(db_path(&runtime), &normalized, &tag)
+}
+
+#[tauri::command]
+pub fn rename_paper_tag(
+    paper_id: String,
+    old_tag: String,
+    new_tag: String,
+    source: PaperTagSource,
+) -> Result<Vec<PaperTag>, String> {
+    let runtime = runtime()?;
+    let normalized = normalize_paper_id(&paper_id)?;
+    database::rename_tag(db_path(&runtime), &normalized, &old_tag, &new_tag, source)
+}
+
+#[tauri::command]
+pub fn remove_paper_tag(
+    paper_id: String,
+    tag: String,
+    source: PaperTagSource,
+) -> Result<Vec<PaperTag>, String> {
+    let runtime = runtime()?;
+    let normalized = normalize_paper_id(&paper_id)?;
+    database::remove_tag(db_path(&runtime), &normalized, &tag, source)
+}
+
+#[tauri::command]
 pub fn get_settings() -> Result<Settings, String> {
     Ok(runtime()?.desktop.into())
 }
@@ -87,6 +119,8 @@ pub fn initialize_runtime(app: Option<&AppHandle>) -> Result<(), String> {
     }
     if db_path(&runtime).exists() {
         database::validate_schema(db_path(&runtime))?;
+        database::ensure_desktop_storage(db_path(&runtime))?;
+        database::sync_raw_tags(db_path(&runtime))?;
     }
     config::initialize(&runtime)
 }

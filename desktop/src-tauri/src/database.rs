@@ -1,7 +1,7 @@
-use crate::models::{FeedItem, FeedList, FeedRefreshResult, Paper};
+use crate::models::{FeedItem, FeedList, FeedRefreshResult, Paper, PaperTag, PaperTagSource};
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
-use std::{path::Path, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 pub const SCHEMA_VERSION: u8 = 3;
 
@@ -36,6 +36,7 @@ pub fn list_feed(db_path: &Path, limit: usize, offset: usize) -> Result<FeedList
     }
     validate_schema(db_path)?;
     let connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
     let mut statement = connection
         .prepare(
             r#"
@@ -65,10 +66,16 @@ pub fn list_feed(db_path: &Path, limit: usize, offset: usize) -> Result<FeedList
                 first_seen_at: row.get(7)?,
                 last_seen_at: row.get(8)?,
                 is_read: row.get(9)?,
+                tags: Vec::new(),
             })
         })
         .map_err(display_error)?;
-    let items = rows.collect::<Result<Vec<_>, _>>().map_err(display_error)?;
+    let mut items = rows.collect::<Result<Vec<_>, _>>().map_err(display_error)?;
+    drop(statement);
+    let mut tags_by_paper = all_visible_tags(&connection)?;
+    for item in &mut items {
+        item.tags = tags_by_paper.remove(&item.paper_id).unwrap_or_default();
+    }
     let total_count = feed_total_count(&connection)?;
     Ok(FeedList {
         items,
@@ -89,6 +96,7 @@ pub fn feed_refresh_result(
 ) -> Result<FeedRefreshResult, String> {
     validate_schema(db_path)?;
     let connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
     Ok(FeedRefreshResult {
         new_count,
         total_count: feed_total_count(&connection)?,
@@ -102,7 +110,9 @@ pub fn feed_refresh_result(
 
 pub fn get_paper(db_path: &Path, paper_id: &str) -> Result<Paper, String> {
     validate_schema(db_path)?;
-    let paper = open(db_path)?
+    let connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
+    let paper = connection
         .query_row(
             r#"
             SELECT
@@ -140,12 +150,15 @@ pub fn get_paper(db_path: &Path, paper_id: &str) -> Result<Paper, String> {
                     programs: row.get(8)?,
                     is_read: row.get(9)?,
                     from_cache: row.get(10)?,
+                    tags: Vec::new(),
                 })
             },
         )
         .optional()
         .map_err(display_error)?;
-    paper.ok_or_else(|| format!("paper not found: {paper_id}"))
+    let mut paper = paper.ok_or_else(|| format!("paper not found: {paper_id}"))?;
+    paper.tags = visible_tags(&connection, paper_id)?;
+    Ok(paper)
 }
 
 pub fn set_read_status(db_path: &Path, paper_id: &str, is_read: bool) -> Result<(), String> {
@@ -163,6 +176,372 @@ pub fn set_read_status(db_path: &Path, paper_id: &str, is_read: bool) -> Result<
         )
         .map(|_| ())
         .map_err(display_error)
+}
+
+pub fn ensure_desktop_storage(db_path: &Path) -> Result<(), String> {
+    validate_schema(db_path)?;
+    ensure_desktop_tables(&open(db_path)?)
+}
+
+pub fn sync_raw_tags(db_path: &Path) -> Result<(), String> {
+    validate_schema(db_path)?;
+    let mut connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
+    let cached_metadata = {
+        let mut statement = connection
+            .prepare(
+                r#"
+                SELECT info.paper_id, info.topic, info.programs, info.last_fetched_at
+                FROM info_cache info
+                LEFT JOIN desktop_raw_tag_sync_state state
+                    ON state.paper_id = info.paper_id
+                WHERE state.info_fetched_at IS NULL
+                   OR state.info_fetched_at != info.last_fetched_at
+                "#,
+            )
+            .map_err(display_error)?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(display_error)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(display_error)?
+    };
+    let transaction = connection.transaction().map_err(display_error)?;
+    for (paper_id, topic, programs, info_fetched_at) in cached_metadata {
+        if topic.as_deref().is_none_or(|value| value.trim().is_empty())
+            && programs
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty())
+        {
+            continue;
+        }
+        transaction
+            .execute(
+                "DELETE FROM desktop_raw_tags WHERE paper_id = ?1",
+                [&paper_id],
+            )
+            .map_err(display_error)?;
+        insert_raw_values(
+            &transaction,
+            &paper_id,
+            topic.as_deref(),
+            PaperTagSource::Topic,
+        )?;
+        transaction
+            .execute(
+                r#"
+                INSERT INTO desktop_raw_tag_sync_state
+                    (paper_id, info_fetched_at, synced_at)
+                VALUES (?1, ?2, ?3)
+                ON CONFLICT(paper_id) DO UPDATE SET
+                    info_fetched_at = excluded.info_fetched_at,
+                    synced_at = excluded.synced_at
+                "#,
+                params![paper_id, info_fetched_at, utc_now()],
+            )
+            .map_err(display_error)?;
+        insert_raw_values(
+            &transaction,
+            &paper_id,
+            programs.as_deref(),
+            PaperTagSource::Program,
+        )?;
+    }
+    transaction.commit().map_err(display_error)
+}
+
+pub fn add_user_tag(db_path: &Path, paper_id: &str, tag: &str) -> Result<Vec<PaperTag>, String> {
+    validate_schema(db_path)?;
+    let connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
+    ensure_paper_exists(&connection, paper_id)?;
+    let normalized = normalize_tag(tag)?;
+    let now = utc_now();
+    connection
+        .execute(
+            r#"
+            INSERT INTO desktop_user_tags (paper_id, tag, created_at, updated_at)
+            VALUES (?1, ?2, ?3, ?3)
+            ON CONFLICT(paper_id, tag) DO UPDATE SET updated_at = excluded.updated_at
+            "#,
+            params![paper_id, normalized, now],
+        )
+        .map_err(display_error)?;
+    visible_tags(&connection, paper_id)
+}
+
+pub fn remove_tag(
+    db_path: &Path,
+    paper_id: &str,
+    tag: &str,
+    source: PaperTagSource,
+) -> Result<Vec<PaperTag>, String> {
+    validate_schema(db_path)?;
+    let connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
+    let normalized = normalize_tag(tag)?;
+    if source == PaperTagSource::User {
+        connection
+            .execute(
+                "DELETE FROM desktop_user_tags WHERE paper_id = ?1 AND tag = ?2 COLLATE NOCASE",
+                params![paper_id, normalized],
+            )
+            .map_err(display_error)?;
+    } else {
+        connection
+            .execute(
+                r#"
+                INSERT INTO desktop_hidden_raw_tags (paper_id, tag, hidden_at)
+                VALUES (?1, ?2, ?3)
+                ON CONFLICT(paper_id, tag) DO UPDATE SET hidden_at = excluded.hidden_at
+                "#,
+                params![paper_id, normalized, utc_now()],
+            )
+            .map_err(display_error)?;
+    }
+    visible_tags(&connection, paper_id)
+}
+
+pub fn rename_tag(
+    db_path: &Path,
+    paper_id: &str,
+    old_tag: &str,
+    new_tag: &str,
+    source: PaperTagSource,
+) -> Result<Vec<PaperTag>, String> {
+    validate_schema(db_path)?;
+    let mut connection = open(db_path)?;
+    ensure_desktop_tables(&connection)?;
+    ensure_paper_exists(&connection, paper_id)?;
+    let old_normalized = normalize_tag(old_tag)?;
+    let new_normalized = normalize_tag(new_tag)?;
+    let now = utc_now();
+    let transaction = connection.transaction().map_err(display_error)?;
+    if source == PaperTagSource::User {
+        transaction
+            .execute(
+                "DELETE FROM desktop_user_tags WHERE paper_id = ?1 AND tag = ?2 COLLATE NOCASE",
+                params![paper_id, old_normalized],
+            )
+            .map_err(display_error)?;
+    } else {
+        transaction
+            .execute(
+                r#"
+                INSERT INTO desktop_hidden_raw_tags (paper_id, tag, hidden_at)
+                VALUES (?1, ?2, ?3)
+                ON CONFLICT(paper_id, tag) DO UPDATE SET hidden_at = excluded.hidden_at
+                "#,
+                params![paper_id, old_normalized, now],
+            )
+            .map_err(display_error)?;
+    }
+    transaction
+        .execute(
+            r#"
+            INSERT INTO desktop_user_tags (paper_id, tag, created_at, updated_at)
+            VALUES (?1, ?2, ?3, ?3)
+            ON CONFLICT(paper_id, tag) DO UPDATE SET updated_at = excluded.updated_at
+            "#,
+            params![paper_id, new_normalized, now],
+        )
+        .map_err(display_error)?;
+    transaction.commit().map_err(display_error)?;
+    visible_tags(&connection, paper_id)
+}
+
+fn ensure_desktop_tables(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS desktop_raw_tags (
+                paper_id TEXT NOT NULL,
+                tag TEXT NOT NULL COLLATE NOCASE,
+                source TEXT NOT NULL CHECK (source IN ('topic', 'program')),
+                last_synced_at TEXT NOT NULL,
+                PRIMARY KEY (paper_id, tag, source)
+            );
+            CREATE TABLE IF NOT EXISTS desktop_user_tags (
+                paper_id TEXT NOT NULL,
+                tag TEXT NOT NULL COLLATE NOCASE,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (paper_id, tag)
+            );
+            CREATE TABLE IF NOT EXISTS desktop_hidden_raw_tags (
+                paper_id TEXT NOT NULL,
+                tag TEXT NOT NULL COLLATE NOCASE,
+                hidden_at TEXT NOT NULL,
+                PRIMARY KEY (paper_id, tag)
+            );
+            CREATE TABLE IF NOT EXISTS desktop_raw_tag_sync_state (
+                paper_id TEXT PRIMARY KEY,
+                info_fetched_at TEXT NOT NULL,
+                synced_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_desktop_raw_tags_tag
+                ON desktop_raw_tags(tag COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_desktop_user_tags_tag
+                ON desktop_user_tags(tag COLLATE NOCASE);
+            "#,
+        )
+        .map_err(display_error)
+}
+
+fn insert_raw_values(
+    connection: &Connection,
+    paper_id: &str,
+    values: Option<&str>,
+    source: PaperTagSource,
+) -> Result<(), String> {
+    for tag in split_raw_tags(values) {
+        connection
+            .execute(
+                r#"
+                INSERT OR IGNORE INTO desktop_raw_tags
+                    (paper_id, tag, source, last_synced_at)
+                VALUES (?1, ?2, ?3, ?4)
+                "#,
+                params![paper_id, tag, source.as_str(), utc_now()],
+            )
+            .map_err(display_error)?;
+    }
+    Ok(())
+}
+
+fn split_raw_tags(values: Option<&str>) -> Vec<String> {
+    values
+        .unwrap_or_default()
+        .split(';')
+        .filter_map(|value| normalize_tag(value).ok())
+        .collect()
+}
+
+fn normalize_tag(value: &str) -> Result<String, String> {
+    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.is_empty() {
+        return Err("tag cannot be empty".to_string());
+    }
+    if normalized.chars().count() > 60 {
+        return Err("tag cannot be longer than 60 characters".to_string());
+    }
+    Ok(normalized)
+}
+
+fn ensure_paper_exists(connection: &Connection, paper_id: &str) -> Result<(), String> {
+    let exists: bool = connection
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM feed_items WHERE paper_id = ?1)",
+            [paper_id],
+            |row| row.get(0),
+        )
+        .map_err(display_error)?;
+    if exists {
+        Ok(())
+    } else {
+        Err(format!("paper not found: {paper_id}"))
+    }
+}
+
+fn visible_tags(connection: &Connection, paper_id: &str) -> Result<Vec<PaperTag>, String> {
+    let mut statement = connection
+        .prepare(
+            r#"
+            SELECT tag, source FROM (
+                SELECT tag, 'user' AS source, 0 AS priority
+                FROM desktop_user_tags
+                WHERE paper_id = ?1
+                UNION ALL
+                SELECT raw.tag, raw.source, CASE raw.source WHEN 'topic' THEN 1 ELSE 2 END
+                FROM desktop_raw_tags raw
+                WHERE raw.paper_id = ?1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM desktop_hidden_raw_tags hidden
+                      WHERE hidden.paper_id = raw.paper_id
+                        AND hidden.tag = raw.tag COLLATE NOCASE
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM desktop_user_tags user
+                      WHERE user.paper_id = raw.paper_id
+                        AND user.tag = raw.tag COLLATE NOCASE
+                  )
+            )
+            GROUP BY tag COLLATE NOCASE
+            ORDER BY MIN(priority), tag COLLATE NOCASE
+            "#,
+        )
+        .map_err(display_error)?;
+    let rows = statement
+        .query_map([paper_id], |row| {
+            let source: String = row.get(1)?;
+            Ok(PaperTag {
+                name: row.get(0)?,
+                source: match source.as_str() {
+                    "topic" => PaperTagSource::Topic,
+                    "program" => PaperTagSource::Program,
+                    _ => PaperTagSource::User,
+                },
+            })
+        })
+        .map_err(display_error)?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(display_error)
+}
+
+fn all_visible_tags(connection: &Connection) -> Result<HashMap<String, Vec<PaperTag>>, String> {
+    let mut statement = connection
+        .prepare(
+            r#"
+            SELECT paper_id, tag, source FROM (
+                SELECT paper_id, tag, 'user' AS source, 0 AS priority
+                FROM desktop_user_tags
+                UNION ALL
+                SELECT raw.paper_id, raw.tag, raw.source,
+                       CASE raw.source WHEN 'topic' THEN 1 ELSE 2 END
+                FROM desktop_raw_tags raw
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM desktop_hidden_raw_tags hidden
+                    WHERE hidden.paper_id = raw.paper_id
+                      AND hidden.tag = raw.tag COLLATE NOCASE
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM desktop_user_tags user
+                    WHERE user.paper_id = raw.paper_id
+                      AND user.tag = raw.tag COLLATE NOCASE
+                )
+            )
+            GROUP BY paper_id, tag COLLATE NOCASE
+            ORDER BY paper_id, MIN(priority), tag COLLATE NOCASE
+            "#,
+        )
+        .map_err(display_error)?;
+    let rows = statement
+        .query_map([], |row| {
+            let source: String = row.get(2)?;
+            Ok((
+                row.get::<_, String>(0)?,
+                PaperTag {
+                    name: row.get(1)?,
+                    source: match source.as_str() {
+                        "topic" => PaperTagSource::Topic,
+                        "program" => PaperTagSource::Program,
+                        _ => PaperTagSource::User,
+                    },
+                },
+            ))
+        })
+        .map_err(display_error)?;
+    let mut tags_by_paper: HashMap<String, Vec<PaperTag>> = HashMap::new();
+    for row in rows {
+        let (paper_id, tag) = row.map_err(display_error)?;
+        tags_by_paper.entry(paper_id).or_default().push(tag);
+    }
+    Ok(tags_by_paper)
 }
 
 fn feed_total_count(connection: &Connection) -> Result<usize, String> {
@@ -306,6 +685,118 @@ mod tests {
         assert_eq!(paper.date, "2026/07/18");
         assert_eq!(paper.topic.as_deref(), Some("Economics"));
         assert!(paper.from_cache);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn syncs_raw_topics_and_programs_into_visible_tags() {
+        let path = feed_database("raw-tags");
+        Connection::open(&path)
+            .unwrap()
+            .execute(
+                r#"
+                INSERT INTO info_cache VALUES (
+                    'w12345', 'Cached title', '[]', '2026/07/18', 'Abstract', NULL,
+                    NULL, 'Labor Economics; Development',
+                    'Labor Studies; Economic Fluctuations and Growth',
+                    '2026-07-18T00:00:00Z', '2026-07-18T00:00:00Z', 0
+                )
+                "#,
+                [],
+            )
+            .unwrap();
+
+        sync_raw_tags(&path).unwrap();
+        let paper = get_paper(&path, "w12345").unwrap();
+
+        assert_eq!(paper.tags.len(), 4);
+        assert!(paper.tags.contains(&PaperTag {
+            name: "Labor Economics".to_string(),
+            source: PaperTagSource::Topic,
+        }));
+        assert!(paper.tags.contains(&PaperTag {
+            name: "Labor Studies".to_string(),
+            source: PaperTagSource::Program,
+        }));
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn raw_and_user_tag_edits_remain_separate() {
+        let path = feed_database("editable-tags");
+        ensure_desktop_storage(&path).unwrap();
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute(
+                "INSERT INTO desktop_raw_tags VALUES (?1, ?2, ?3, ?4)",
+                params!["w12345", "Macroeconomics", "topic", utc_now()],
+            )
+            .unwrap();
+
+        let tags = add_user_tag(&path, "w12345", "  Must   Read ").unwrap();
+        assert!(tags.iter().any(|tag| tag.name == "Must Read"));
+
+        let tags = remove_tag(&path, "w12345", "Macroeconomics", PaperTagSource::Topic).unwrap();
+        assert!(!tags.iter().any(|tag| tag.name == "Macroeconomics"));
+
+        sync_raw_tags(&path).unwrap();
+        let tags = visible_tags(&Connection::open(&path).unwrap(), "w12345").unwrap();
+        assert!(!tags.iter().any(|tag| tag.name == "Macroeconomics"));
+
+        let tags = rename_tag(
+            &path,
+            "w12345",
+            "Must Read",
+            "Priority",
+            PaperTagSource::User,
+        )
+        .unwrap();
+        assert_eq!(
+            tags,
+            vec![PaperTag {
+                name: "Priority".to_string(),
+                source: PaperTagSource::User,
+            }]
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn renaming_raw_tag_hides_original_and_creates_user_tag() {
+        let path = feed_database("rename-raw-tag");
+        ensure_desktop_storage(&path).unwrap();
+        Connection::open(&path)
+            .unwrap()
+            .execute(
+                "INSERT INTO desktop_raw_tags VALUES (?1, ?2, ?3, ?4)",
+                params!["w12345", "Development", "topic", utc_now()],
+            )
+            .unwrap();
+
+        let tags = rename_tag(
+            &path,
+            "w12345",
+            "Development",
+            "My Development Papers",
+            PaperTagSource::Topic,
+        )
+        .unwrap();
+
+        assert_eq!(
+            tags,
+            vec![PaperTag {
+                name: "My Development Papers".to_string(),
+                source: PaperTagSource::User,
+            }]
+        );
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn validates_user_tags() {
+        let path = feed_database("tag-validation");
+        assert!(add_user_tag(&path, "w12345", "   ").is_err());
+        assert!(add_user_tag(&path, "w12345", &"x".repeat(61)).is_err());
         let _ = std::fs::remove_file(path);
     }
 }

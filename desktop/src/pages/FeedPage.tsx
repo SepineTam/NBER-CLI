@@ -4,6 +4,7 @@ import { PaperDetail } from '../components/PaperDetail'
 import { RefreshButton } from '../components/RefreshButton'
 import { SearchIcon } from '../components/Icons'
 import { useAppStore } from '../stores/appStore'
+import type { FeedItem } from '../types'
 import { PAPER_SEARCH_INPUT_ID } from '../keyboardShortcuts'
 
 type FeedFilter = 'all' | 'unread'
@@ -11,6 +12,7 @@ type FeedFilter = 'all' | 'unread'
 export function FeedPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FeedFilter>('all')
+  const [tagFilter, setTagFilter] = useState('')
   const {
     feedItems,
     feedTotalCount,
@@ -27,21 +29,20 @@ export function FeedPage() {
     openPaper,
     closePaper,
     toggleRead,
+    addTag,
+    renameTag,
+    removeTag,
   } = useAppStore()
 
   const unreadCount = feedItems.filter((item) => !item.is_read).length
-  const visibleItems = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
-    return feedItems.filter((item) => {
-      const matchesFilter = filter === 'all' || !item.is_read
-      const matchesQuery =
-        !normalizedQuery ||
-        item.title.toLowerCase().includes(normalizedQuery) ||
-        item.paper_id.toLowerCase().includes(normalizedQuery) ||
-        item.authors.some((author) => author.toLowerCase().includes(normalizedQuery))
-      return matchesFilter && matchesQuery
-    })
-  }, [feedItems, filter, query])
+  const availableTags = useMemo(
+    () => collectAvailableTags(feedItems),
+    [feedItems],
+  )
+  const visibleItems = useMemo(
+    () => filterFeedItems(feedItems, filter, query, tagFilter),
+    [feedItems, filter, query, tagFilter],
+  )
 
   return (
     <main className="workspace">
@@ -64,7 +65,7 @@ export function FeedPage() {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索标题、作者或论文编号"
+                placeholder="搜索标题、作者、编号或标签"
               />
               <kbd>⌘ K</kbd>
             </label>
@@ -83,11 +84,18 @@ export function FeedPage() {
           <button className={filter === 'unread' ? 'active' : ''} type="button" onClick={() => setFilter('unread')}>
             未读 <span>{unreadCount}</span>
           </button>
+          <label className="tag-filter">
+            <span>标签</span>
+            <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
+              <option value="">全部标签</option>
+              {availableTags.map((tag) => <option value={tag} key={tag}>{tag}</option>)}
+            </select>
+          </label>
         </div>
 
         <FeedList
           items={visibleItems}
-          totalCount={query || filter !== 'all' ? visibleItems.length : feedTotalCount}
+          totalCount={query || filter !== 'all' || tagFilter ? visibleItems.length : feedTotalCount}
           loading={loadingFeed}
           loadingMore={loadingMoreFeed}
           selectedPaperId={selectedPaperId}
@@ -103,9 +111,37 @@ export function FeedPage() {
         onClose={closePaper}
         onRetry={(paperId) => void openPaper(paperId)}
         onToggleRead={(paperId, isRead) => void toggleRead(paperId, isRead)}
+        onAddTag={addTag}
+        onRenameTag={renameTag}
+        onRemoveTag={removeTag}
       />
     </main>
   )
+}
+
+export function collectAvailableTags(items: FeedItem[]) {
+  return Array.from(new Set(items.flatMap((item) => item.tags.map((tag) => tag.name))))
+    .sort((left, right) => left.localeCompare(right))
+}
+
+export function filterFeedItems(
+  items: FeedItem[],
+  filter: FeedFilter,
+  query: string,
+  tagFilter: string,
+) {
+  const normalizedQuery = query.trim().toLowerCase()
+  return items.filter((item) => {
+    const matchesFilter = filter === 'all' || !item.is_read
+    const matchesQuery =
+      !normalizedQuery ||
+      item.title.toLowerCase().includes(normalizedQuery) ||
+      item.paper_id.toLowerCase().includes(normalizedQuery) ||
+      item.authors.some((author) => author.toLowerCase().includes(normalizedQuery)) ||
+      item.tags.some((tag) => tag.name.toLowerCase().includes(normalizedQuery))
+    const matchesTag = !tagFilter || item.tags.some((tag) => tag.name === tagFilter)
+    return matchesFilter && matchesQuery && matchesTag
+  })
 }
 
 function formatWeek() {

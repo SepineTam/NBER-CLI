@@ -17,6 +17,16 @@ export function FeedItemRow({ item, selected, onOpen }: FeedItemRowProps) {
       <span className="paper-main">
         <strong className="paper-title">{item.title}</strong>
         <span className="paper-authors">{formatAuthors(item.authors)}</span>
+        {item.tags.length > 0 ? (
+          <span className="paper-tags">
+            {item.tags.slice(0, 3).map((tag) => (
+              <span className={`paper-tag tag-${tag.source}`} key={`${tag.source}-${tag.name}`}>
+                {tag.name}
+              </span>
+            ))}
+            {item.tags.length > 3 ? <span className="paper-tag-more">+{item.tags.length - 3}</span> : null}
+          </span>
+        ) : null}
       </span>
       <time className="paper-time">{formatTime(item.last_seen_at)}</time>
     </button>

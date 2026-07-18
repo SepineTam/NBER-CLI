@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import { invoke } from '@tauri-apps/api/core'
 import { fetchFeed, refreshFeed } from '../api/feed'
-import { fetchPaper, setPaperReadStatus } from '../api/papers'
+import {
+  addPaperTag,
+  fetchPaper,
+  removePaperTag,
+  renamePaperTag,
+  setPaperReadStatus,
+} from '../api/papers'
 import { fetchSettings, saveSettings } from '../api/settings'
 import { isTauriRuntime, readableError } from '../api/client'
 import type {
@@ -9,6 +15,7 @@ import type {
   FeedItem,
   FeedRefreshResult,
   Paper,
+  PaperTagSource,
   Settings,
 } from '../types'
 
@@ -38,6 +45,9 @@ interface AppState {
   openPaper: (paperId: string) => Promise<void>
   closePaper: () => void
   toggleRead: (paperId: string, isRead: boolean) => Promise<void>
+  addTag: (paperId: string, tag: string) => Promise<void>
+  renameTag: (paperId: string, oldTag: string, newTag: string, source: PaperTagSource) => Promise<void>
+  removeTag: (paperId: string, tag: string, source: PaperTagSource) => Promise<void>
   loadSettings: () => Promise<void>
   updateSettings: (settings: {
     feed_refresh_interval_minutes?: number
@@ -190,6 +200,36 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  addTag: async (paperId, tag) => {
+    try {
+      const tags = await addPaperTag(paperId, tag)
+      updatePaperTags(set, paperId, tags)
+    } catch (error) {
+      set({ error: readableError(error) })
+      throw error
+    }
+  },
+
+  renameTag: async (paperId, oldTag, newTag, source) => {
+    try {
+      const tags = await renamePaperTag(paperId, oldTag, newTag, source)
+      updatePaperTags(set, paperId, tags)
+    } catch (error) {
+      set({ error: readableError(error) })
+      throw error
+    }
+  },
+
+  removeTag: async (paperId, tag, source) => {
+    try {
+      const tags = await removePaperTag(paperId, tag, source)
+      updatePaperTags(set, paperId, tags)
+    } catch (error) {
+      set({ error: readableError(error) })
+      throw error
+    }
+  },
+
   loadSettings: async () => {
     try {
       const settings = await fetchSettings()
@@ -221,4 +261,20 @@ function fallbackDesktopConfig(): DesktopConfig {
     db_path: '',
     log_dir: '',
   }
+}
+
+function updatePaperTags(
+  set: (updater: (state: AppState) => Partial<AppState>) => void,
+  paperId: string,
+  tags: import('../types').PaperTag[],
+) {
+  set((state) => ({
+    selectedPaper:
+      state.selectedPaper?.paper_id === paperId
+        ? { ...state.selectedPaper, tags }
+        : state.selectedPaper,
+    feedItems: state.feedItems.map((item) =>
+      item.paper_id === paperId ? { ...item, tags } : item,
+    ),
+  }))
 }

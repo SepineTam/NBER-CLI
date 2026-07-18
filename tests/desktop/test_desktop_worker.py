@@ -87,6 +87,34 @@ async def test_prefetch_feed_info_keeps_partial_success(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_prefetch_refreshes_legacy_cache_without_tags(tmp_path, monkeypatch):
+    calls: list[bool] = []
+
+    async def fake_get_paper(paper_id, *, refresh=False, db_path):
+        calls.append(refresh)
+        if not refresh:
+            paper = SimpleNamespace(topic=None, programs=None)
+            return SimpleNamespace(from_cache=True, paper=paper)
+        paper = SimpleNamespace(topic="Labor Economics", programs="Labor Studies")
+        return SimpleNamespace(from_cache=False, paper=paper)
+
+    monkeypatch.setattr(
+        desktop_worker,
+        "get_paper_with_info_cache_result",
+        fake_get_paper,
+    )
+
+    status = await desktop_worker._prefetch_one_paper(
+        123,
+        db_path=tmp_path / "nber.db",
+        semaphore=desktop_worker.asyncio.Semaphore(1),
+    )
+
+    assert calls == [False, True]
+    assert status == "fetched"
+
+
+@pytest.mark.asyncio
 async def test_prefetch_feed_info_respects_concurrency(tmp_path, monkeypatch):
     active = 0
     max_active = 0

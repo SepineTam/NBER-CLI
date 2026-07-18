@@ -1,3 +1,10 @@
+export type PaperTagSource = 'topic' | 'program' | 'user'
+
+export interface PaperTag {
+  name: string
+  source: PaperTagSource
+}
+
 export interface FeedItem {
   paper_id: string
   title: string
@@ -9,6 +16,7 @@ export interface FeedItem {
   first_seen_at: string
   last_seen_at: string
   is_read: boolean
+  tags: PaperTag[]
 }
 
 export interface FeedList {
@@ -42,6 +50,7 @@ export interface Paper {
   programs: string | null
   is_read: boolean
   from_cache: boolean
+  tags: PaperTag[]
 }
 
 export interface Settings {

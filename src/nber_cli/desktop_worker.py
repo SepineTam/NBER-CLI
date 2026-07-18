@@ -128,6 +128,15 @@ async def _prefetch_one_paper(
                 paper_id,
                 db_path=db_path,
             )
+            paper = getattr(result, "paper", None)
+            if result.from_cache and paper is not None and not (
+                getattr(paper, "topic", None) or getattr(paper, "programs", None)
+            ):
+                result = await get_paper_with_info_cache_result(
+                    paper_id,
+                    refresh=True,
+                    db_path=db_path,
+                )
         except Exception as error:
             logger.warning(
                 "Desktop Feed metadata prefetch failed for w%s: %s",

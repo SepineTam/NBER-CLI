@@ -15,6 +15,10 @@ const item: FeedItem = {
   first_seen_at: '2026-07-08T00:00:00+00:00',
   last_seen_at: '2026-07-08T00:00:00+00:00',
   is_read: false,
+  tags: [
+    { name: 'Labor Economics', source: 'topic' },
+    { name: 'Must Read', source: 'user' },
+  ],
 }
 
 describe('FeedItemRow', () => {
@@ -24,6 +28,8 @@ describe('FeedItemRow', () => {
 
     expect(screen.getByText('A Useful Paper')).toBeInTheDocument()
     expect(screen.getByText('Ada Lovelace, Grace Hopper, Katherine Johnson et al.')).toBeInTheDocument()
+    expect(screen.getByText('Labor Economics')).toBeInTheDocument()
+    expect(screen.getByText('Must Read')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button'))
 
