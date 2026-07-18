@@ -2,7 +2,7 @@ mod commands;
 mod config;
 mod database;
 mod models;
-mod network;
+mod worker;
 
 use tauri::{Emitter, Manager};
 
@@ -60,7 +60,7 @@ fn build_macos_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if std::env::var_os("NBER_DESKTOP_INIT_ONLY").is_some() {
-        commands::initialize_runtime().expect("failed to initialize native desktop data runtime");
+        commands::initialize_runtime(None).expect("failed to initialize Desktop data runtime");
         return;
     }
 
@@ -102,7 +102,7 @@ pub fn run() {
             _ => {}
         })
         .setup(|app| {
-            commands::initialize_runtime().map_err(std::io::Error::other)?;
+            commands::initialize_runtime(Some(app.handle())).map_err(std::io::Error::other)?;
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

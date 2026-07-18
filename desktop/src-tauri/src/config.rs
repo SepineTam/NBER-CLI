@@ -11,8 +11,6 @@ pub const DEFAULT_INFO_CACHE_TTL_DAYS: u16 = 30;
 #[derive(Clone, Debug)]
 pub struct RuntimeConfig {
     pub desktop: DesktopConfig,
-    pub info_cache_enabled: bool,
-    pub info_cache_ttl_days: u16,
 }
 
 pub fn load() -> Result<RuntimeConfig, String> {
@@ -28,14 +26,6 @@ pub fn load() -> Result<RuntimeConfig, String> {
         config.pointer("/desktop/feed_refresh_interval_minutes"),
         DEFAULT_REFRESH_INTERVAL_MINUTES,
     );
-    let info_cache_enabled = config
-        .pointer("/info/cache_enabled")
-        .and_then(Value::as_bool)
-        .unwrap_or(true);
-    let info_cache_ttl_days = positive_u16(
-        config.pointer("/info/cache_ttl_days"),
-        DEFAULT_INFO_CACHE_TTL_DAYS,
-    );
     let db_path = configured_db_path(&config, &home, &app_dir)?;
 
     Ok(RuntimeConfig {
@@ -45,8 +35,6 @@ pub fn load() -> Result<RuntimeConfig, String> {
             db_path: path_text(&db_path),
             log_dir: path_text(&log_dir),
         },
-        info_cache_enabled,
-        info_cache_ttl_days,
     })
 }
 

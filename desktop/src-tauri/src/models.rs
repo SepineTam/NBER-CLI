@@ -87,27 +87,3 @@ pub struct Paper {
     pub is_read: bool,
     pub from_cache: bool,
 }
-
-#[derive(Clone, Debug)]
-pub struct PaperMetadata {
-    pub paper_id: String,
-    pub title: String,
-    pub authors: Vec<String>,
-    pub date: String,
-    pub abstract_text: String,
-    pub url: Option<String>,
-    pub published_version: Option<String>,
-    pub topic: Option<String>,
-    pub programs: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct FeedSourceItem {
-    pub paper_id: String,
-    pub title: String,
-    pub authors: Vec<String>,
-    pub abstract_text: String,
-    pub url: String,
-    pub source_url: String,
-    pub guid: String,
-}

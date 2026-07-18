@@ -50,7 +50,7 @@ jobs:
             pkg-config
 
       - name: Install Python dependencies
-        run: uv sync --dev --extra server
+        run: uv sync --dev --extra server --group desktop-build
 
       - name: Run Python lint
         run: uv run ruff check .
@@ -74,7 +74,10 @@ jobs:
         working-directory: desktop
         run: npm run build
 
-      - name: Test native Rust data layer
+      - name: Build bundled one-shot Desktop worker
+        run: uv run python scripts/build-desktop-worker.py --clean --target-triple x86_64-unknown-linux-gnu
+
+      - name: Test Desktop Rust bridge
         working-directory: desktop/src-tauri
         run: cargo test --locked
 
@@ -147,7 +150,7 @@ jobs:
             xvfb
 
       - name: Install Python dependencies
-        run: uv sync --dev
+        run: uv sync --dev --group desktop-build
 
       - name: Install desktop dependencies
         working-directory: desktop
@@ -235,6 +238,9 @@ jobs:
           WINDOWS_DIGEST_ALGORITHM: ${{ secrets.WINDOWS_DIGEST_ALGORITHM }}
           WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
         run: uv run python scripts/prepare-tauri-signing.py
+
+      - name: Build bundled one-shot Desktop worker
+        run: uv run python scripts/build-desktop-worker.py --clean --target-triple ${{ matrix.target }}
 
       - name: Build Tauri app
         working-directory: desktop

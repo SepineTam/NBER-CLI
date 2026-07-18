@@ -18,7 +18,7 @@ SAMPLE_PAPER_ID = "w12345"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Smoke test the native desktop app.")
+    parser = argparse.ArgumentParser(description="Smoke test the bundled Desktop app.")
     parser.add_argument("--app-path", type=Path, default=None)
     parser.add_argument("--package-path", type=Path, default=None)
     parser.add_argument(
@@ -42,12 +42,16 @@ def main() -> None:
         if not executable.exists():
             raise SystemExit(f"desktop executable not found: {executable}")
         _assert_no_python_sidecar(executable)
+        worker = _bundled_worker(executable)
+        if worker is None:
+            raise SystemExit(f"bundled one-shot worker not found beside {executable}")
 
         _seed_sample_environment(temp_home)
         env = os.environ.copy()
         env["HOME"] = str(temp_home)
         env["USERPROFILE"] = str(temp_home)
         env["NBER_DESKTOP_INIT_ONLY"] = "1"
+        env["PATH"] = ""
         process = subprocess.Popen(
             [str(executable)],
             cwd=ROOT,
@@ -56,14 +60,15 @@ def main() -> None:
             stderr=subprocess.PIPE,
             text=True,
         )
-        if not _wait_for_native_runtime(process, temp_home, args.timeout):
+        if not _wait_for_desktop_runtime(process, temp_home, args.timeout):
             stdout, stderr = _process_output(process)
             raise SystemExit(
-                "desktop app did not initialize its native Rust data runtime\n"
+                "desktop app did not initialize its bundled data runtime\n"
                 f"stdout:\n{stdout}\n"
                 f"stderr:\n{stderr}"
             )
-        print("native_runtime=ok")
+        print("desktop_runtime=ok")
+        print(f"bundled_worker={worker}")
         print("python_sidecar=absent")
     finally:
         if process is not None:
@@ -222,7 +227,11 @@ def _install_linux_package(package: Path, install_dir: Path) -> Path:
 
 def _is_windows_app_executable(path: Path) -> bool:
     name = path.name.lower()
-    return path.exists() and "uninstall" not in name and name != "nber-sidecar.exe"
+    return (
+        path.exists()
+        and "uninstall" not in name
+        and name not in {"nber-sidecar.exe", "nber-worker.exe"}
+    )
 
 
 def _assert_no_python_sidecar(executable: Path) -> None:
@@ -235,14 +244,23 @@ def _assert_no_python_sidecar(executable: Path) -> None:
         raise SystemExit(f"unexpected bundled Python sidecar: {existing[0]}")
 
 
-def _wait_for_native_runtime(
+def _bundled_worker(executable: Path) -> Path | None:
+    name = "nber-worker.exe" if platform.system() == "Windows" else "nber-worker"
+    candidates = [
+        executable.parent / name,
+        executable.parent / "../Resources" / name,
+    ]
+    return next((path.resolve() for path in candidates if path.exists()), None)
+
+
+def _wait_for_desktop_runtime(
     process: subprocess.Popen[str],
     temp_home: Path,
     timeout: float,
 ) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if _native_runtime_ready(temp_home):
+        if _desktop_runtime_ready(temp_home):
             return True
         if process.poll() is not None:
             return False
@@ -250,7 +268,7 @@ def _wait_for_native_runtime(
     return False
 
 
-def _native_runtime_ready(temp_home: Path) -> bool:
+def _desktop_runtime_ready(temp_home: Path) -> bool:
     config_path = temp_home / ".nber-cli" / "config.json"
     db_path = temp_home / ".nber-cli" / "nber.db"
     try:

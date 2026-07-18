@@ -39,6 +39,14 @@ def _check_macos(max_mb: float, require_signed: bool, require_notarized: bool) -
         _check_size(path, max_mb)
 
     app = apps[0]
+    worker = _first_existing(
+        [
+            app / "Contents" / "MacOS" / "nber-worker",
+            app / "Contents" / "Resources" / "nber-worker",
+        ]
+    )
+    if worker is None:
+        raise SystemExit("missing bundled macOS one-shot worker")
     sidecar = app / "Contents" / "MacOS" / "nber-sidecar"
     if sidecar.exists():
         raise SystemExit(f"unexpected bundled Python sidecar: {sidecar}")
@@ -68,6 +76,9 @@ def _check_linux(max_mb: float, require_signed: bool) -> None:
     app = _first_existing(root / "app" for root in _release_roots())
     if app is None:
         raise SystemExit("missing Linux app executable")
+    worker = _first_existing(root / "nber-worker" for root in _release_roots())
+    if worker is None:
+        raise SystemExit("missing bundled Linux one-shot worker")
 
     sidecar = _first_existing(root / "nber-sidecar" for root in _release_roots())
     if sidecar is not None:
@@ -88,6 +99,9 @@ def _check_windows(max_mb: float, require_signed: bool) -> None:
     app_exe = _first_existing(root / "app.exe" for root in _release_roots())
     if app_exe is None:
         raise SystemExit("missing Windows app executable")
+    worker = _first_existing(root / "nber-worker.exe" for root in _release_roots())
+    if worker is None:
+        raise SystemExit("missing bundled Windows one-shot worker")
 
     sidecar = _first_existing(root / "nber-sidecar.exe" for root in _release_roots())
     if sidecar is not None:

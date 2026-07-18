@@ -1,6 +1,6 @@
 # Desktop App
 
-NBER-CLI Desktop is a local research workspace for following new NBER working papers. Desktop 0.9.0 uses its Rust core to fetch data and read or update SQLite directly. It does not start or bundle Python, a local web server, or a sidecar process.
+NBER-CLI Desktop is a local research workspace for following new NBER working papers. Desktop 0.9.1 bundles a one-shot worker built from the same Python implementation as the CLI. Users do not install Python or uv, and Desktop does not start a local web server or long-running sidecar.
 
 ## Supported Downloads
 
@@ -25,13 +25,13 @@ On macOS, use **System Settings → Privacy & Security → Open Anyway** only af
 
 ## First Launch and Local Data
 
-Desktop opens the configured local database. If the feed is empty, its Rust core requests the current NBER RSS feed and stores the results.
+Desktop opens the configured local database. On first launch, the bundled worker initializes the same database schema used by the CLI.
 
 | Path | Purpose |
 | --- | --- |
 | `~/.nber-cli/config.json` | Database location, cache settings, and automatic refresh interval |
 | `~/.nber-cli/nber.db` | Feed items, metadata cache, history, and read/unread state |
-| `~/.nber-cli/logs/` | Local diagnostic directory; no Python sidecar logs are created |
+| `~/.nber-cli/logs/` | Local diagnostic directory; no long-running sidecar logs are created |
 
 Desktop honors `feed.db-path` from the shared CLI configuration, including a path set by `nber-cli db migrate`. On macOS and Linux, the path must stay inside the user's home directory.
 
@@ -39,8 +39,8 @@ If `config.json` is malformed, Desktop stops with an error instead of replacing 
 
 ## Main Workflows
 
-- **Refresh the feed** requests the public NBER RSS feed and performs the same database upsert as `nber-cli feed fetch`.
-- **Open a paper** loads cached metadata when valid, otherwise requests the NBER paper page, then marks the paper read.
+- **Refresh the feed** starts the bundled worker for one operation, calls the existing Python `fetch_feed` implementation, updates the database, and exits.
+- **Open a paper** uses the existing Python metadata/cache implementation in the same one-shot worker, then Rust marks the paper read.
 - **Mark read or unread** updates the shared `read_status` table directly.
 - **Open on NBER** opens the public paper page.
 - **Copy a citation** supports BibTeX, APA, MLA, Harvard, Chicago, and GB/T 7714.
@@ -48,7 +48,7 @@ If `config.json` is malformed, Desktop stops with an error instead of replacing 
 
 ## Settings
 
-The Settings page exposes the automatic feed refresh interval and local config/database/log paths. There is no service-port setting because Desktop no longer runs a local HTTP process. The optional `nber-server` command keeps its own server settings for users who explicitly run that integration.
+The Settings page exposes the automatic feed refresh interval and local config/database/log paths. There is no service-port setting because Desktop does not run a local HTTP process. The optional `nber-server` command keeps its own server settings for users who explicitly run that integration.
 
 ## Troubleshooting
 

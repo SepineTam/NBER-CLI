@@ -19,7 +19,7 @@ def _load_release_checker():
     return module
 
 
-def test_windows_release_check_accepts_native_app_without_sidecar(tmp_path, monkeypatch):
+def test_windows_release_check_accepts_bundled_worker_without_sidecar(tmp_path, monkeypatch):
     checker = _load_release_checker()
     monkeypatch.setattr(checker, "TARGET_DIR", tmp_path)
     release_dir = tmp_path / "release"
@@ -27,11 +27,12 @@ def test_windows_release_check_accepts_native_app_without_sidecar(tmp_path, monk
     bundle_dir.mkdir(parents=True)
     (bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe").write_bytes(b"installer")
     (release_dir / "app.exe").write_bytes(b"app")
+    (release_dir / "nber-worker.exe").write_bytes(b"worker")
 
     checker._check_windows(max_mb=80, require_signed=False)
 
 
-def test_linux_release_check_accepts_native_app_without_sidecar(tmp_path, monkeypatch):
+def test_linux_release_check_accepts_bundled_worker_without_sidecar(tmp_path, monkeypatch):
     checker = _load_release_checker()
     monkeypatch.setattr(checker, "TARGET_DIR", tmp_path)
     release_dir = tmp_path / "release"
@@ -39,8 +40,22 @@ def test_linux_release_check_accepts_native_app_without_sidecar(tmp_path, monkey
     bundle_dir.mkdir(parents=True)
     (bundle_dir / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage").write_bytes(b"installer")
     (release_dir / "app").write_bytes(b"app")
+    (release_dir / "nber-worker").write_bytes(b"worker")
 
     checker._check_linux(max_mb=80, require_signed=False)
+
+
+def test_linux_release_check_rejects_missing_bundled_worker(tmp_path, monkeypatch):
+    checker = _load_release_checker()
+    monkeypatch.setattr(checker, "TARGET_DIR", tmp_path)
+    release_dir = tmp_path / "release"
+    bundle_dir = release_dir / "bundle" / "appimage"
+    bundle_dir.mkdir(parents=True)
+    (bundle_dir / "NBER-CLI-Desktop-v0-9-1-Linux-x64.AppImage").write_bytes(b"installer")
+    (release_dir / "app").write_bytes(b"app")
+
+    with pytest.raises(SystemExit, match="missing bundled Linux one-shot worker"):
+        checker._check_linux(max_mb=80, require_signed=False)
 
 
 def test_linux_release_check_rejects_python_sidecar(tmp_path, monkeypatch):
@@ -51,6 +66,7 @@ def test_linux_release_check_rejects_python_sidecar(tmp_path, monkeypatch):
     bundle_dir.mkdir(parents=True)
     (bundle_dir / "NBER-CLI-Desktop-v0-8-1-Linux-x64.AppImage").write_bytes(b"installer")
     (release_dir / "app").write_bytes(b"app")
+    (release_dir / "nber-worker").write_bytes(b"worker")
     (release_dir / "nber-sidecar").write_bytes(b"sidecar")
 
     with pytest.raises(SystemExit, match="unexpected bundled Linux sidecar"):
@@ -65,6 +81,7 @@ def test_windows_release_check_rejects_python_sidecar(tmp_path, monkeypatch):
     bundle_dir.mkdir(parents=True)
     (bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe").write_bytes(b"installer")
     (release_dir / "app.exe").write_bytes(b"app")
+    (release_dir / "nber-worker.exe").write_bytes(b"worker")
     (release_dir / "nber-sidecar.exe").write_bytes(b"sidecar")
 
     with pytest.raises(SystemExit, match="unexpected bundled Windows sidecar"):
@@ -82,8 +99,10 @@ def test_windows_release_check_requires_signatures_for_installer_and_app(
     bundle_dir.mkdir(parents=True)
     installer = bundle_dir / "NBER-CLI Desktop_0.8.1_x64-setup.exe"
     app = release_dir / "app.exe"
+    worker = release_dir / "nber-worker.exe"
     installer.write_bytes(b"installer")
     app.write_bytes(b"app")
+    worker.write_bytes(b"worker")
     checked_paths: list[Path] = []
 
     def fake_signature_is_valid(path: Path) -> bool:

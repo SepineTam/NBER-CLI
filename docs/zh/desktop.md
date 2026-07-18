@@ -1,6 +1,6 @@
 # Desktop 应用
 
-NBER-CLI Desktop 是用于追踪 NBER 新工作论文的本地研究工作台。从 0.9.0 开始，Desktop 由 Rust 直接请求数据并读写 SQLite，不会启动或打包 Python、本地 Web 服务或 Python sidecar 进程。
+NBER-CLI Desktop 是用于追踪 NBER 新工作论文的本地研究工作台。从 0.9.1 开始，安装包内置一个由现有 Python CLI 代码打包而成的单次工作程序。用户无需安装 Python 或 uv，Desktop 也不会启动本地 Web 服务或长期运行的 sidecar。
 
 ## 下载哪个安装包
 
@@ -23,13 +23,13 @@ Desktop 与 Python 包使用同一个版本号，并发布在同一个 GitHub Re
 
 ## 首次启动与本地数据
 
-Desktop 会打开配置中的本地数据库。如果 Feed 为空，Rust 会请求当前 NBER RSS Feed 并保存结果。
+Desktop 会打开配置中的本地数据库。首次启动时，内置工作程序会初始化与 CLI 相同的数据库结构。
 
 | 路径 | 用途 |
 | --- | --- |
 | `~/.nber-cli/config.json` | 数据库路径、缓存设置和自动刷新间隔 |
 | `~/.nber-cli/nber.db` | Feed、论文缓存、历史记录和已读/未读状态 |
-| `~/.nber-cli/logs/` | 本地诊断目录；不会再生成 Python sidecar 日志 |
+| `~/.nber-cli/logs/` | 本地诊断目录；不会生成长期运行的 sidecar 日志 |
 
 Desktop 会读取 CLI 共享配置中的 `feed.db-path`，因此 `nber-cli db migrate` 设置的自定义数据库可直接使用。在 macOS 和 Linux 上，路径必须位于用户 home 目录内。
 
@@ -37,8 +37,8 @@ Desktop 会读取 CLI 共享配置中的 `feed.db-path`，因此 `nber-cli db mi
 
 ## 主要操作
 
-- **刷新 Feed**：请求公开 NBER RSS Feed，并执行与 `nber-cli feed fetch` 相同的数据库更新。
-- **打开论文**：优先读取有效缓存，否则请求 NBER 论文页面，然后标记为已读。
+- **刷新 Feed**：为这一次操作启动内置工作程序，直接调用现有 Python `fetch_feed`，更新数据库后立即退出。
+- **打开论文**：在同一个单次工作程序中使用现有 Python 论文详情与缓存逻辑，然后由 Rust 标记为已读。
 - **标记已读或未读**：直接更新共享数据库中的 `read_status` 表。
 - **在 NBER 打开**：打开公开论文页面。
 - **复制引用**：支持 BibTeX、APA、MLA、Harvard、Chicago 和 GB/T 7714。
