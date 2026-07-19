@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { openUrl } from '@tauri-apps/plugin-opener'
 import { CITATION_STYLES, copyText, formatCitation } from '../citation'
 import type { CitationStyle } from '../citation'
-import type { Paper } from '../types'
+import type { Paper, PaperTagSource } from '../types'
 import { ChevronDownIcon, CloseIcon, CopyIcon, EyeIcon, GlobeIcon } from './Icons'
+import { TagEditor } from './TagEditor'
 
 interface PaperDetailProps {
   paperId: string | null
@@ -13,6 +14,9 @@ interface PaperDetailProps {
   onClose: () => void
   onRetry: (paperId: string) => void
   onToggleRead: (paperId: string, isRead: boolean) => void
+  onAddTag?: (paperId: string, tag: string) => Promise<void>
+  onRenameTag?: (paperId: string, oldTag: string, newTag: string, source: PaperTagSource) => Promise<void>
+  onRemoveTag?: (paperId: string, tag: string, source: PaperTagSource) => Promise<void>
 }
 
 export function PaperDetail({
@@ -23,6 +27,9 @@ export function PaperDetail({
   onClose,
   onRetry,
   onToggleRead,
+  onAddTag = async () => {},
+  onRenameTag = async () => {},
+  onRemoveTag = async () => {},
 }: PaperDetailProps) {
   const [citationStyle, setCitationStyle] = useState<CitationStyle>('bibtex')
   const [citationMenuOpen, setCitationMenuOpen] = useState(false)
@@ -127,6 +134,14 @@ export function PaperDetail({
           <span className="paper-number">NBER · {paper.paper_id.toUpperCase()}</span>
           <h2>{paper.title}</h2>
           <p className="detail-authors">{paper.authors.join(' · ') || 'Unknown authors'}</p>
+
+          <TagEditor
+            paperId={paper.paper_id}
+            tags={paper.tags}
+            onAdd={onAddTag}
+            onRename={onRenameTag}
+            onRemove={onRemoveTag}
+          />
 
           <div className="detail-rule">Abstract</div>
           <p className="abstract">{paper.abstract || 'No abstract is available for this paper.'}</p>

@@ -15,6 +15,7 @@ const paper: Paper = {
   programs: 'International Trade and Investment',
   is_read: false,
   from_cache: true,
+  tags: [],
 }
 
 describe('citation formatting', () => {

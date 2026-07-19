@@ -9,21 +9,9 @@ const WORKER_NAME: &str = "nber-worker";
 pub struct FeedFetchOutput {
     pub fetched_count: usize,
     pub new_count: usize,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PaperOutput {
-    pub paper_id: String,
-    pub title: String,
-    pub authors: Vec<String>,
-    pub date: String,
-    #[serde(rename = "abstract")]
-    pub abstract_text: String,
-    pub url: Option<String>,
-    pub published_version: Option<String>,
-    pub topic: Option<String>,
-    pub programs: Option<String>,
-    pub from_cache: bool,
+    pub info_fetched_count: usize,
+    pub info_cached_count: usize,
+    pub info_failed_count: usize,
 }
 
 pub fn initialize(app: Option<&AppHandle>, db_path: &Path) -> Result<(), String> {
@@ -33,10 +21,6 @@ pub fn initialize(app: Option<&AppHandle>, db_path: &Path) -> Result<(), String>
 
 pub fn fetch_feed(app: &AppHandle, db_path: &Path) -> Result<FeedFetchOutput, String> {
     run(Some(app), db_path, &["feed-fetch"])
-}
-
-pub fn fetch_paper(app: &AppHandle, db_path: &Path, paper_id: &str) -> Result<PaperOutput, String> {
-    run(Some(app), db_path, &["paper-info", paper_id])
 }
 
 fn run<T: DeserializeOwned>(

@@ -1,5 +1,29 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PaperTagSource {
+    Topic,
+    Program,
+    User,
+}
+
+impl PaperTagSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Topic => "topic",
+            Self::Program => "program",
+            Self::User => "user",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct PaperTag {
+    pub name: String,
+    pub source: PaperTagSource,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct DesktopConfig {
     pub feed_refresh_interval_minutes: u16,
@@ -46,6 +70,7 @@ pub struct FeedItem {
     pub first_seen_at: String,
     pub last_seen_at: String,
     pub is_read: bool,
+    pub tags: Vec<PaperTag>,
 }
 
 #[derive(Debug, Serialize)]
@@ -62,6 +87,9 @@ pub struct FeedRefreshResult {
     pub new_count: usize,
     pub total_count: usize,
     pub fetched_count: usize,
+    pub info_fetched_count: usize,
+    pub info_cached_count: usize,
+    pub info_failed_count: usize,
     pub last_successful_fetch_at: Option<String>,
 }
 
@@ -86,4 +114,5 @@ pub struct Paper {
     pub programs: Option<String>,
     pub is_read: bool,
     pub from_cache: bool,
+    pub tags: Vec<PaperTag>,
 }

@@ -5,7 +5,13 @@ const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 
 import { fetchFeed, refreshFeed } from './feed'
-import { fetchPaper, setPaperReadStatus } from './papers'
+import {
+  addPaperTag,
+  fetchPaper,
+  removePaperTag,
+  renamePaperTag,
+  setPaperReadStatus,
+} from './papers'
 import { fetchSettings, saveSettings } from './settings'
 
 describe('native desktop commands', () => {
@@ -33,6 +39,30 @@ describe('native desktop commands', () => {
     expect(invokeMock).toHaveBeenNthCalledWith(2, 'set_paper_read_status', {
       paperId: 'w12345',
       isRead: false,
+    })
+  })
+
+  it('creates, renames, and removes paper tags through Rust', async () => {
+    invokeMock.mockResolvedValue([])
+
+    await addPaperTag('w12345', 'Must Read')
+    await renamePaperTag('w12345', 'Must Read', 'Priority', 'user')
+    await removePaperTag('w12345', 'Labor Economics', 'topic')
+
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'add_paper_tag', {
+      paperId: 'w12345',
+      tag: 'Must Read',
+    })
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'rename_paper_tag', {
+      paperId: 'w12345',
+      oldTag: 'Must Read',
+      newTag: 'Priority',
+      source: 'user',
+    })
+    expect(invokeMock).toHaveBeenNthCalledWith(3, 'remove_paper_tag', {
+      paperId: 'w12345',
+      tag: 'Labor Economics',
+      source: 'topic',
     })
   })
 

@@ -30,6 +30,7 @@ const paper: Paper = {
   programs: null,
   is_read: true,
   from_cache: true,
+  tags: [{ name: 'Labor Economics', source: 'topic' }],
 }
 
 describe('PaperDetail', () => {

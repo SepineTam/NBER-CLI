@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import sqlite3
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -64,10 +63,11 @@ def test_smoke_uses_headless_desktop_runtime_mode():
     script = (ROOT / "scripts" / "smoke-desktop-app.py").read_text(encoding="utf-8")
 
     assert 'env["NBER_DESKTOP_INIT_ONLY"] = "1"' in script
+    assert 'env["NBER_WORKER_PATH"] = str(temp_home / "missing-worker")' in script
     assert 'env["PATH"] = ""' in script
 
 
-def test_desktop_runtime_ready_requires_schema_and_database_path(tmp_path):
+def test_desktop_runtime_ready_accepts_fresh_install_without_database(tmp_path):
     smoke = _load_smoke_script()
     smoke._seed_sample_environment(tmp_path)
     assert smoke._desktop_runtime_ready(tmp_path) is False
@@ -76,14 +76,11 @@ def test_desktop_runtime_ready_requires_schema_and_database_path(tmp_path):
     db_path = tmp_path / ".nber-cli" / "nber.db"
     config = json.loads(config_path.read_text())
     config["feed"] = {"db-path": str(db_path)}
+    config["schema_version"] = 3
     config_path.write_text(json.dumps(config), encoding="utf-8")
-    with sqlite3.connect(db_path) as connection:
-        connection.execute(
-            "CREATE TABLE read_status (paper_id TEXT PRIMARY KEY, is_read BOOLEAN, updated_at TEXT)"
-        )
-        connection.execute("PRAGMA user_version = 3")
 
     assert smoke._desktop_runtime_ready(tmp_path) is True
+    assert not db_path.exists()
 
 
 def test_bundled_worker_is_found_beside_executable(tmp_path, monkeypatch):
