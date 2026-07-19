@@ -6,6 +6,21 @@
 
 ## Unreleased
 
+## 0.9.2 - 2026-07-19
+
+### Added
+- Desktop 新增可编辑的论文标签：默认来自 NBER Topics 与 Programs，官方原始标签、用户标签和本机隐藏记录分别保存。
+- Desktop 论文列表新增标签胶囊、标签搜索和标签筛选，论文详情支持新增、改名和删除标签。
+
+### Changed
+- Desktop 刷新 Feed 时会把论文详情预取到 SQLite；启动和打开论文直接读取本地数据库，不再调用 Python。
+- NBER 网络请求和页面解析仍统一使用内置的一次性 Python 工作器；Desktop 用户无需安装 Python 或 uv。
+
+### Fixed
+- 修复 NBER 论文页面解析，`info` 现在可以从 Related 区域获取 Topics 和 Programs。
+- 通过刷新时提前准备详情，修复打开论文缓慢和容易超时的问题。
+- 旧缓存缺少 Topics 或 Programs 时会自动重新获取；Desktop 专用标签表自动建立，不改变 CLI 共用数据库版本。
+
 ## 0.9.1 - 2026-07-18
 
 ### Changed

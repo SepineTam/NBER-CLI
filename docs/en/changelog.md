@@ -6,6 +6,21 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.9.2 - 2026-07-19
+
+### Added
+- Added editable Desktop paper tags seeded from NBER Topics and Programs, with separate raw metadata, user tags, and local hiding preferences.
+- Added tag chips, tag search, and tag filtering to the Desktop feed, plus add, rename, and remove controls in paper details.
+
+### Changed
+- Desktop Feed refresh now prefetches paper details into SQLite, while startup and paper opening read directly from the local database without invoking Python.
+- The bundled one-shot Python worker remains the single implementation for NBER network requests and parsing; Desktop users still do not need Python or uv.
+
+### Fixed
+- Fixed NBER paper parsing so `info` now captures Topics and Programs from the Related section.
+- Fixed slow paper opening and timeout-prone on-demand detail requests by preparing metadata during Feed refresh.
+- Legacy cached papers without Topics or Programs are refreshed automatically, and Desktop-only tag tables are created without changing the shared CLI schema.
+
 ## 0.9.1 - 2026-07-18
 
 ### Changed

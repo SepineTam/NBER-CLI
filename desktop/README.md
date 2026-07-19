@@ -64,7 +64,7 @@ Use the corresponding `windows` or `linux` platform argument on those systems. T
 
 ## Release
 
-GitHub Actions builds macOS arm64/x64, Windows x64, and Linux x64 artifacts from a `v*` tag. The same tag is used for the Python package and Desktop app. Pushing `v0.9.1` creates or updates a draft GitHub Release; publish it after all platform artifacts have uploaded successfully.
+GitHub Actions builds macOS arm64/x64, Windows x64, and Linux x64 artifacts from a `v*` tag. The same tag is used for the Python package and Desktop app. Pushing `v0.9.2` creates or updates a draft GitHub Release; publish it after all platform artifacts have uploaded successfully.
 
 Before tagging, keep these versions aligned:
 
