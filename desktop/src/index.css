@@ -24,12 +24,13 @@
   -moz-osx-font-smoothing: grayscale;
   --ink: #14233a;
   --ink-soft: #526174;
-  --muted: #8290a2;
+  --muted: #5f6f82;
   --navy: #083f78;
   --navy-deep: #062c54;
   --blue-wash: #edf4fa;
   --paper: #f7f5ef;
   --surface: #fffefa;
+  --surface-subtle: #f2f0ea;
   --line: #dedfdc;
   --line-strong: #c9ced2;
   --accent: #df6f35;
@@ -76,7 +77,8 @@ button:disabled {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 2px solid #4b89bd;
   outline-offset: 2px;
 }

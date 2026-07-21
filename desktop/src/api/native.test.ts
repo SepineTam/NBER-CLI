@@ -29,6 +29,21 @@ describe('native desktop commands', () => {
     expect(invokeMock).toHaveBeenNthCalledWith(2, 'refresh_feed')
   })
 
+  it('normalizes legacy feed records with missing arrays', async () => {
+    invokeMock.mockResolvedValue({
+      items: [{ paper_id: 'w12345', title: 'Legacy paper' }],
+    })
+
+    const feed = await fetchFeed()
+
+    expect(feed.items[0]).toMatchObject({
+      paper_id: 'w12345',
+      authors: [],
+      tags: [],
+    })
+    expect(feed.total_count).toBe(1)
+  })
+
   it('loads paper details and writes read status through Rust', async () => {
     invokeMock.mockResolvedValue({ paper_id: 'w12345' })
 
@@ -39,6 +54,18 @@ describe('native desktop commands', () => {
     expect(invokeMock).toHaveBeenNthCalledWith(2, 'set_paper_read_status', {
       paperId: 'w12345',
       isRead: false,
+    })
+  })
+
+  it('normalizes legacy paper details with missing arrays', async () => {
+    invokeMock.mockResolvedValue({ paper_id: 'w12345', title: 'Legacy paper' })
+
+    const paper = await fetchPaper('w12345')
+
+    expect(paper).toMatchObject({
+      paper_id: 'w12345',
+      authors: [],
+      tags: [],
     })
   })
 

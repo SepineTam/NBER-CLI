@@ -1,8 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Paper, PaperTag, PaperTagSource } from '../types'
 
-export function fetchPaper(paperId: string) {
-  return invoke<Paper>('get_paper', { paperId })
+export async function fetchPaper(paperId: string): Promise<Paper> {
+  const paper = await invoke<Paper>('get_paper', { paperId })
+  return {
+    ...paper,
+    authors: Array.isArray(paper?.authors) ? paper.authors : [],
+    tags: Array.isArray(paper?.tags) ? paper.tags : [],
+  }
 }
 
 export function setPaperReadStatus(paperId: string, isRead: boolean) {

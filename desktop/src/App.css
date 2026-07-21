@@ -1,12 +1,10 @@
 .app-shell {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 72% -10%, rgb(255 255 255 / 90%), transparent 38%),
-    var(--paper);
+  background: var(--paper);
 }
 
 .sidebar {
@@ -14,27 +12,27 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 22px 12px 18px;
+  padding: 18px 9px 16px;
   background: var(--navy-deep);
   color: #dce9f4;
 }
 
 .brand-button {
   display: grid;
-  width: 48px;
-  height: 48px;
-  margin-bottom: 34px;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 28px;
   overflow: hidden;
   place-items: center;
   border: 0;
-  border-radius: 14px;
+  border-radius: 9px;
   background: #fff;
-  box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
+  box-shadow: 0 5px 14px rgb(0 0 0 / 16%);
 }
 
 .brand-button img {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   object-fit: contain;
 }
 
@@ -47,12 +45,12 @@
 .nav-button {
   position: relative;
   display: grid;
-  width: 54px;
-  height: 52px;
+  width: 46px;
+  height: 44px;
   margin: 0 auto;
   place-items: center;
   border: 0;
-  border-radius: 15px;
+  border-radius: 8px;
   background: transparent;
   color: #88a4bf;
   transition: 180ms ease;
@@ -62,12 +60,11 @@
 .nav-button.active {
   background: rgb(255 255 255 / 10%);
   color: #fff;
-  transform: translateY(-1px);
 }
 
 .nav-button.active::before {
   position: absolute;
-  left: -12px;
+  left: -9px;
   width: 3px;
   height: 24px;
   border-radius: 0 6px 6px 0;
@@ -152,7 +149,7 @@
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(470px, 1fr) minmax(340px, 390px);
+  grid-template-columns: minmax(440px, 1fr) minmax(400px, 440px);
   width: 100%;
   height: 100vh;
   overflow: hidden;
@@ -168,27 +165,16 @@
   border-right: 1px solid var(--line);
 }
 
-.feed-panel::before {
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, var(--navy) 0 30%, #77a0c5 30% 58%, transparent 58%);
-  content: '';
-}
-
 .feed-header {
-  padding: 34px 38px 14px;
+  padding: 22px 28px 10px;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 5px;
   color: var(--accent);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -202,17 +188,17 @@
 .title-row h1 {
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(34px, 3.2vw, 48px);
-  font-weight: 500;
-  letter-spacing: -0.045em;
-  line-height: 0.98;
+  font-size: 32px;
+  font-weight: 520;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
 }
 
 .issue-meta {
   flex: none;
   padding-bottom: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   text-align: right;
 }
 
@@ -231,7 +217,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 26px;
+  margin-top: 16px;
 }
 
 .feed-search {
@@ -239,11 +225,11 @@
   flex: 1;
   align-items: center;
   gap: 10px;
-  height: 42px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 11px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgb(255 254 250 / 74%);
+  border-radius: 8px;
+  background: var(--surface);
   color: var(--muted);
   transition: 180ms ease;
 }
@@ -255,8 +241,8 @@
 }
 
 .feed-search svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
   flex: none;
 }
 
@@ -281,13 +267,13 @@
 
 .refresh-button {
   display: grid;
-  height: 42px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 12px;
   grid-auto-flow: column;
   place-items: center;
   gap: 8px;
   border: 1px solid var(--navy);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--navy);
   color: #fff;
   font-size: 12px;
@@ -296,8 +282,6 @@
 
 .refresh-button:not(:disabled):hover {
   background: #0a4c8e;
-  box-shadow: 0 7px 18px rgb(27 47 68 / 12%);
-  transform: translateY(-1px);
 }
 
 .refresh-button svg {
@@ -310,8 +294,8 @@
 }
 
 .feed-status {
-  height: 18px;
-  margin-top: 9px;
+  height: 16px;
+  margin-top: 7px;
   color: var(--muted);
   font-size: 10px;
 }
@@ -319,14 +303,14 @@
 .filter-row {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 0 38px 14px;
+  gap: 20px;
+  padding: 0 28px 10px;
   border-bottom: 1px solid var(--line);
 }
 
 .filter-row button {
   position: relative;
-  padding: 7px 0 10px;
+  padding: 6px 0 8px;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -341,7 +325,7 @@
 .filter-row button.active::after {
   position: absolute;
   right: 0;
-  bottom: -15px;
+  bottom: -11px;
   left: 0;
   height: 2px;
   background: var(--navy);
@@ -384,7 +368,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 18px 24px 42px 38px;
+  padding: 12px 16px 32px 28px;
   scrollbar-color: #c1c8cc transparent;
   scrollbar-width: thin;
 }
@@ -393,7 +377,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 12px 0 9px;
+  margin: 10px 0 7px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 650;
@@ -410,36 +394,33 @@
 .paper-card {
   position: relative;
   display: grid;
-  grid-template-columns: 23px minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: 18px minmax(0, 1fr) 42px;
+  gap: 8px;
   width: 100%;
-  margin-bottom: 8px;
-  padding: 18px 16px 17px 12px;
+  margin-bottom: 3px;
+  padding: 12px 10px 11px 8px;
   overflow: hidden;
   border: 1px solid transparent;
-  border-radius: 15px;
+  border-radius: 6px;
   background: transparent;
   color: var(--ink);
   text-align: left;
-  transition: 180ms ease;
-  animation: enter 420ms both;
+  transition: 140ms ease;
 }
 
 .paper-card:hover {
-  background: rgb(255 254 250 / 74%);
-  transform: translateX(2px);
+  background: var(--surface-subtle, #f2f0ea);
 }
 
 .paper-card.selected {
-  border-color: #ccd9e3;
-  background: var(--surface);
-  box-shadow: 0 12px 30px rgb(30 46 64 / 7%);
+  border-color: #c9d8e5;
+  background: var(--blue-wash);
 }
 
 .paper-card.selected::before {
   position: absolute;
-  top: 12px;
-  bottom: 12px;
+  top: 7px;
+  bottom: 7px;
   left: 0;
   width: 3px;
   border-radius: 0 4px 4px 0;
@@ -467,12 +448,12 @@
 
 .paper-title {
   display: block;
-  margin: 0 0 7px;
+  margin: 0 0 5px;
   font-family: var(--serif);
   font-size: 17px;
   font-weight: 620;
   letter-spacing: -0.018em;
-  line-height: 1.22;
+  line-height: 1.28;
 }
 
 .paper-card.read .paper-title {
@@ -493,7 +474,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 9px;
+  margin-top: 7px;
   overflow: hidden;
 }
 
@@ -568,8 +549,8 @@
 }
 
 .skeleton-row {
-  height: 78px;
-  border-radius: 15px;
+  height: 68px;
+  border-radius: 6px;
   background: linear-gradient(90deg, #eee8dc 25%, #f7f1e5 40%, #eee8dc 65%) 0 0 / 240% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
 }
@@ -579,17 +560,15 @@
   min-width: 0;
   height: 100vh;
   overflow: hidden;
-  background:
-    linear-gradient(rgb(255 254 250 / 94%), rgb(255 254 250 / 94%)),
-    repeating-linear-gradient(0deg, transparent 0 27px, rgb(8 63 120 / 6%) 27px 28px);
+  background: var(--surface);
 }
 
 .detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 72px;
-  padding: 0 26px;
+  height: 56px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -626,7 +605,7 @@
   height: 34px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   color: var(--ink);
 }
@@ -642,9 +621,9 @@
 }
 
 .detail-scroll {
-  height: calc(100vh - 72px);
+  height: calc(100vh - 56px);
   overflow: auto;
-  padding: 32px 30px 48px;
+  padding: 24px 26px 40px;
   scrollbar-color: #c1c8cc transparent;
   scrollbar-width: thin;
 }
@@ -653,9 +632,9 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 22px;
-  padding: 6px 9px;
-  border-radius: 7px;
+  margin-bottom: 16px;
+  padding: 5px 8px;
+  border-radius: 6px;
   background: var(--blue-wash);
   color: var(--navy);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -667,20 +646,20 @@
 .detail-scroll h2 {
   margin: 0;
   font-family: var(--serif);
-  font-size: clamp(25px, 2.35vw, 36px);
+  font-size: 26px;
   font-weight: 520;
-  letter-spacing: -0.04em;
-  line-height: 1.06;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
 }
 
 .tag-editor {
   display: grid;
   gap: 10px;
-  margin: 22px 0 25px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgb(248 247 242 / 72%);
+  margin: 18px 0 22px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
 }
 
 .tag-editor-heading {
@@ -779,7 +758,7 @@
 }
 
 .detail-authors {
-  margin: 17px 0 23px;
+  margin: 12px 0 18px;
   color: var(--navy);
   font-family: var(--serif);
   font-size: 14px;
@@ -790,7 +769,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -809,15 +788,15 @@
   color: #354459;
   font-family: var(--serif);
   font-size: 14px;
-  line-height: 1.75;
+  line-height: 1.68;
 }
 
 .meta-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: 28px;
-  padding: 20px 0;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 0;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
@@ -846,15 +825,14 @@
 
 .citation-control {
   position: relative;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .citation-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px;
+  grid-template-columns: minmax(0, 1fr) 40px;
   overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 12px 24px rgb(8 63 120 / 17%);
+  border-radius: 8px;
 }
 
 .citation-copy,
@@ -863,7 +841,7 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  height: 46px;
+  height: 38px;
   border: 0;
   background: var(--navy);
   color: #fff;
@@ -1010,7 +988,7 @@
 .detail-empty,
 .detail-error {
   display: grid;
-  height: calc(100vh - 72px);
+  height: calc(100vh - 56px);
   padding: 32px;
   place-content: center;
   justify-items: center;
@@ -1074,13 +1052,13 @@
 .settings-page {
   height: 100vh;
   overflow: auto;
-  padding: 46px clamp(38px, 6vw, 84px) 70px;
+  padding: 30px clamp(28px, 5vw, 64px) 54px;
 }
 
 .settings-header {
   max-width: 1040px;
-  margin: 0 auto 34px;
-  padding-bottom: 25px;
+  margin: 0 auto 24px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -1101,33 +1079,32 @@
 .settings-card {
   display: grid;
   align-content: start;
-  gap: 20px;
-  padding: 25px;
+  gap: 18px;
+  padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 17px;
-  background: rgb(255 254 250 / 78%);
-  box-shadow: 0 18px 50px rgb(24 38 54 / 5%);
+  border-radius: 10px;
+  background: var(--surface);
 }
 
 .settings-card-heading {
   display: grid;
   grid-template-columns: 34px 1fr;
   gap: 12px;
-  padding-bottom: 18px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
 }
 
 .settings-card-heading > span {
   color: var(--accent);
   font-family: var(--serif);
-  font-size: 22px;
+  font-size: 18px;
 }
 
 .settings-card-heading strong {
   display: block;
   color: var(--ink);
   font-family: var(--serif);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 620;
 }
 
@@ -1152,10 +1129,10 @@
 
 .settings-form input {
   width: 100%;
-  height: 42px;
+  height: 36px;
   padding: 0 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 8px;
   outline: 0;
   background: var(--surface);
   color: var(--ink);
@@ -1185,9 +1162,9 @@
 }
 
 .settings-save {
-  height: 42px;
+  height: 36px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 8px;
   background: var(--navy);
   color: #fff;
   font-size: 12px;
@@ -1259,17 +1236,17 @@
   }
 
   .workspace {
-    grid-template-columns: minmax(440px, 1fr) 340px;
+    grid-template-columns: minmax(440px, 1fr) 400px;
   }
 
   .feed-header {
-    padding-right: 26px;
-    padding-left: 30px;
+    padding-right: 24px;
+    padding-left: 24px;
   }
 
   .filter-row,
   .feed-list {
-    padding-left: 30px;
+    padding-left: 24px;
   }
 
   .refresh-button {
@@ -1319,8 +1296,19 @@
 .update-message {
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgb(255 255 255 / 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .update-message.available {

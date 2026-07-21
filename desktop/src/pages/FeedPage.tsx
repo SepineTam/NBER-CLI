@@ -77,11 +77,21 @@ export function FeedPage() {
           </div>
         </header>
 
-        <div className="filter-row" role="tablist" aria-label="论文筛选">
-          <button className={filter === 'all' ? 'active' : ''} type="button" onClick={() => setFilter('all')}>
+        <div className="filter-row" role="group" aria-label="论文筛选">
+          <button
+            aria-pressed={filter === 'all'}
+            className={filter === 'all' ? 'active' : ''}
+            type="button"
+            onClick={() => setFilter('all')}
+          >
             全部 <span>{feedItems.length}</span>
           </button>
-          <button className={filter === 'unread' ? 'active' : ''} type="button" onClick={() => setFilter('unread')}>
+          <button
+            aria-pressed={filter === 'unread'}
+            className={filter === 'unread' ? 'active' : ''}
+            type="button"
+            onClick={() => setFilter('unread')}
+          >
             未读 <span>{unreadCount}</span>
           </button>
           <label className="tag-filter">
