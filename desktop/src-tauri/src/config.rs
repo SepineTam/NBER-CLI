@@ -7,6 +7,8 @@ use std::{
 
 pub const DEFAULT_REFRESH_INTERVAL_MINUTES: u16 = 60;
 pub const DEFAULT_INFO_CACHE_TTL_DAYS: u16 = 30;
+pub const DEFAULT_DETAIL_FONT_SIZE: u8 = 16;
+pub const DETAIL_FONT_SIZES: [u8; 3] = [14, 16, 18];
 
 #[derive(Clone, Debug)]
 pub struct RuntimeConfig {
@@ -26,11 +28,13 @@ pub fn load() -> Result<RuntimeConfig, String> {
         config.pointer("/desktop/feed_refresh_interval_minutes"),
         DEFAULT_REFRESH_INTERVAL_MINUTES,
     );
+    let detail_font_size = configured_detail_font_size(config.pointer("/desktop/detail_font_size"));
     let db_path = configured_db_path(&config, &home, &app_dir)?;
 
     Ok(RuntimeConfig {
         desktop: DesktopConfig {
             feed_refresh_interval_minutes: refresh_interval,
+            detail_font_size,
             config_path: path_text(&config_path),
             db_path: path_text(&db_path),
             log_dir: path_text(&log_dir),
@@ -47,6 +51,10 @@ pub fn initialize(runtime: &RuntimeConfig) -> Result<(), String> {
     desktop.insert(
         "feed_refresh_interval_minutes".to_string(),
         json!(runtime.desktop.feed_refresh_interval_minutes),
+    );
+    desktop.insert(
+        "detail_font_size".to_string(),
+        json!(runtime.desktop.detail_font_size),
     );
 
     let info = child_object_mut(root, "info");
@@ -72,11 +80,18 @@ pub fn save_settings(input: SaveSettingsInput) -> Result<RuntimeConfig, String> 
     if interval == 0 {
         return Err("feed_refresh_interval_minutes must be a positive integer".to_string());
     }
+    let detail_font_size = input
+        .detail_font_size
+        .unwrap_or(runtime.desktop.detail_font_size);
+    if !DETAIL_FONT_SIZES.contains(&detail_font_size) {
+        return Err("detail_font_size must be 14, 16, or 18".to_string());
+    }
 
     let config_path = PathBuf::from(&runtime.desktop.config_path);
     let mut config = read_json(&config_path)?;
-    child_object_mut(root_object_mut(&mut config)?, "desktop")
-        .insert("feed_refresh_interval_minutes".to_string(), json!(interval));
+    let desktop = child_object_mut(root_object_mut(&mut config)?, "desktop");
+    desktop.insert("feed_refresh_interval_minutes".to_string(), json!(interval));
+    desktop.insert("detail_font_size".to_string(), json!(detail_font_size));
     write_json(&config_path, &config)?;
     load()
 }
@@ -217,6 +232,14 @@ fn positive_u16(value: Option<&Value>, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
+fn configured_detail_font_size(value: Option<&Value>) -> u8 {
+    value
+        .and_then(Value::as_u64)
+        .and_then(|value| u8::try_from(value).ok())
+        .filter(|value| DETAIL_FONT_SIZES.contains(value))
+        .unwrap_or(DEFAULT_DETAIL_FONT_SIZE)
+}
+
 fn home_dir() -> Result<PathBuf, String> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
@@ -260,5 +283,16 @@ mod tests {
             normalize_path(Path::new("/Users/test/data/../nber.db")),
             PathBuf::from("/Users/test/nber.db")
         );
+    }
+
+    #[test]
+    fn accepts_supported_detail_font_sizes_and_defaults_invalid_values() {
+        assert_eq!(configured_detail_font_size(Some(&json!(14))), 14);
+        assert_eq!(configured_detail_font_size(Some(&json!(18))), 18);
+        assert_eq!(
+            configured_detail_font_size(Some(&json!(15))),
+            DEFAULT_DETAIL_FONT_SIZE
+        );
+        assert_eq!(configured_detail_font_size(None), DEFAULT_DETAIL_FONT_SIZE);
     }
 }

@@ -94,14 +94,14 @@ describe('native desktop commands', () => {
   })
 
   it('loads and saves native settings without a service port', async () => {
-    invokeMock.mockResolvedValue({ feed_refresh_interval_minutes: 45 })
+    invokeMock.mockResolvedValue({ feed_refresh_interval_minutes: 45, detail_font_size: 18 })
 
     await fetchSettings()
-    await saveSettings({ feed_refresh_interval_minutes: 45 })
+    await saveSettings({ feed_refresh_interval_minutes: 45, detail_font_size: 18 })
 
     expect(invokeMock).toHaveBeenNthCalledWith(1, 'get_settings')
     expect(invokeMock).toHaveBeenNthCalledWith(2, 'save_settings', {
-      input: { feedRefreshIntervalMinutes: 45 },
+      input: { feedRefreshIntervalMinutes: 45, detailFontSize: 18 },
     })
   })
 })

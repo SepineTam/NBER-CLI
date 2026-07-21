@@ -51,6 +51,7 @@ interface AppState {
   loadSettings: () => Promise<void>
   updateSettings: (settings: {
     feed_refresh_interval_minutes?: number
+    detail_font_size?: number
   }) => Promise<void>
 }
 
@@ -257,6 +258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 function fallbackDesktopConfig(): DesktopConfig {
   return {
     feed_refresh_interval_minutes: 60,
+    detail_font_size: 16,
     config_path: '',
     db_path: '',
     log_dir: '',

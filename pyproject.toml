@@ -1,6 +1,6 @@
 [project]
 name = "nber-cli"
-version = "0.9.2"
+version = "0.10.0"
 description = "A command-line interface for accessing National Bureau of Economic Research (NBER) papers without a browser."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -71,6 +71,7 @@ exclude = [
     "/build",
     "/dist",
     "/site",
+    "/tmp",
     "/desktop/node_modules",
     "/desktop/src-tauri/target",
     "/desktop/src-tauri/binaries",

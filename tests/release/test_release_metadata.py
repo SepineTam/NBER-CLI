@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPECTED_VERSION = "0.9.2"
+EXPECTED_VERSION = "0.10.0"
 
 
 def _read_json(path: str) -> dict:
@@ -42,9 +42,9 @@ def test_release_versions_are_synchronized():
 
 def test_release_changelogs_include_current_version():
     headings = {
-        "CHANGELOG.md": f"## [{EXPECTED_VERSION}] - 2026-07-19",
-        "docs/en/changelog.md": f"## {EXPECTED_VERSION} - 2026-07-19",
-        "docs/zh/changelog.md": f"## {EXPECTED_VERSION} - 2026-07-19",
+        "CHANGELOG.md": f"## [{EXPECTED_VERSION}] - 2026-07-21",
+        "docs/en/changelog.md": f"## {EXPECTED_VERSION} - 2026-07-21",
+        "docs/zh/changelog.md": f"## {EXPECTED_VERSION} - 2026-07-21",
     }
 
     for path, heading in headings.items():
@@ -64,3 +64,17 @@ def test_desktop_signing_checks_are_opt_in():
     workflow = (ROOT / ".github/workflows/desktop.yml").read_text(encoding="utf-8")
 
     assert workflow.count("vars.DESKTOP_REQUIRE_SIGNING == 'true'") == 4
+
+
+def test_github_release_uses_the_product_name_in_its_title():
+    workflow = (ROOT / ".github/workflows/desktop.yml").read_text(encoding="utf-8")
+
+    assert "name: NBER-CLI ${{ github.ref_name }}" in workflow
+
+
+def test_sdist_excludes_local_temporary_files():
+    sdist_excludes = _read_toml("pyproject.toml")["tool"]["hatch"]["build"]["targets"][
+        "sdist"
+    ]["exclude"]
+
+    assert "/tmp" in sdist_excludes

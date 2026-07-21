@@ -50,7 +50,7 @@ class TestGetVersion:
 
     def test_returns_fallback_when_package_not_installed(self):
         with patch("nber_cli.cli.get_version", side_effect=Exception("not found")):
-            assert _get_version() == "0.9.2"
+            assert _get_version() == "0.10.0"
 
 
 class TestDoctorHelpers:

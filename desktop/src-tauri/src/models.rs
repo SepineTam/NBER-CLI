@@ -27,6 +27,7 @@ pub struct PaperTag {
 #[derive(Clone, Debug, Serialize)]
 pub struct DesktopConfig {
     pub feed_refresh_interval_minutes: u16,
+    pub detail_font_size: u8,
     pub config_path: String,
     pub db_path: String,
     pub log_dir: String,
@@ -35,6 +36,7 @@ pub struct DesktopConfig {
 #[derive(Clone, Debug, Serialize)]
 pub struct Settings {
     pub feed_refresh_interval_minutes: u16,
+    pub detail_font_size: u8,
     pub config_path: String,
     pub db_path: String,
     pub log_dir: String,
@@ -44,6 +46,7 @@ impl From<DesktopConfig> for Settings {
     fn from(config: DesktopConfig) -> Self {
         Self {
             feed_refresh_interval_minutes: config.feed_refresh_interval_minutes,
+            detail_font_size: config.detail_font_size,
             config_path: config.config_path,
             db_path: config.db_path,
             log_dir: config.log_dir,
@@ -55,6 +58,7 @@ impl From<DesktopConfig> for Settings {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SaveSettingsInput {
     pub feed_refresh_interval_minutes: Option<u16>,
+    pub detail_font_size: Option<u8>,
 }
 
 #[derive(Clone, Debug, Serialize)]
