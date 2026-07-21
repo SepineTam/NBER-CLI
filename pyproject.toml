@@ -28,7 +28,6 @@ classifiers = [
 dependencies = [
     "aiohttp",
     "fake_useragent",
-    "aiohttp-retry",
     "certifi",
     "mcp>=1.27.1",
     "defusedxml>=0.7.1",
