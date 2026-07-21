@@ -292,6 +292,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           draft: true
+          name: NBER-CLI ${{ github.ref_name }}
           files: |
             desktop/src-tauri/target/**/release/bundle/**/*.dmg
             desktop/src-tauri/target/**/release/bundle/**/*.exe

@@ -6,6 +6,20 @@ This page mirrors the canonical `CHANGELOG.md` at the repository root. The Chine
 
 ## Unreleased
 
+## 0.10.0 - 2026-07-21
+
+### Added
+- Added a draggable, keyboard-accessible divider for resizing the Desktop paper preview from 360px to 640px. The selected width is remembered across restarts, and double-clicking restores the 420px default.
+- Added 14px, 16px, and 18px paper-preview font size options in Desktop settings, with 16px as the new default.
+- Added `DESIGN.md` and `DESKTOP_UX.md` as the visual and interaction standards for the Desktop research workspace.
+
+### Changed
+- Redesigned Desktop as a denser academic research desk with clearer navigation, feed hierarchy, selected and unread states, paper typography, settings, and keyboard focus treatment.
+- Increased the default paper-preview reading size while keeping navigation and feed density stable.
+
+### Fixed
+- Desktop now normalizes older feed and paper records that omit tag or metadata arrays, preventing undefined-property errors when existing local data is opened in the redesigned interface.
+
 ## 0.9.2 - 2026-07-19
 
 ### Added
