@@ -7,10 +7,12 @@ export function fetchSettings() {
 
 export function saveSettings(input: {
   feed_refresh_interval_minutes?: number
+  detail_font_size?: number
 }) {
   return invoke<Settings>('save_settings', {
     input: {
       feedRefreshIntervalMinutes: input.feed_refresh_interval_minutes,
+      detailFontSize: input.detail_font_size,
     },
   })
 }

@@ -43,6 +43,11 @@ typography:
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.55
+  detail-body:
+    fontFamily: Source Serif 4
+    fontSize: 1rem
+    fontWeight: 400
+    lineHeight: 1.68
   body-compact:
     fontFamily: Source Sans 3
     fontSize: 0.75rem
@@ -191,6 +196,8 @@ Source Serif 4 is the research voice. Use it for paper titles, detail titles, an
 
 Source Sans 3 is the interface voice. Use it for navigation, buttons, search, filters, settings, authors, metadata, notices, and help text. Keep interface text compact but readable.
 
+The paper preview body defaults to 16px and offers 14px, 16px, and 18px reading sizes. This preference changes the right-hand paper title, authors, abstract, and metadata together while leaving navigation and list density stable.
+
 Use the display scale sparingly. Desktop page headings should normally stay near 32px and must not consume the first screen. Paper titles in lists use the paper-title token; detail titles use detail-title. Avoid clamp-based growth that turns headings into landing-page hero text on wide windows.
 
 Use tabular numerals where alignment matters. Use the identifier style only for NBER paper numbers, citekeys, file-like values, and diagnostic identifiers. Do not use monospace for ordinary metadata.
@@ -203,7 +210,7 @@ The default workspace is a stable desktop split view:
 
 - A narrow global sidebar, approximately 72px wide.
 - A flexible feed pane with a practical minimum width near 440px.
-- A detail pane that starts near 400px and may be resized when implemented.
+- A detail pane that starts at 420px, with a keyboard-accessible divider that resizes it from 360px to 640px and remembers the chosen width.
 
 Prioritize usable content area over page decoration. Keep the feed header compact: title, current scope, search, refresh, and filters should fit without forcing the first paper below an oversized header.
 

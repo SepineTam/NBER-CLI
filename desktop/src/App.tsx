@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react'
+import type { CSSProperties } from 'react'
 import './App.css'
 import { Sidebar } from './components/Sidebar'
 import { FeedPage } from './pages/FeedPage'
@@ -54,7 +55,10 @@ function App() {
   }, [settings?.feed_refresh_interval_minutes, localReady])
 
   return (
-    <div className={`app-shell ${activeView === 'settings' ? 'settings-view' : ''}`}>
+    <div
+      className={`app-shell ${activeView === 'settings' ? 'settings-view' : ''}`}
+      style={{ '--detail-font-size': `${settings?.detail_font_size ?? 16}px` } as CSSProperties}
+    >
       <Sidebar
         activeView={activeView}
         onChange={setActiveView}

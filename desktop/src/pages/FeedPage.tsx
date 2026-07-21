@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, KeyboardEvent, PointerEvent } from 'react'
 import { FeedList } from '../components/FeedList'
 import { PaperDetail } from '../components/PaperDetail'
 import { RefreshButton } from '../components/RefreshButton'
@@ -6,6 +7,14 @@ import { SearchIcon } from '../components/Icons'
 import { useAppStore } from '../stores/appStore'
 import type { FeedItem } from '../types'
 import { PAPER_SEARCH_INPUT_ID } from '../keyboardShortcuts'
+import {
+  DEFAULT_DETAIL_PANE_WIDTH,
+  DETAIL_PANE_WIDTH_STORAGE_KEY,
+  MAX_DETAIL_PANE_WIDTH,
+  MIN_DETAIL_PANE_WIDTH,
+  clampDetailPaneWidth,
+  readStoredDetailPaneWidth,
+} from '../workspaceLayout'
 
 type FeedFilter = 'all' | 'unread'
 
@@ -13,6 +22,11 @@ export function FeedPage() {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<FeedFilter>('all')
   const [tagFilter, setTagFilter] = useState('')
+  const [detailPaneWidth, setDetailPaneWidth] = useState(() =>
+    readStoredDetailPaneWidth(typeof window === 'undefined' ? null : window.localStorage),
+  )
+  const [resizingDetail, setResizingDetail] = useState(false)
+  const workspaceRef = useRef<HTMLElement>(null)
   const {
     feedItems,
     feedTotalCount,
@@ -44,8 +58,63 @@ export function FeedPage() {
     [feedItems, filter, query, tagFilter],
   )
 
+  useEffect(() => {
+    function fitDetailPaneToWindow() {
+      const workspaceWidth = workspaceRef.current?.getBoundingClientRect().width
+      setDetailPaneWidth((currentWidth) => {
+        const nextWidth = clampDetailPaneWidth(currentWidth, workspaceWidth)
+        if (nextWidth !== currentWidth) {
+          window.localStorage.setItem(DETAIL_PANE_WIDTH_STORAGE_KEY, String(nextWidth))
+        }
+        return nextWidth
+      })
+    }
+
+    fitDetailPaneToWindow()
+    window.addEventListener('resize', fitDetailPaneToWindow)
+    return () => window.removeEventListener('resize', fitDetailPaneToWindow)
+  }, [])
+
+  function updateDetailPaneWidth(requestedWidth: number) {
+    const workspaceWidth = workspaceRef.current?.getBoundingClientRect().width
+    const nextWidth = clampDetailPaneWidth(requestedWidth, workspaceWidth)
+    setDetailPaneWidth(nextWidth)
+    window.localStorage.setItem(DETAIL_PANE_WIDTH_STORAGE_KEY, String(nextWidth))
+  }
+
+  function resizeFromPointer(event: PointerEvent<HTMLDivElement>) {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+      return
+    }
+    const rightEdge = workspaceRef.current?.getBoundingClientRect().right
+    if (rightEdge !== undefined) {
+      updateDetailPaneWidth(rightEdge - event.clientX)
+    }
+  }
+
+  function resizeFromKeyboard(event: KeyboardEvent<HTMLDivElement>) {
+    const step = event.shiftKey ? 48 : 16
+    const nextWidth = event.key === 'ArrowLeft'
+      ? detailPaneWidth + step
+      : event.key === 'ArrowRight'
+        ? detailPaneWidth - step
+        : event.key === 'Home'
+          ? MIN_DETAIL_PANE_WIDTH
+          : event.key === 'End'
+            ? MAX_DETAIL_PANE_WIDTH
+            : null
+    if (nextWidth !== null) {
+      event.preventDefault()
+      updateDetailPaneWidth(nextWidth)
+    }
+  }
+
   return (
-    <main className="workspace">
+    <main
+      className={`workspace ${resizingDetail ? 'resizing-detail' : ''}`}
+      ref={workspaceRef}
+      style={{ '--detail-pane-width': `${detailPaneWidth}px` } as CSSProperties}
+    >
       <section className="feed-panel">
         <header className="feed-header">
           <p className="eyebrow">Research desk · 研究工作台</p>
@@ -113,6 +182,36 @@ export function FeedPage() {
           onLoadMore={() => void loadMoreFeed()}
         />
       </section>
+      <div
+        aria-label="调整论文预览宽度"
+        aria-orientation="vertical"
+        aria-valuemax={MAX_DETAIL_PANE_WIDTH}
+        aria-valuemin={MIN_DETAIL_PANE_WIDTH}
+        aria-valuenow={detailPaneWidth}
+        className="workspace-resize-handle"
+        onDoubleClick={() => updateDetailPaneWidth(DEFAULT_DETAIL_PANE_WIDTH)}
+        onKeyDown={resizeFromKeyboard}
+        onPointerCancel={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+          setResizingDetail(false)
+        }}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId)
+          setResizingDetail(true)
+        }}
+        onPointerMove={resizeFromPointer}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+          setResizingDetail(false)
+        }}
+        role="separator"
+        tabIndex={0}
+        title="拖动调整预览宽度，双击恢复默认宽度"
+      />
       <PaperDetail
         paperId={selectedPaperId}
         paper={selectedPaper}

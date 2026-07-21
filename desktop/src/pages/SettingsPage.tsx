@@ -9,6 +9,7 @@ import type { UpdateCheckResult } from '../updateCheck'
 export function SettingsPage() {
   const { settings, savingSettings, loadSettings, updateSettings } = useAppStore()
   const [interval, setIntervalValue] = useState('60')
+  const [detailFontSize, setDetailFontSize] = useState('16')
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null)
   const [updateError, setUpdateError] = useState<string | null>(null)
@@ -19,12 +20,14 @@ export function SettingsPage() {
       return
     }
     setIntervalValue(String(settings.feed_refresh_interval_minutes))
+    setDetailFontSize(String(settings.detail_font_size))
   }, [loadSettings, settings])
 
   function submit(event: FormEvent) {
     event.preventDefault()
     void updateSettings({
       feed_refresh_interval_minutes: Number(interval),
+      detail_font_size: Number(detailFontSize),
     })
   }
 
@@ -56,8 +59,8 @@ export function SettingsPage() {
           <div className="settings-card-heading">
             <span>01</span>
             <div>
-              <strong>运行参数</strong>
-                  <p>控制桌面端自动同步最新论文的频率。</p>
+              <strong>阅读与同步</strong>
+              <p>调整论文预览阅读体验和自动同步频率。</p>
             </div>
           </div>
 
@@ -72,6 +75,14 @@ export function SettingsPage() {
               />
               <em>分钟</em>
             </div>
+          </label>
+          <label>
+            <span>右侧预览字号</span>
+            <select value={detailFontSize} onChange={(event) => setDetailFontSize(event.target.value)}>
+              <option value="14">紧凑 · 14px</option>
+              <option value="16">舒适 · 16px（推荐）</option>
+              <option value="18">大号 · 18px</option>
+            </select>
           </label>
           <button className="settings-save" type="submit" disabled={savingSettings}>
             {savingSettings ? '正在保存' : '保存设置'}

@@ -55,6 +55,7 @@ export interface Paper {
 
 export interface Settings {
   feed_refresh_interval_minutes: number
+  detail_font_size: number
   config_path: string
   db_path: string
   log_dir: string
@@ -62,6 +63,7 @@ export interface Settings {
 
 export interface DesktopConfig {
   feed_refresh_interval_minutes: number
+  detail_font_size: number
   config_path: string
   db_path: string
   log_dir: string
