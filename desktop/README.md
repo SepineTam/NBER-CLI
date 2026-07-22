@@ -1,6 +1,6 @@
 # NBER-CLI Desktop
 
-NBER-CLI Desktop is a Tauri v2 and React research workspace. Since Desktop 0.9.1, feed and paper requests run through a bundled one-shot worker built from the same Python code as the CLI. Users do not install Python or uv, and no local web server or long-running sidecar is started.
+NBER-CLI Desktop is the researcher-facing Tauri v2 and React workspace. Feed refresh and metadata prefetch run through a bundled one-shot worker built from the same Python code as the CLI. Startup, paper opening, read state, and tags use the local SQLite database. Users do not install Python or uv, and no local web server or long-running sidecar is started.
 
 Desktop and the Python CLI share the configured database, including `feed_items`, `info_cache`, and `read_status`. A custom `feed.db-path` created by `nber-cli db migrate` is honored when it points inside the user's home directory.
 
@@ -21,10 +21,13 @@ The React frontend calls these native Tauri commands:
 - `refresh_feed`
 - `get_paper`
 - `set_paper_read_status`
+- `add_paper_tag`
+- `rename_paper_tag`
+- `remove_paper_tag`
 - `get_settings`
 - `save_settings`
 
-The optional Python HTTP API remains available for other local integrations, but Desktop does not use it. Rust reads local feed data and writes read/unread status directly; network and cache rules stay in the shared Python implementation.
+The optional Python HTTP API remains available for other local integrations, but Desktop does not use it. Rust reads local Feed and paper data, writes read/unread state, and manages Desktop-only tag tables. NBER network, parsing, and metadata-cache rules stay in the shared Python implementation.
 
 ## Build App
 
@@ -56,11 +59,11 @@ cargo test --locked
 After building a package, verify its contents and startup flow:
 
 ```bash
-uv run python scripts/check-desktop-release.py --platform macos --max-mb 80
+uv run python scripts/check-desktop-release.py --platform macos --max-mb 150
 uv run python scripts/smoke-desktop-app.py --install-from-package
 ```
 
-Use the corresponding `windows` or `linux` platform argument on those systems. The package check fails if the bundled one-shot worker is missing or a legacy HTTP sidecar is present.
+On Windows or Linux, replace only the first command's `--platform` value with `windows` or `linux`; the smoke script detects its platform automatically. The package check fails if the bundled one-shot worker is missing or a legacy HTTP sidecar is present. The `150` MB threshold matches the normal release gate; signed-package workflows may apply an additional stricter check.
 
 ## Release
 

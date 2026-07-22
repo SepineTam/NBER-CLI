@@ -10,7 +10,7 @@
 
 ## MCP Server
 
-由 `src/nber_cli/mcp.py` 基于 FastMCP 实现的 Agent 入口。它暴露三个工具：`get_paper_info`、`search_papers` 和 `download_paper`。
+由 `src/nber_cli/mcp/mcp.py` 基于 FastMCP 实现的 Agent 入口。它暴露三个工具：`get_paper_info`、`search_papers` 和 `download_paper`。
 
 ## Info Cache
 
@@ -26,11 +26,11 @@ Info cache 的刷新模型。缓存命中时，NBER-CLI 会更新 `last_fetched_
 
 ## 本地数据库
 
-由 `db.get_database_path()` 解析得到的 SQLite 数据库。默认位置是 `~/.nber-cli/nber.db`。它保存 feed 缓存、info 缓存和行为日志。
+由 `db.get_database_path()` 解析得到的 SQLite 数据库。默认位置是 `~/.nber-cli/nber.db`。它保存 Feed 与元数据缓存、已读状态、行为日志和四张 Desktop 标签表。
 
 ## 配置文件
 
-位于 `~/.nber-cli/config.json` 的 JSON 文件。它保存数据库路径、数据库 schema 版本、info cache 设置和下载默认值。
+位于 `~/.nber-cli/config.json` 的 JSON 文件。它保存数据库路径、数据库 schema 版本、info cache 与下载设置，以及 Desktop 刷新间隔和详情字号。
 
 ## SQLModel
 
@@ -52,7 +52,7 @@ Info cache 的刷新模型。缓存命中时，NBER-CLI 会更新 `last_fetched_
 
 ## 下载限制
 
-默认把下载目标限制在当前工作目录内的文件系统安全规则。CLI 可以用 `--restrict false` 覆盖；MCP 下载始终强制该限制。
+当前用于下载目标的工作目录字面检查。CLI 默认启用，可用 `--restrict false` 关闭；MCP 始终启用。0.10.0 不会解析 `..` 或符号链接，因此该检查不是安全沙箱。
 
 ## `display_all`
 

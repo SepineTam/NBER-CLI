@@ -1,98 +1,123 @@
 # System Architecture
 
-NBER-CLI is organized as a small layered application. The command line interface, MCP server, local HTTP server, and Tauri Desktop app are entry points; the shared core performs network retrieval, parsing, formatting, downloads, feed processing, and local persistence.
+NBER-CLI 0.10.0 is a desktop-first application with a shared Python core and local SQLite persistence. Desktop is the human interface. CLI and MCP expose the core paper workflows to AI agents and automation. The optional HTTP API is a separate local integration and is not part of the Desktop runtime.
+
+For functional scope, requirements, and evidence traceability, see the [Software Specification](software-specification.md).
 
 ## Component Map
 
 ```mermaid
 flowchart TD
-    user[CLI user] --> cli[cli.py]
-    agent[AI agent] --> mcp[mcp.py / FastMCP]
-    desktop[Tauri Desktop / React] --> native[Rust data layer]
-    local[Local HTTP client] --> server
-    cli --> fetcher[fetcher.py]
-    cli --> download[download.py]
-    cli --> feed[feed.py]
-    cli --> cache[info_cache.py]
-    mcp --> fetcher
-    mcp --> download
-    mcp --> cache
-    server --> fetcher
-    server --> feed
-    server --> cache
-    native --> rss
-    native --> nber
-    native --> db
-    fetcher --> nber[NBER web pages and search API]
-    download --> pdf[NBER PDF endpoint]
-    feed --> rss[NBER RSS feed]
-    cache --> db[db.py / SQLite]
-    feed --> db
-    cli --> db
-    db --> config[config_store.py / config.json]
+    researcher[Researcher] --> react[Desktop React UI]
+    react --> tauri[Tauri Rust commands]
+    tauri --> sqlite[(Shared SQLite)]
+    tauri --> worker[Bundled one-shot Python worker]
+    worker --> feed[NBER RSS]
+    worker --> pages[NBER paper pages]
+    worker --> sqlite
+
+    agent[AI agent] --> mcp[MCP server]
+    automation[Agent or script] --> cli[CLI]
+    client[Local integration] --> http[Optional HTTP API]
+
+    mcp --> core[Shared Python fetch/cache/download core]
+    cli --> core
+    http --> core
+    core --> search[NBER search/pages/PDF]
+    core --> sqlite
+
+    tauri --> github[GitHub Releases API on manual update check]
+    cli --> config[JSON config]
+    tauri --> config
 ```
+
+The Desktop's Rust layer owns native command dispatch, configuration safety, local Feed reads, read state, and tag tables. NBER Feed and paper network/parsing logic remains in the bundled Python worker, avoiding a second parser implementation.
 
 ## Entry Points
 
-| Surface | File | Main role |
+| Surface | Primary file or directory | Main role |
 | --- | --- | --- |
-| Console script | `src/nber_cli/cli.py` | Parses arguments, prints text or JSON, records CLI logs, and maps user commands to shared functions. |
-| Python module | `src/nber_cli/__main__.py` | Lets users run `python -m nber_cli` with the same behavior as `nber-cli`. |
-| MCP server | `src/nber_cli/mcp.py` | Exposes `get_paper_info`, `search_papers`, and `download_paper` for agent clients. |
-| Local HTTP server | `src/nber_server/` | Provides optional loopback health, feed, paper, read-status, and settings endpoints for local integrations. |
-| Desktop app | `desktop/` | Uses native Rust commands for NBER requests and direct SQLite access, then presents the React workspace. |
-| Public package API | `src/nber_cli/__init__.py` | Defines the top-level stable imports through `__all__`. |
+| Desktop | `desktop/src/`, `desktop/src-tauri/src/` | Researcher-facing local workspace. |
+| Console script | `src/nber_cli/cli.py` | AI/script command parsing, text/JSON output, diagnostics, and management commands. |
+| Python module | `src/nber_cli/__main__.py` | Runs the same CLI through `python -m nber_cli`. |
+| MCP server | `src/nber_cli/mcp/mcp.py` | Exposes three structured tools to agents. |
+| Local HTTP API | `src/nber_server/` | Optional loopback endpoints for explicit local integrations. |
+| Public Python API | `src/nber_cli/__init__.py` | Defines top-level imports through `__all__`. |
+| Desktop worker | `src/nber_cli/desktop_worker.py` | Initializes the database or performs one Feed refresh and metadata-prefetch operation. |
 
 ## Core Workflows
 
-| Workflow | Path through the system | Persistence behavior |
+| Workflow | Path | Persistence behavior |
 | --- | --- | --- |
-| Search | `cli.py` or `mcp.py` -> `fetcher.search_nber` -> NBER search API -> `formatters.search_results` | CLI search records `query_log`; MCP search does not. |
-| Paper info | `cli.py` or `mcp.py` -> `info_cache.py` -> `db.py` cache lookup -> `fetcher.get_nber` on miss | Reads and writes `info_cache` when enabled; both surfaces record `info_log`. |
-| Download | `cli.py` or `mcp.py` -> `download.py` -> NBER PDF endpoint | CLI download records `download_log`; MCP download does not. |
-| Feed | `cli.py` -> `feed.py` -> NBER RSS -> `db.py` | Stores feed items in `feed_items` and fetch summaries in `feed_fetches`. |
-| Desktop feed | React -> Tauri commands -> Rust network/SQLite modules | Honors the shared `feed.db-path`, upserts RSS rows, and stores per-paper state in `read_status`. |
-| Config | `cli.py` -> `config_store.py` | Reads and writes `~/.nber-cli/config.json`. |
+| Desktop start | React -> Tauri setup -> Rust config/database | Validates and opens an existing schema-v3 database, creates Desktop tag tables for that database, then reads the local Feed. A missing database is allowed until refresh. |
+| Desktop refresh | React -> Tauri -> one-shot worker -> Python Feed + conditional metadata functions -> SQLite -> Rust tag sync | Always updates Feed/fetch rows; updates metadata cache and source-tag state only when info cache is enabled; worker exits. |
+| Desktop open paper | React -> Tauri -> Rust local database query | Reads `feed_items` + `info_cache`, marks `read_status`; no paper network request. |
+| Search | CLI or MCP -> `fetch.search_nber` -> NBER search endpoint | CLI writes `query_log`; MCP does not. |
+| Paper info | CLI/MCP/HTTP -> info-cache layer -> NBER page on miss | CLI and MCP info paths write `info_log`; cache writes depend on settings. |
+| Download | CLI or MCP -> download engine -> NBER PDF endpoint | CLI writes `download_log`; MCP does not. |
+| Feed via CLI/HTTP | Caller -> Feed layer -> NBER RSS -> SQLite | Writes `feed_items` and `feed_fetches`. |
+| Config | CLI or Desktop -> config implementation -> JSON | Writes supported settings under `~/.nber-cli/config.json`. |
 
-## Network Layer
+## Python Core
 
-`fetcher.py` retrieves paper pages and search results. It sends browser-like headers for every NBER request, enforces TLS 1.2 for synchronous page loads, retries transient failures, and validates that a fetched paper page matches the requested paper ID.
+- `fetch/fetcher.py` retrieves and parses paper pages and remote search results, validates paper identity, and retries eligible failures.
+- `fetch/download.py` validates IDs and paths, downloads PDFs with `aiohttp`, and limits batch concurrency.
+- `fetch/feed.py` retrieves the public RSS Feed, parses it with `defusedxml`, repairs a narrow unescaped-`<` case, and stores valid paper rows.
+- `db/info_cache.py` coordinates metadata cache lookup, refresh, and fallback.
+- `db/db.py` defines schema-v3 shared tables, migrations, read state, cache, and operation logs.
+- `config/config_store.py` and `config/config.schema.json` manage Python/CLI configuration.
 
-`download.py` uses `aiohttp` for PDF downloads. Single downloads buffer the full PDF in memory before writing to disk. Batch downloads share a client session and use an `asyncio.Semaphore` to cap concurrency.
+## Desktop Runtime
 
-`feed.py` fetches the public RSS feed, parses it with `defusedxml`, repairs a narrow class of malformed text containing unescaped `<` characters, and ignores malformed items that cannot produce a paper ID.
+The React UI uses typed Tauri commands rather than HTTP. Rust directly performs local operations that do not duplicate NBER parsing:
+
+- Read paged Feed rows and cached paper details.
+- Update read/unread state.
+- Create and maintain Desktop raw, user, and hidden tag tables.
+- Validate Desktop config and database location.
+- Start the bundled worker for Feed refresh and parse its result. On a new installation, that first refresh also creates the database schema.
+
+The worker uses the same Python Feed and metadata-cache functions as the CLI. It is not a long-running sidecar and does not listen on a port.
 
 ## Output and Formatting
 
-The CLI keeps the human-readable output separate from the structured payloads:
+- CLI output is human-readable by default; commands with structured contracts support JSON where documented.
+- MCP returns dictionaries shaped for agent tools rather than CLI text.
+- The optional HTTP API wraps handled outcomes in a shared JSON envelope.
+- Desktop receives serialized Rust structures through Tauri commands.
+- Desktop citation formatting is a frontend feature and is separate from CLI output formatting.
 
-- `formatters.info` and `formatters.info_text` format paper metadata.
-- `formatters.search_results` and `formatters.search_results_text` format search results.
-- `formatters.feed_results` and `formatters.feed_results_text` format RSS feed results.
+## Data Ownership and Concurrency
 
-The MCP server returns dictionaries rather than CLI text. The optional local HTTP API uses a common JSON envelope for handled outcomes. Desktop receives typed objects directly from Tauri commands and does not use HTTP.
+All interfaces may point at the same SQLite file. Shared Python tables use schema version 3. Desktop adds four idempotent extension tables for tags without changing `PRAGMA user_version`.
+
+SQLite provides transactional updates, but file-level backup or manual deletion should occur only after all Desktop, CLI, MCP, and HTTP processes using the database have stopped. See [Persistence](persistence.md) for WAL sidecars, cleanup limits, and online backup.
 
 ## Trust Boundaries
 
-NBER-CLI does not require credentials and does not send the local database to project infrastructure. The risky boundary is filesystem writes:
-
-- CLI downloads are restricted to the current directory by default, but users can pass `--restrict false`.
-- MCP downloads always normalize the paper ID, restrict writes to the server process working directory, and return an error for paths outside that directory.
-- HTTP MCP transport has no built-in authentication. Treat it as local-only unless it is placed behind an authenticating proxy or tunnel.
-- Desktop has no listening port. Its Rust network layer contacts NBER and GitHub only for requested data and update checks.
+- No project account or API key is required, and application code does not upload the local database to project infrastructure.
+- CLI enables a lexical current-directory check by default; users may explicitly disable it.
+- MCP always normalizes paper IDs and applies the same kind of lexical working-directory check.
+- In 0.10.0 these checks do not resolve `..` segments or symbolic links and therefore are not a security sandbox. Use simple relative targets and isolate the process working directory when untrusted input is possible.
+- HTTP MCP transports have no built-in authentication and must remain local or sit behind external authentication.
+- The optional HTTP API binds to loopback by default; Desktop does not use or start it.
+- Desktop opens no listening port. Refresh uses the bundled worker to contact NBER; manual update check contacts GitHub.
+- Opening an NBER or Release page and copying to the clipboard require explicit user actions.
 
 ## Source-to-Concept Reference
 
-| Concept | Primary files |
+| Concept | Primary paths |
 | --- | --- |
-| CLI command model | `src/nber_cli/cli.py` |
-| Agent tool model | `src/nber_cli/mcp.py` |
-| Local HTTP API | `src/nber_server/` |
-| Desktop shell | `desktop/src/`, `desktop/src-tauri/` |
-| Public Python API | `src/nber_cli/__init__.py`, `docs/en/python-api.md` |
-| Search and metadata parsing | `src/nber_cli/fetcher.py` |
-| PDF download engine | `src/nber_cli/download.py` |
-| RSS feed system | `src/nber_cli/feed.py` |
-| Info cache | `src/nber_cli/info_cache.py`, `src/nber_cli/db.py` |
-| Local config | `src/nber_cli/config_store.py`, `src/nber_cli/config.schema.json` |
-| Local database | `src/nber_cli/db.py` |
+| CLI | `src/nber_cli/cli.py`, `src/nber_cli/__main__.py` |
+| MCP | `src/nber_cli/mcp/mcp.py` |
+| Optional HTTP API | `src/nber_server/main.py`, `src/nber_server/routers/` |
+| Desktop UI | `desktop/src/App.tsx`, `desktop/src/pages/`, `desktop/src/components/` |
+| Desktop native layer | `desktop/src-tauri/src/commands.rs`, `config.rs`, `database.rs`, `worker.rs` |
+| Desktop worker | `src/nber_cli/desktop_worker.py` |
+| Search and metadata | `src/nber_cli/fetch/fetcher.py` |
+| PDF downloads | `src/nber_cli/fetch/download.py` |
+| RSS Feed | `src/nber_cli/fetch/feed.py` |
+| Cache and database | `src/nber_cli/db/info_cache.py`, `src/nber_cli/db/db.py` |
+| Configuration | `src/nber_cli/config/config_store.py`, `src/nber_cli/config/config.schema.json` |
+| Models and formatting | `src/nber_cli/core/models.py`, `src/nber_cli/utils/formatters.py` |
+| Tests and release validation | `tests/`, `desktop/src/**/*.test.*`, `scripts/`, `.github/workflows/` |

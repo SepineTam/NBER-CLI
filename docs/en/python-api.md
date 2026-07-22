@@ -9,8 +9,8 @@ Feed cache helpers are synchronous because they perform local database work and 
 NBER-CLI has three layers, and the stability contract is different for each:
 
 - **Top-level public API**: the names listed in `nber_cli.__all__`. Importing them from the `nber_cli` package is the supported way to use the package. This is the only layer with a stability promise. Removing or renaming a name in `__all__` is treated as a breaking change.
-- **Module-level helpers**: non-underscore names defined in modules such as `nber_cli.formatters`, `nber_cli.fetcher`, `nber_cli.config_store`, and `nber_cli.cli`. These are usable directly and useful for advanced callers, but they are not part of the public top-level contract and may change between minor versions.
-- **Compatibility wrappers**: a few names exist only for backward compatibility with callers written against earlier versions. The `feed` module re-exports `init_feed_database`, `migrate_feed_database`, and `get_feed_database_path`, which now forward to the database layer. They are kept for one minor release after their replacement ships and may be removed later.
+- **Module-level helpers**: non-underscore names defined in modules such as `nber_cli.utils.formatters`, `nber_cli.fetch.fetcher`, `nber_cli.config.config_store`, and `nber_cli.cli`. These are usable directly and useful for advanced callers, but they are not part of the public top-level contract and may change between minor versions.
+- **Compatibility wrappers**: `nber_cli.fetch.feed` retains `init_feed_database`, `migrate_feed_database`, and `get_feed_database_path`, which forward to the shared database layer. The first two are also exported at package level; `get_feed_database_path` is module-level compatibility only.
 
 `__all__` is the source of truth for what is "officially exported" from the package. If a name is not in `__all__` and not documented as a module-level helper, treat it as private even if it is not underscore-prefixed.
 
@@ -185,7 +185,7 @@ Read the paper metadata cache through the high-level helper, which respects the 
 ```python
 import asyncio
 
-from nber_cli.info_cache import get_paper_with_info_cache_result
+from nber_cli import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -203,7 +203,7 @@ asyncio.run(main())
 ```python
 import asyncio
 
-from nber_cli.info_cache import get_paper_with_info_cache_result
+from nber_cli import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -407,10 +407,10 @@ from nber_cli import feed_results, info, related, search_results
 - `search_results(results)` returns a structured search payload.
 - `feed_results(result)` returns a structured feed fetch payload.
 
-For human-readable text output, use the text formatters from `nber_cli.formatters`:
+For human-readable text output, use the text formatters from `nber_cli.utils.formatters`:
 
 ```python
-from nber_cli.formatters import feed_results_text, info_text, search_results_text
+from nber_cli.utils.formatters import feed_results_text, info_text, search_results_text
 ```
 
 - `info_text(paper, include_all=False)` returns a formatted text string with paper details. Set `include_all=True` to include topic, programs, and published version.
@@ -470,4 +470,4 @@ Produced by `feed_results(result)`:
 
 ### Compatibility Notes
 
-The JSON structures are the published output contract used by both the CLI and the MCP tools. Additive fields (new optional keys) may appear in a minor version. Renaming or removing an existing key, or changing the type of an existing field, is treated as a breaking change. Scripts that consume `--format json` should treat unknown keys as ignored data rather than asserting on the full key set.
+These JSON structures are the published CLI output contract. MCP paper lookup and search reuse the same core formatter shapes, while MCP download has its own success/error object and the optional HTTP API has its own envelope. Additive optional keys may appear in a minor version. Renaming or removing an existing key, or changing an existing field type, is treated as a breaking change. Scripts should ignore unknown keys rather than assert on the complete key set.

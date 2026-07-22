@@ -1,5 +1,5 @@
 site_name: NBER-CLI
-site_description: A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower.
+site_description: A desktop-first local research workspace for NBER working papers, with CLI and MCP interfaces for AI agents.
 site_author: Song Tan
 site_url: https://sepinetam.github.io/nber-cli/
 
@@ -45,22 +45,24 @@ plugins:
           nav:
             - Home: index.md
             - Getting Started: getting-started.md
-            - Agent Guides:
+            - User Manual: user-manual.md
+            - Researcher Guide:
+                - Desktop App: desktop.md
+                - Configuration: configuration.md
+                - Persistence Layer: persistence.md
+            - AI Agent Guide:
                 - Overview: agents/index.md
                 - Claude Code: agents/claude-code.md
                 - Codex: agents/codex.md
                 - OpenClaw: agents/openclaw.md
                 - Others: agents/others.md
-            - User Guide:
-                - Desktop App: desktop.md
                 - CLI Reference: cli.md
                 - MCP Server: mcp.md
-                - Configuration: configuration.md
-                - Persistence Layer: persistence.md
-            - API Reference:
+            - Integration Reference:
                 - Local HTTP API: http-api.md
                 - Python API: python-api.md
             - Architecture:
+                - Software Specification: software-specification.md
                 - System Architecture: architecture.md
                 - Glossary: glossary.md
             - Development:
@@ -75,22 +77,24 @@ plugins:
           nav:
             - 首页: index.md
             - 快速开始: getting-started.md
-            - Agent 指南:
+            - 用户操作手册: user-manual.md
+            - 研究者指南:
+                - Desktop 应用: desktop.md
+                - 配置: configuration.md
+                - 持久化层: persistence.md
+            - AI Agent 指南:
                 - 概览: agents/index.md
                 - Claude Code: agents/claude-code.md
                 - Codex: agents/codex.md
                 - OpenClaw: agents/openclaw.md
                 - 其他 Agent: agents/others.md
-            - 使用指南:
-                - Desktop 应用: desktop.md
                 - CLI 参考: cli.md
                 - MCP Server: mcp.md
-                - 配置: configuration.md
-                - 持久化层: persistence.md
-            - API 参考:
+            - 集成参考:
                 - 本地 HTTP API: http-api.md
                 - Python API: python-api.md
             - 架构:
+                - 软件规格说明: software-specification.md
                 - 系统架构: architecture.md
                 - 术语表: glossary.md
             - 开发:
@@ -133,22 +137,24 @@ extra:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - Agent Guides:
+  - User Manual: user-manual.md
+  - Researcher Guide:
+      - Desktop App: desktop.md
+      - Configuration: configuration.md
+      - Persistence Layer: persistence.md
+  - AI Agent Guide:
       - Overview: agents/index.md
       - Claude Code: agents/claude-code.md
       - Codex: agents/codex.md
       - OpenClaw: agents/openclaw.md
       - Others: agents/others.md
-  - User Guide:
-      - Desktop App: desktop.md
       - CLI Reference: cli.md
       - MCP Server: mcp.md
-      - Configuration: configuration.md
-      - Persistence Layer: persistence.md
-  - API Reference:
+  - Integration Reference:
       - Local HTTP API: http-api.md
       - Python API: python-api.md
   - Architecture:
+      - Software Specification: software-specification.md
       - System Architecture: architecture.md
       - Glossary: glossary.md
   - Development:

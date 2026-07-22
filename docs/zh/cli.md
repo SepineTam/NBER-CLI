@@ -41,22 +41,22 @@ nber-cli download w34567
 下载到明确文件：
 
 ```bash
-nber-cli download w34567 --file ~/papers/w34567.pdf
-nber-cli download w34567 -f ~/papers/w34567.pdf
+nber-cli download w34567 --file papers/w34567.pdf
+nber-cli download w34567 -f papers/w34567.pdf
 ```
 
 下载到目标目录：
 
 ```bash
-nber-cli download w34567 --save-base ~/papers/nber
-nber-cli download w34567 -s ~/papers/nber
+nber-cli download w34567 --save-base papers/nber
+nber-cli download w34567 -s papers/nber
 ```
 
 批量下载：
 
 ```bash
-nber-cli download --batch w34567 w25000 w32000 --save-base ~/papers/nber
-nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
+nber-cli download --batch w34567 w25000 w32000 --save-base papers/nber
+nber-cli download -b w34567 w25000 w32000 -s papers/nber
 ```
 
 ### download 选项
@@ -67,7 +67,7 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 | `--file`, `-f` | 单篇下载的明确 PDF 输出路径。 |
 | `--save-base`, `-s` | 生成 `<paper_id>.pdf` 文件的目标目录，默认是当前工作目录。 |
 | `--batch`, `-b` | 要并发下载的一组论文编号。 |
-| `--restrict` | 限制下载到当前工作目录及其子目录。默认 `true`；单次调用可用 `--restrict false` 关闭。 |
+| `--restrict` | 启用当前的工作目录字面检查。默认 `true`；单次调用可用 `--restrict false` 关闭。 |
 | `--concurrency`, `-c` | 最大并发下载数。会覆盖 `download.concurrency` 配置值。 |
 
 ### download 规则
@@ -80,12 +80,15 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 
 ### download 文件系统行为
 
+!!! warning "该限制不是安全沙箱"
+    0.10.0 的受限模式会比较绝对路径片段，但不会解析 `..` 或符号链接。因此，构造后的路径可能通过检查，却仍写到工作目录之外。请使用简单相对文件名；输入不可信时，把进程运行在隔离工作目录中；不要把 `--restrict` 当作操作系统级安全边界。
+
 - **已有文件会被覆盖。** 目标 PDF 路径已经存在时，NBER-CLI 会把新字节直接写入并覆盖原文件。没有“较新则跳过”或“失败时保留旧文件”的模式。
 - **不会做原子 rename。** 下载会先把整段响应体读入内存，再通过一次 `write_bytes` 调用写入目标路径。进程被杀掉、宿主机断电或磁盘在写入过程中写满，目标路径上都可能留下空文件、被截断的文件或只有部分字节的文件。失败路径上不会保留原来的旧文件。
 - **父目录会自动创建。** 解析后的输出路径的父目录会用 `mkdir(parents=True, exist_ok=True)` 创建。中间目录缺失不会导致失败，但进程需要对最深的已存在祖先目录有写权限。
 - **路径按字面值解析。** 传给 `--file` 的字符串（或者由 `--save-base` 推导出的 `<paper_id>.pdf`）会按字面值使用。相对路径相对于当前工作目录解析。`~` **不会** 被展开；如果需要 `~` 相对路径，请让 shell 先做展开。
 - **单篇下载是全内存的。** 在任何磁盘写入发生之前，PDF 的完整内容会先被缓冲进内存，因此单篇下载在传输过程中始终把整篇 PDF 放在内存里。非常大的 PDF 可能短暂占用数百 MB 内存。
-- **Python API 调用方负责自己传入的 session。** `download_paper` 和 `download_paper_to_file` 接受自定义 `session=...`；底层 `ClientSession`（或 `RetryClient`）的超时、连接器限制和重试行为都由调用方负责。`download_multiple_papers` 目前不接受 session 参数。
+- **Python API 调用方负责自己传入的 session。** `download_paper` 和 `download_paper_to_file` 接受自定义 `aiohttp.ClientSession`；其生命周期、超时和连接器限制由调用方负责，NBER-CLI 仍执行固定尝试次数的重试辅助逻辑。`download_multiple_papers` 目前不接受 session 参数。
 
 Python API 部分请参见 [Python API — 下载 PDF](python-api.md#pdf)。
 
@@ -345,7 +348,7 @@ nber-cli db init --db-path sqlite:////Users/name/data/nber.db
 
 如果省略 `--db-path`，默认数据库路径是 `~/.nber-cli/nber.db`。
 
-如果用户原来使用 0.3.0 留下的 `~/.nber-cli/feed.db`，并且还没有 `nber.db`，NBER-CLI 会沿用这个旧文件。首次使用时 schema 会自动从版本 1 升级到版本 2。
+如果用户原来使用 0.3.0 留下的 `~/.nber-cli/feed.db`，并且还没有 `nber.db`，NBER-CLI 会沿用这个旧文件。第一次执行数据库相关操作时，旧 schema 会逐级升级到当前版本 3。
 
 ### db migrate
 

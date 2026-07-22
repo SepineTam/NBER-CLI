@@ -9,7 +9,7 @@
 | 运行环境 | 推荐方式 | 备用方式 |
 | --- | --- | --- |
 | Claude Code | 安装 NBER-CLI plugin | MCP server 加 skill |
-| Codex | 安装 NBER-CLI plugin | MCP server 加 skill |
+| Codex | MCP server 加 skill | 直接运行 `uvx nber-cli ...` |
 | OpenClaw | MCP server 加 skill | 直接运行 `uvx nber-cli ...` |
 | 其他 Agent | MCP server 加 skill | 直接运行 `uvx nber-cli ...` |
 
@@ -41,4 +41,3 @@ plugins/nber-cli/skills/NBER-CLI/SKILL.md
 ## 安全规则
 
 NBER-CLI 不绕过 NBER 的访问控制。如果 NBER 拒绝请求、返回限制页面或阻止 PDF 下载，应把这个响应视为权威结果。
-

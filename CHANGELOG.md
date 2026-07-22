@@ -6,6 +6,12 @@ This file is the canonical release history. The English mirror at `docs/en/chang
 
 ## [Unreleased]
 
+### Documentation
+
+- Reframed the project documentation around Desktop as the primary researcher interface, with CLI and MCP positioned as AI-agent and automation interfaces.
+- Added bilingual user manuals and software specifications covering supported workflows, capability boundaries, persistence, source traceability, verification, and future registration-evidence preparation.
+- Updated Desktop, architecture, configuration, persistence, development, and testing references to match the 0.10.0 code layout and behavior.
+
 ## [0.10.0] - 2026-07-21
 
 ### Added

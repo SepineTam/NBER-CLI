@@ -1,6 +1,6 @@
 # 本地 HTTP API
 
-可选 FastAPI 服务面向可信的本地集成；Desktop 0.9.0 已改用 Rust 原生命令。该服务仍复用 CLI 的配置、持久化、Feed 和论文元数据缓存模块。
+可选 FastAPI 服务面向可信的本地集成；当前 Desktop 使用 Rust 原生命令，不会启动或调用该服务。该服务仍复用 CLI 的配置、持久化、Feed 和论文元数据缓存模块。
 
 ## 安装与启动
 
@@ -28,6 +28,8 @@ Server 启动时会创建数据库或把它升级到 schema v3。
 
 !!! warning "自定义数据库路径"
     未传 `--db-path` 时，server 当前固定使用 `~/.nber-cli/nber.db`，不会从 CLI 配置中解析自定义 `feed.db-path`。本地集成需要共用迁移后的数据库时，请明确传入同一路径，例如 `--db-path ~/data/nber.db`。
+
+    0.10.0 还有一项限制：Feed 和已读状态使用 server 的 `--db-path`，但论文详情路由调用共用元数据缓存函数时没有传入该路径，所以 `info_cache` 会使用 CLI `feed.db-path` 选中的数据库（或默认数据库）。为避免状态分流，请把 `feed.db-path` 与 `--db-path` 设置成完全相同的路径。
 
 ## 安全边界
 
@@ -143,7 +145,7 @@ curl -X PATCH \
 
 | 字段 | 规则 | 效果 |
 | --- | --- | --- |
-| `server_port` | `1024` 至 `65535` 的整数 | 立即保存；当前 server 在重启前仍继续使用旧端口 |
+| `server_port` | `1024` 至 `65535` 的整数 | 只保存为旧兼容字段。`nber-server` 由 `--port`（默认 `31527`）决定监听端口，重启时也不会读取该字段。 |
 | `feed_refresh_interval_minutes` | 正整数；Desktop 请使用 `1`–`65535` | 供 Desktop 自动刷新使用。API 会接受更大的值，但当前 Rust 外壳下次启动时会回退到 `60`。 |
 
 未知字段会返回 HTTP `422` 和 `code: 1`。该端点不能修改数据库或日志路径。

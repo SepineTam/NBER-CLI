@@ -1,5 +1,6 @@
 # NBER-CLI
-A command line interface for reaching the National Bureau of Economic Research (NBER) paper without brower.
+
+A desktop-first, local research workspace for following National Bureau of Economic Research (NBER) working papers. NBER-CLI also provides command-line and MCP interfaces designed for AI agents and automation.
 
 [![Pytest](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/pytest.yml)
 [![Lint](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml/badge.svg)](https://github.com/sepinetam/nber-cli/actions/workflows/lint.yml)
@@ -10,76 +11,40 @@ A command line interface for reaching the National Bureau of Economic Research (
 
 [简体中文](README.zh-CN.md) | [Documentation](docs/en/index.md)
 
-> **NBER** is a registered trademark of the [National Bureau of Economic Research](https://www.nber.org). This project is an independent open-source tool and is **not affiliated with, endorsed by, or sponsored by** the National Bureau of Economic Research. By using this project, you agree to the [Usage Policy](docs/en/policy.md).
+> **NBER** is a registered trademark of the [National Bureau of Economic Research](https://www.nber.org). This project is an independent open-source tool and is **not affiliated with, endorsed by, or sponsored by** the National Bureau of Economic Research. Before using the project, read the [Usage Policy](docs/en/policy.md).
 
-## Features
+## Start with Desktop
 
-- Search NBER working papers by title, paper number, author, abstract, or keyword.
-- Fetch structured metadata and abstracts for a paper ID such as `w25000`.
-- Download single papers or batches as PDF files.
-- Track newly released NBER working papers through a local RSS feed cache (`nber-cli feed fetch` / `feed clean`).
-- Cache paper metadata locally (`nber-cli info` writes to `info_cache`) with a sliding TTL, plus a behavior log for `search`, `download`, and `info` lookups.
-- Store the cache, RSS items, and behavior logs in a local SQLite database at `~/.nber-cli/nber.db`, managed through SQLModel/SQLAlchemy and configurable with a filesystem path or `sqlite:///...` URL.
-- Expose the same core workflows as MCP tools for AI agents.
-- Provide an optional loopback-only HTTP server for local integrations.
-- Provide a Desktop workspace for macOS, Windows, and Linux with a bundled one-shot worker that reuses the Python CLI logic without requiring users to install Python or uv.
-- Return human-readable output by default, with JSON output for automation.
-- Provide `--verbose` debug logging and a rotating log file for troubleshooting.
-- Use `-c/--config <path>` to temporarily override the config file for a single run.
+For researchers, the recommended entry point is **NBER-CLI Desktop**. Download the installer for macOS, Windows, or Linux from [GitHub Releases](https://github.com/sepinetam/nber-cli/releases/latest). The app includes its own runtime: you do not need Python, uv, a terminal, or a locally running web service.
 
-See [Configuration](docs/en/configuration.md) for the full list of configurable values and the local database layout, and [Usage Policy](docs/en/policy.md) for what NBER-CLI writes to disk by default.
+Desktop provides a focused research desk for:
 
-## Quick Start
+- Synchronizing and browsing the latest NBER working-paper feed.
+- Searching the local feed by title, author, paper ID, or tag, and filtering unread papers.
+- Reading abstracts and metadata in a resizable preview pane.
+- Marking papers read or unread.
+- Organizing papers with NBER Topics, NBER Programs, and private local tags.
+- Copying BibTeX, APA, MLA, Harvard, Chicago, or GB/T 7714 citations.
+- Adjusting the preview font size and automatic refresh interval.
+- Keeping the feed, metadata, read state, tags, and settings on the local device.
 
-### Use in Agents
+Current installers are unsigned. Confirm that the installer came from the official GitHub Release before following any macOS Gatekeeper or Windows SmartScreen override. Platform-specific installation and recovery steps are in the [Desktop guide](docs/en/desktop.md).
 
-NBER-CLI can be used by agents through plugins, the MCP server, and the skill. Claude Code and Codex should install the NBER-CLI plugin first; OpenClaw and other agents should use the MCP server plus the skill.
+## Choose an Interface
 
-If you want an agent to install and check NBER-CLI automatically, send it this prompt:
+| Interface | Intended user | Recommended when |
+| --- | --- | --- |
+| **Desktop** | Researchers | You want a visual, local workspace and do not want to install developer tools. |
+| **MCP server** | AI agents | Your agent supports MCP and should search, inspect, or download papers through structured tools. |
+| **CLI** | AI agents and automation | The agent can run shell commands, or you need script-friendly text/JSON output. |
+| **Python API** | Developers | You are integrating the core async functions into Python code. |
+| **Local HTTP API** | Local integrations | A separate local application needs a loopback JSON API. |
 
-```text
-Install NBER-CLI globally for yourself from https://github.com/sepinetam/nber-cli, and check the status.
-```
+The Desktop app, CLI, MCP server, and optional HTTP API can share the same SQLite database. Their capabilities are intentionally different; see the [software specification](docs/en/software-specification.md) for the supported surface matrix.
 
-After installation, verify it with either prompt:
+## Use with an AI Agent
 
-```text
-I remember that in 2025, Anton had a paper on NBER about Agent for Econ. Download it to the current directory.
-```
-
-```text
-I remember that paper w25000 was interesting. Show me its abstract.
-```
-
-If you are an agent, visit the [Agent Guides](docs/en/agents/index.md).
-
-### CLI Mode
-Run commands directly with `uvx`:
-
-```bash
-uvx nber-cli search "Labor Economic"
-uvx nber-cli info w25000
-uvx nber-cli download w34567
-```
-
-If the command is not found or fails, run `uvx nber-cli -v` to check the current version. If it is not the latest version, update the cache with:
-
-```bash
-uvx --refresh nber-cli -v
-```
-
-Or install the command first:
-
-```bash
-uv tool install nber-cli
-nber-cli search "Labor Economic"
-nber-cli info w25000
-nber-cli download w34567
-```
-
-### MCP Server Mode
-
-NBER-CLI can run as a stdio MCP server:
+MCP is the preferred structured interface. Start the stdio server with:
 
 ```bash
 uvx nber-cli mcp-server
@@ -98,36 +63,48 @@ Example MCP client configuration:
 }
 ```
 
-The MCP server exposes tools for paper lookup, search, and PDF download.
+The MCP server exposes tools for paper lookup, search, and PDF download. Agent-specific installation guides are available for [Claude Code](docs/en/agents/claude-code.md), [Codex](docs/en/agents/codex.md), [OpenClaw](docs/en/agents/openclaw.md), and [other MCP clients](docs/en/agents/others.md).
 
-### Local HTTP Server
-
-The HTTP API is an optional extra. Run it without installing the server dependencies into the normal CLI environment:
+Agents that can run shell commands may use the CLI directly:
 
 ```bash
-uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
+uvx nber-cli search "Labor Economics" --format json
+uvx nber-cli info w25000 --format json
+uvx nber-cli download w34567
 ```
 
-The server upgrades the local SQLite database to schema v3 on startup and exposes health, feed, paper, read-status, and settings endpoints under `/api/v1`. See the [Local HTTP API reference](docs/en/http-api.md) for parameters, response envelopes, side effects, and the loopback-only security boundary.
+For the complete command model, output contracts, filesystem restrictions, and exit codes, see the [CLI reference](docs/en/cli.md) and [MCP reference](docs/en/mcp.md).
 
-### Desktop App
+## Local Data and Network Access
 
-Download the macOS, Windows, or Linux installer from [GitHub Releases](https://github.com/sepinetam/nber-cli/releases). Current installers are unsigned. Desktop 0.9.1 bundles the required Python runtime and reuses the CLI's feed and paper logic, so users do not install Python or uv; see the [Desktop guide](docs/en/desktop.md).
+By default, NBER-CLI stores its configuration, SQLite database, and diagnostic log under `~/.nber-cli/`. It does not require an account or API key and does not upload the local database to project infrastructure.
 
-If macOS reports that "NBER-CLI Desktop.app" is damaged and cannot be opened, run `xattr -cr /Applications/NBER-CLI\ Desktop.app` in Terminal, then reopen the app.
+- Desktop contacts NBER only during a manual or scheduled Feed refresh; CLI, MCP, Python, and HTTP operations contact NBER when their requested workflow needs remote data.
+- Desktop contacts the GitHub Releases API only when the user selects **检查更新 (Check for Updates)**.
+- Desktop does not open a listening port.
+- The optional HTTP API and non-stdio MCP transports are separate, explicit integrations with their own security considerations.
+
+See [Persistence](docs/en/persistence.md), [Configuration](docs/en/configuration.md), and [Usage Policy](docs/en/policy.md) before changing paths, deleting data, or exposing a network transport.
 
 ## Documentation
 
-More usage details, command references, MCP setup, Python API examples, development notes, and release history are available in the [documentation](docs/en/index.md).
+- [User Manual](docs/en/user-manual.md): task-oriented operation guide, expected results, local side effects, backup, and removal.
+- [Desktop Guide](docs/en/desktop.md): installers, daily workflows, settings, keyboard controls, data, and troubleshooting.
+- [Agent Guides](docs/en/agents/index.md): plugin, MCP, and skill setup for supported agents.
+- [Software Specification](docs/en/software-specification.md): scope, module map, capability matrix, data model, constraints, and source traceability.
+- [System Architecture](docs/en/architecture.md): runtime components and trust boundaries.
+- [Full Documentation](docs/en/index.md): all user, API, operations, development, and release references.
 
 ## Development
 
 ```bash
 uv sync --dev --group docs
-uv run pytest tests
+uv run pytest
 uv run ruff check .
-uv run --group docs mkdocs serve
+uv run --group docs mkdocs build --strict
 ```
+
+Desktop development and release commands are documented in [desktop/README.md](desktop/README.md) and the [development guide](docs/en/development.md).
 
 ## License
 

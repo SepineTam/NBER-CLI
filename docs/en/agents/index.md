@@ -9,7 +9,7 @@ Use the first path your runtime supports:
 | Runtime | Preferred path | Fallback |
 | --- | --- | --- |
 | Claude Code | Install the NBER-CLI plugin | MCP server plus skill |
-| Codex | Install the NBER-CLI plugin | MCP server plus skill |
+| Codex | MCP server plus skill | Direct `uvx nber-cli ...` commands |
 | OpenClaw | MCP server plus skill | Direct `uvx nber-cli ...` commands |
 | Other agents | MCP server plus skill | Direct `uvx nber-cli ...` commands |
 
@@ -41,4 +41,3 @@ The skill tells the agent when to use NBER-CLI, how to run `uvx nber-cli ...`, h
 ## Safety Rule
 
 NBER-CLI does not bypass NBER access controls. If NBER denies a request, returns a limit page, or blocks a PDF download, treat that response as authoritative.
-

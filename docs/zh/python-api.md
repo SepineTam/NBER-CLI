@@ -9,8 +9,8 @@ feed 缓存辅助函数是同步的，因为它们主要执行本地数据库操
 NBER-CLI 共有三层，三层的稳定性承诺各不相同：
 
 - **顶层公共 API**：`nber_cli.__all__` 中列出的名字。这是使用本包“受支持”的入口方式，是唯一具有稳定性承诺的一层。删除或重命名 `__all__` 中的名字会被视为破坏性变更。
-- **模块级辅助函数**：`nber_cli.formatters`、`nber_cli.fetcher`、`nber_cli.config_store`、`nber_cli.cli` 等模块中不带下划线前缀的名字。可以直接导入使用，也对高级调用方有帮助，但它们**不属于**顶层公共契约，可能在 minor 版本之间调整。
-- **兼容包装器**：仅为了兼容早期版本的调用方而保留的若干名字。`feed` 模块重新导出了 `init_feed_database`、`migrate_feed_database`、`get_feed_database_path`，现在它们会转发到底层数据库模块。它们会在替代接口发布后保留一个 minor 版本，并可能在之后移除。
+- **模块级辅助函数**：`nber_cli.utils.formatters`、`nber_cli.fetch.fetcher`、`nber_cli.config.config_store`、`nber_cli.cli` 等模块中不带下划线前缀的名字。可以直接导入使用，也对高级调用方有帮助，但它们**不属于**顶层公共契约，可能在 minor 版本之间调整。
+- **兼容包装器**：`nber_cli.fetch.feed` 保留 `init_feed_database`、`migrate_feed_database` 和 `get_feed_database_path`，并把调用转发到共用数据库层。前两个同时属于包级导出；`get_feed_database_path` 仅为模块级兼容入口。
 
 `__all__` 是“官方导出”的唯一事实来源。若一个名字不在 `__all__` 中，也未在文档中作为模块级辅助函数登记，即便没有下划线前缀也应视为私有。
 
@@ -185,7 +185,7 @@ print(paper.title)
 ```python
 import asyncio
 
-from nber_cli.info_cache import get_paper_with_info_cache_result
+from nber_cli import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -203,7 +203,7 @@ asyncio.run(main())
 ```python
 import asyncio
 
-from nber_cli.info_cache import get_paper_with_info_cache_result
+from nber_cli import get_paper_with_info_cache_result
 
 
 async def main() -> None:
@@ -407,10 +407,10 @@ from nber_cli import feed_results, info, related, search_results
 - `search_results(results)` 返回结构化搜索结果。
 - `feed_results(result)` 返回结构化 feed fetch 结果。
 
-如果需要适合人读的文本输出，请从 `nber_cli.formatters` 模块导入：
+如果需要适合人读的文本输出，请从 `nber_cli.utils.formatters` 模块导入：
 
 ```python
-from nber_cli.formatters import feed_results_text, info_text, search_results_text
+from nber_cli.utils.formatters import feed_results_text, info_text, search_results_text
 ```
 
 - `info_text(paper, include_all=False)` 返回格式化的论文详情文本。设置 `include_all=True` 可包含 topic、programs 和 published version。
@@ -470,4 +470,4 @@ from nber_cli.formatters import feed_results_text, info_text, search_results_tex
 
 ### 兼容性说明
 
-JSON 结构是 CLI 与 MCP 工具共享的对外输出契约。允许在 minor 版本中以“新增可选键”的方式添加字段。已有键的重命名、删除或类型变更视为破坏性变更。消费 `--format json` 的脚本应将未知键视为可忽略数据，而不要对完整键集做强断言。
+这些 JSON 结构是 CLI 的公开输出契约。MCP 的论文查询和搜索复用相同的核心 formatter 形状；MCP 下载使用自己的 success/error 对象，可选 HTTP API 也有独立 envelope。minor 版本可以新增可选键；已有键的重命名、删除或类型变更视为破坏性变更。消费方应忽略未知键，不要对完整键集做强断言。

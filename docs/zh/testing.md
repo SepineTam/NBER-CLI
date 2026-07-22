@@ -6,7 +6,7 @@
 
 ```bash
 uv run pytest tests
-uv run pytest tests/test_cli.py
+uv run pytest tests/cli/test_cli.py
 uv run pytest tests -m "not slow"
 cd desktop
 npm run lint
@@ -27,17 +27,17 @@ uv run --group docs mkdocs build --strict
 
 | 范围 | 代表文件 | 覆盖内容 |
 | --- | --- | --- |
-| CLI | `tests/test_cli.py`、`tests/test_main.py` | 参数解析、子命令行为、输出格式、退出行为。 |
-| 网络获取 | `tests/test_fetcher.py` | 论文页面解析、搜索 payload 解析、重试和请求行为。 |
-| 下载 | `tests/test_downloader.py` | 单篇和批量下载路径、校验、失败和并发行为。 |
-| Feed | `tests/test_feed.py` | RSS 解析、坏 XML 处理、新条目识别和清理。 |
-| 数据库 | `tests/test_db.py`、`tests/test_config_store.py` | Schema 创建、配置持久化、迁移、路径规范化和缓存表。 |
-| Info cache | `tests/test_info_cache.py`、`tests/test_info_cache_flow.py` | 缓存命中、refresh 行为、TTL 逻辑、与 `info` 集成。 |
-| MCP | `tests/test_mcp.py` | 工具返回形状、错误处理、论文编号规范化、下载路径限制。 |
-| 日志 | `tests/test_logging.py`、`tests/test_logs.py` | 日志配置、调试行为、轮转文件设置。 |
-| 本地 HTTP server | `tests/test_server.py` | Schema 升级、envelope、Feed 分页、论文/已读状态、设置和外部错误。 |
-| 发布元数据 | `tests/test_release_metadata.py` | 版本同步、changelog、共用 tag 和签名策略。 |
-| Desktop 发布工具 | `tests/test_desktop_*.py` | 产物命名、签名校验、原生安装包检查和 smoke 工具。 |
+| CLI | `tests/cli/test_cli.py`、`tests/cli/test_main.py` | 参数解析、子命令行为、输出格式、退出行为。 |
+| 网络获取 | `tests/fetch/test_fetcher.py` | 论文页面解析、搜索 payload 解析、重试和请求行为。 |
+| 下载 | `tests/fetch/test_downloader.py` | 单篇和批量下载路径、校验、失败和并发行为。 |
+| Feed | `tests/fetch/test_feed.py` | RSS 解析、坏 XML 处理、新条目识别和清理。 |
+| 数据库 | `tests/db/test_db.py`、`tests/config/test_config_store.py` | Schema 创建、配置持久化、迁移、路径规范化和缓存表。 |
+| Info cache | `tests/db/test_info_cache.py`、`tests/db/test_info_cache_flow.py` | 缓存命中、refresh 行为、TTL 逻辑、与 `info` 集成。 |
+| MCP | `tests/mcp/test_mcp.py` | 工具返回形状、错误处理、论文编号规范化、下载路径限制。 |
+| 日志 | `tests/utils/test_logging.py`、`tests/utils/test_logs.py` | 日志配置、调试行为、轮转文件设置。 |
+| 本地 HTTP server | `tests/server/test_server.py` | Schema 升级、envelope、Feed 分页、论文/已读状态、设置和外部错误。 |
+| 发布元数据 | `tests/release/test_release_metadata.py` | 版本同步、changelog、共用 tag 和签名策略。 |
+| Desktop 发布工具 | `tests/desktop/test_desktop_*.py` | 产物命名、签名校验、原生安装包检查和 smoke 工具。 |
 | React 工作台 | `desktop/src/**/*.test.ts(x)` | Feed 渲染、论文详情、引用格式和自动刷新辅助逻辑。 |
 
 ## 隔离模型
@@ -46,7 +46,7 @@ uv run --group docs mkdocs build --strict
 
 测试会按需 patch `Path.home()`、数据库路径、网络函数和 HTTP session。目标是让测试能反复运行，不依赖开发者机器状态或网络可用性。
 
-前端测试使用 jsdom 和 mock 原生命令边界。Desktop 安装包 smoke test 会创建临时 home 和安装目录，启动已安装应用，并确认 Rust 在没有 Python sidecar 时完成共享 SQLite schema 初始化。
+前端测试使用 jsdom 和 mock 原生命令边界。Desktop 安装包 smoke test 会创建临时 home 和安装目录，并确认已安装应用可以在没有旧 Python HTTP sidecar 的情况下启动。数据库缺失是合法的空 Feed 启动状态；schema 创建由 worker/数据库测试和第一次刷新流程覆盖。
 
 ```mermaid
 flowchart LR
@@ -83,7 +83,7 @@ flowchart LR
 - 搜索分页限制和日期默认值。
 - XML entity 和格式不完美的 RSS 文本。
 - 数据库 schema 升级和未来 schema 拒绝。
-- CLI 与 MCP 的下载路径限制。
+- CLI 与 MCP 的下载路径校验行为，包括当前字面检查契约。
 - Cache refresh、滑动 TTL 和按日期清理。
 - 本地 HTTP 响应结构、Feed 分页、已读状态副作用和设置校验。
 - Desktop 产物命名、体积/签名检查、Python sidecar 缺失检查和原生安装包启动。
@@ -91,9 +91,9 @@ flowchart LR
 ## 当前 CI 边界
 
 - PR 会运行 Python lint/test，以及前端 lint/test/build。
-- PR 当前不会运行 `cargo check`，也不会启动真实 Tauri WebView。
+- PR 会为 Rust workspace 运行 `cargo test --locked`，但不会启动真实 Tauri WebView 或构建安装包。
 - 完整 Tauri build 和安装包 smoke test 只在 `v*` tag 或手动触发 Desktop workflow 时运行。
-- 安装包 smoke 脚本验证打包后的启动和原生数据库初始化；React 行为由前端测试覆盖。
+- 安装包 smoke 脚本验证打包后的启动和旧 sidecar 不存在；React 行为由前端测试覆盖。
 - Python 包 CI 仍需要增加“安装构建后的 wheel”检查，才能证明每个已声明 console entry point 确实存在于产物中。
 
 ## 添加测试

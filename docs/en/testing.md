@@ -6,7 +6,7 @@ The repository uses Pytest for Python and release tooling, Vitest for the React 
 
 ```bash
 uv run pytest tests
-uv run pytest tests/test_cli.py
+uv run pytest tests/cli/test_cli.py
 uv run pytest tests -m "not slow"
 cd desktop
 npm run lint
@@ -27,17 +27,17 @@ uv run --group docs mkdocs build --strict
 
 | Area | Representative files | What it covers |
 | --- | --- | --- |
-| CLI | `tests/test_cli.py`, `tests/test_main.py` | Argument parsing, subcommand behavior, output formats, exit behavior. |
-| Network fetcher | `tests/test_fetcher.py` | Paper page parsing, search payload parsing, retry and request behavior. |
-| Downloads | `tests/test_downloader.py` | Single and batch download paths, validation, failures, concurrency behavior. |
-| Feed | `tests/test_feed.py` | RSS parsing, malformed XML handling, new-item detection, cleanup. |
-| Database | `tests/test_db.py`, `tests/test_config_store.py` | Schema creation, config persistence, migration, path normalization, cache tables. |
-| Info cache | `tests/test_info_cache.py`, `tests/test_info_cache_flow.py` | Cache hits, refresh behavior, TTL logic, integration with `info`. |
-| MCP | `tests/test_mcp.py` | Tool return shapes, error handling, paper ID normalization, download path restrictions. |
-| Logging | `tests/test_logging.py`, `tests/test_logs.py` | Log configuration, debug behavior, rotating file setup. |
-| Local HTTP server | `tests/test_server.py` | Schema upgrades, envelopes, feed pagination, paper/read state, settings, and external errors. |
-| Release metadata | `tests/test_release_metadata.py` | Version synchronization, changelogs, shared tags, and signing policy. |
-| Desktop release tools | `tests/test_desktop_*.py` | Artifact normalization, signing validation, native-package checks, and smoke helpers. |
+| CLI | `tests/cli/test_cli.py`, `tests/cli/test_main.py` | Argument parsing, subcommand behavior, output formats, exit behavior. |
+| Network fetcher | `tests/fetch/test_fetcher.py` | Paper page parsing, search payload parsing, retry and request behavior. |
+| Downloads | `tests/fetch/test_downloader.py` | Single and batch download paths, validation, failures, concurrency behavior. |
+| Feed | `tests/fetch/test_feed.py` | RSS parsing, malformed XML handling, new-item detection, cleanup. |
+| Database | `tests/db/test_db.py`, `tests/config/test_config_store.py` | Schema creation, config persistence, migration, path normalization, cache tables. |
+| Info cache | `tests/db/test_info_cache.py`, `tests/db/test_info_cache_flow.py` | Cache hits, refresh behavior, TTL logic, integration with `info`. |
+| MCP | `tests/mcp/test_mcp.py` | Tool return shapes, error handling, paper ID normalization, download path restrictions. |
+| Logging | `tests/utils/test_logging.py`, `tests/utils/test_logs.py` | Log configuration, debug behavior, rotating file setup. |
+| Local HTTP server | `tests/server/test_server.py` | Schema upgrades, envelopes, Feed pagination, paper/read state, settings, and external errors. |
+| Release metadata | `tests/release/test_release_metadata.py` | Version synchronization, changelogs, shared tags, and signing policy. |
+| Desktop release tools | `tests/desktop/test_desktop_*.py` | Artifact normalization, signing validation, native-package checks, and smoke helpers. |
 | React workspace | `desktop/src/**/*.test.ts(x)` | Feed rendering, paper detail, citation formatting, and automatic refresh helpers. |
 
 ## Isolation Model
@@ -46,7 +46,7 @@ The global fixture in `tests/conftest.py` redirects the NBER-CLI home directory 
 
 Tests patch `Path.home()`, database paths, network functions, and HTTP sessions as needed. The goal is that a test can be run repeatedly without depending on the developer's machine state or network access.
 
-Frontend tests use jsdom and mocked native-command boundaries. Desktop package smoke tests create temporary home and install directories, launch the installed app, and verify Rust initializes the shared SQLite schema without a Python sidecar.
+Frontend tests use jsdom and mocked native-command boundaries. Desktop package smoke tests create temporary home and install directories and verify that the installed app can launch without a legacy Python HTTP sidecar. A missing database is a valid empty-Feed startup state; schema creation is exercised by worker/database tests and the first-refresh flow.
 
 ```mermaid
 flowchart LR
@@ -83,7 +83,7 @@ The tests intentionally cover edge cases that are easy to break:
 - Search pagination limits and date defaults.
 - XML entities and malformed RSS text.
 - Database schema upgrades and future-schema rejection.
-- Download path restrictions for CLI and MCP surfaces.
+- Download-path validation behavior for CLI and MCP surfaces, including the current lexical-check contract.
 - Cache refresh, sliding TTL, and cleanup date ranges.
 - Local HTTP response shapes, feed pagination, read-state side effects, and settings validation.
 - Desktop artifact names, package size/signing checks, Python-sidecar absence, and native installer startup.
@@ -91,9 +91,9 @@ The tests intentionally cover edge cases that are easy to break:
 ## Current CI Boundaries
 
 - Pull requests run Python lint/tests plus frontend lint/tests/build.
-- Pull requests do not currently run `cargo check` or launch a real Tauri WebView.
+- Pull requests run `cargo test --locked` for the Rust workspace, but do not launch a real Tauri WebView or build installers.
 - Full Tauri builds and installer smoke tests run only for `v*` tags or manual Desktop workflow dispatch.
-- The installer smoke script verifies packaged startup and native database initialization; React behavior remains covered by frontend tests.
+- The installer smoke script verifies packaged startup and the absence of a legacy sidecar; React behavior remains covered by frontend tests.
 - Python package CI currently needs a built-wheel installation check to prove that every declared console entry point is present in the artifact.
 
 ## Adding Tests

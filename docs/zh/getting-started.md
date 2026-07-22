@@ -1,14 +1,24 @@
 # 快速开始
 
-本指南帮助你从一台新机器开始，完成 NBER 工作论文的搜索、查看和下载。
+本指南帮助你选择合适的 NBER-CLI 入口并完成第一个任务。研究者应优先使用 Desktop；CLI 与 MCP 主要面向 AI Agent、脚本和集成程序。
 
-## 环境要求
+## 推荐的 Desktop 路径
+
+1. 从[官方 GitHub Release](https://github.com/sepinetam/nber-cli/releases/latest) 下载与操作系统和 CPU 一致的安装包。
+2. 确认文件来自 `SepineTam/NBER-CLI`。当前安装包可能没有签名；绕过系统提示前先阅读 [Desktop 安装警告](desktop.md#_2)。
+3. 安装并打开 **NBER-CLI Desktop**；不需要安装 Python 或 uv。
+4. 点击“同步最新论文”，同步工作论文 Feed 并准备本地论文详情。
+5. 选择论文后阅读摘要、管理标签和已读状态、复制引用，或打开来源页面。
+
+完整的按任务操作流程见[用户操作手册](user-manual.md)。下面各节说明面向 AI 的 CLI 和可选集成 Server。
+
+## CLI 与集成环境要求
 
 - Python 3.11 或更高版本。
 - 能访问 `https://www.nber.org`。
 - 使用 `uv`、`pipx` 或 `pip` 安装。
 
-最快的方式是使用 `uvx`，它会在隔离环境中运行包，不需要永久安装。
+这些要求不适用于 Desktop。AI Agent 或集成程序最快可以使用 `uvx`，它会在隔离环境中运行包，不需要永久安装。
 
 ## 使用 uvx 运行
 
@@ -43,7 +53,7 @@ nber-cli --version
 
 ## 运行可选的本地 HTTP Server
 
-FastAPI、Uvicorn 和 Alembic 不会进入普通 CLI 依赖集合。只有其他集成需要可选本地 API 时才使用 `server` extra；Desktop 0.9.0 不再使用它：
+FastAPI、Uvicorn 和 Alembic 不会进入普通 CLI 依赖集合。只有其他本地集成需要可选 API 时才使用 `server` extra；Desktop 不使用它：
 
 ```bash
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
@@ -148,26 +158,27 @@ nber-cli download w34567
 保存到指定目录：
 
 ```bash
-nber-cli download w34567 --save-base ~/papers/nber
+nber-cli download w34567 --save-base papers/nber
 ```
 
 保存到指定文件路径：
 
 ```bash
-nber-cli download w34567 --file ~/papers/nber/w34567.pdf
+nber-cli download w34567 --file papers/nber/w34567.pdf
 ```
 
 ## 批量下载
 
 ```bash
-nber-cli download --batch w34567 w25000 w32000 --save-base ~/papers/nber
+nber-cli download --batch w34567 w25000 w32000 --save-base papers/nber
 ```
 
 批量模式支持 `--save-base`，不支持 `--file`。
 
 ## 下一步
 
-- 安装并使用 [Desktop 应用](desktop.md)。
+- 按[用户操作手册](user-manual.md)操作，或查看详细的 [Desktop 应用](desktop.md)指南。
+- 通过 [Agent 指南](agents/index.md)配置 AI Agent。
 - 通过[本地 HTTP API](http-api.md)进行集成。
 - 阅读 [CLI 参考](cli.md) 了解全部命令和选项。
 - 配置 [MCP Server](mcp.md) 用于 Agent 工作流。

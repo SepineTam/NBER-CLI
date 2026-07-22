@@ -1,14 +1,24 @@
 # Getting Started
 
-This guide gets you from a fresh machine to searching, inspecting, and downloading NBER working papers.
+This guide helps you choose the right NBER-CLI interface and complete a first task. Researchers should start with Desktop. CLI and MCP are primarily intended for AI agents, scripts, and integrations.
 
-## Requirements
+## Recommended Desktop Path
+
+1. Download the package for your operating system and CPU from the [official GitHub Release](https://github.com/sepinetam/nber-cli/releases/latest).
+2. Verify that the file came from `SepineTam/NBER-CLI`. Current installers may be unsigned; read the [Desktop installation warning](desktop.md#unsigned-release-notice) before overriding an operating-system prompt.
+3. Install and open **NBER-CLI Desktop**. No Python or uv installation is required.
+4. Select **同步最新论文 (Refresh)** to synchronize the working-paper Feed and prepare local paper details.
+5. Select a paper to read its abstract, manage tags or read state, copy a citation, or open the source page.
+
+For the complete task-by-task workflow, see the [User Manual](user-manual.md). The remaining sections describe the AI-facing CLI and optional integration server.
+
+## CLI and Integration Requirements
 
 - Python 3.11 or newer.
 - Network access to `https://www.nber.org`.
 - `uv`, `pipx`, or `pip` for installation.
 
-The fastest path is `uvx`, which runs the package in an isolated environment without a permanent install.
+These requirements do not apply to Desktop. For an AI agent or integration, the fastest path is `uvx`, which runs the package in an isolated environment without a permanent install.
 
 ## Run with uvx
 
@@ -43,7 +53,7 @@ nber-cli --version
 
 ## Run the Optional Local HTTP Server
 
-FastAPI, Uvicorn, and Alembic are kept out of the normal CLI dependency set. Use the `server` extra only when you need the optional local API for another integration; Desktop 0.9.0 does not use it:
+FastAPI, Uvicorn, and Alembic are kept out of the normal CLI dependency set. Use the `server` extra only when another local integration needs the optional API; Desktop does not use it:
 
 ```bash
 uvx --from "nber-cli[server]" nber-server --host 127.0.0.1 --port 31527
@@ -148,26 +158,27 @@ nber-cli download w34567
 Save into a directory:
 
 ```bash
-nber-cli download w34567 --save-base ~/papers/nber
+nber-cli download w34567 --save-base papers/nber
 ```
 
 Save to an explicit file path:
 
 ```bash
-nber-cli download w34567 --file ~/papers/nber/w34567.pdf
+nber-cli download w34567 --file papers/nber/w34567.pdf
 ```
 
 ## Batch Download
 
 ```bash
-nber-cli download --batch w34567 w25000 w32000 --save-base ~/papers/nber
+nber-cli download --batch w34567 w25000 w32000 --save-base papers/nber
 ```
 
 Batch mode supports `--save-base`; it does not support `--file`.
 
 ## Next Steps
 
-- Install and use the [Desktop App](desktop.md).
+- Follow the [User Manual](user-manual.md) or review the detailed [Desktop App](desktop.md) guide.
+- Configure an AI agent with the [Agent Guides](agents/index.md).
 - Integrate with the [Local HTTP API](http-api.md).
 - Read the [CLI Reference](cli.md) for all commands and options.
 - Configure the [MCP Server](mcp.md) for agent workflows.

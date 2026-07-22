@@ -53,7 +53,7 @@ npm run test
 运行特定测试文件：
 
 ```bash
-uv run pytest tests/test_cli.py
+uv run pytest tests/cli/test_cli.py
 ```
 
 ## Lint
@@ -91,7 +91,7 @@ uv run --group docs mkdocs build --strict
 - 构建 MkDocs 文档。
 - 在推送到 `master` 时部署文档到 GitHub Pages。
 - 在 PR 和 push 上检查 React 前端。
-- 在 `v*` tag 或手动触发时构建 macOS、Windows Desktop 安装包。
+- 在 `v*` tag 或手动触发时构建 macOS、Windows、Linux Desktop 安装包。
 - 发布 GitHub release 时发布到 PyPI。
 
 普通 PR 的 Desktop 检查会运行 Python、TypeScript、前端测试、Vite build 和 Rust 单元测试。完整平台安装包只在 tag 或手动触发时构建。
@@ -102,9 +102,9 @@ uv run --group docs mkdocs build --strict
 
 ### 代码与依赖
 
-1. 同步修改 `pyproject.toml`、`desktop/package.json`、`desktop/package-lock.json`、`desktop/src-tauri/tauri.conf.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/Cargo.lock`、`tests/test_release_metadata.py`、Claude/Codex plugin manifest 和 `.claude-plugin/marketplace.json` 的版本。
+1. 同步修改 `pyproject.toml`、`desktop/package.json`、`desktop/package-lock.json`、`desktop/src-tauri/tauri.conf.json`、`desktop/src-tauri/Cargo.toml`、`desktop/src-tauri/Cargo.lock`、`tests/release/test_release_metadata.py`、Claude/Codex plugin manifest 和 `.claude-plugin/marketplace.json` 的版本。
 2. 更新[更新日志](changelog.md)。根目录 `CHANGELOG.md` 与 `docs/en/changelog.md`、`docs/zh/changelog.md` 保持一致。
-3. 运行 `uv run pytest tests/test_release_metadata.py -q`，确认所有发布版本一致。当前仓库策略会忽略 `uv.lock`，不要把它加入提交。
+3. 运行 `uv run pytest tests/release/test_release_metadata.py -q`，确认所有发布版本一致。当前仓库策略会忽略 `uv.lock`，不要把它加入提交。
 
 ### 静态检查
 
@@ -121,20 +121,20 @@ uv run --group docs mkdocs build --strict
    uv run python -c "from nber_cli import __all__; import re, pathlib; missing=[]; [missing.append((p, m)) for p in pathlib.Path('docs').rglob('*.md') for m in re.findall(r'(?:from nber_cli import|import nber_cli\.)\s*([A-Za-z0-9_]+)', p.read_text()) if m not in __all__ and not m.startswith('nber_cli.')]; print(missing)"
    ```
 10. **公共 `__all__` 中的名字要有文档。** `nber_cli.__all__` 中的每个名字都应该出现在 `docs/en/python-api.md` 和 `docs/zh/python-api.md` 中。将来可以用上面的命令反向找出未登记的名字。
-11. **CLI 帮助文本和 MCP 工具 schema 是健康的。** 运行 `uv run nber-cli --help`，并扫一遍每个子命令的 `--help`。MCP 工具的 schema 来自 `src/nber_cli/mcp.py` 的类型注解和 docstring；修改该文件后，请与 `docs/en/mcp.md` 和 `docs/zh/mcp.md` 对照。
-12. **HTTP 路由与公开契约一致。** 运行 `uv run pytest tests/test_server.py -q`，并把路由或 schema 变更与 `docs/en/http-api.md`、`docs/zh/http-api.md` 对照。
+11. **CLI 帮助文本和 MCP 工具 schema 是健康的。** 运行 `uv run nber-cli --help`，并扫一遍每个子命令的 `--help`。MCP 工具的 schema 来自 `src/nber_cli/mcp/mcp.py` 的类型注解和 docstring；修改该文件后，请与 `docs/en/mcp.md` 和 `docs/zh/mcp.md` 对照。
+12. **HTTP 路由与公开契约一致。** 运行 `uv run pytest tests/server/test_server.py -q`，并把路由或 schema 变更与 `docs/en/http-api.md`、`docs/zh/http-api.md` 对照。
 
 ### 构建与冒烟测试
 
 13. 在 clean checkout 中运行 `uv build`，确认 `dist/*.whl` 和 `dist/*.tar.gz` 都生成。
-14. **安装前检查产物内容。** Wheel 必须同时包含 `nber_cli/` 和 `nber_server/`，并包含 `nber_cli/migrations/`。Sdist 不能包含本地数据库或日志、`.dev`、`.agents`、`.conductor`、`.superpowers`、`tmp`、`output`、`node_modules`、Rust `target` 或 sidecar 二进制。Sdist 体积异常时必须停止发布。
+14. **安装前检查产物内容。** Wheel 必须同时包含 `nber_cli/` 和 `nber_server/`，并包含 `nber_cli/db/migrations/`。Sdist 不能包含本地数据库或日志、`.dev`、`.agents`、`.conductor`、`.superpowers`、`tmp`、`output`、`node_modules`、Rust `target` 或 sidecar 二进制。Sdist 体积异常时必须停止发布。
     ```bash
     unzip -l dist/*.whl | less
     tar -tzf dist/*.tar.gz | less
     ```
 15. **在临时环境安装 wheel，并测试每一个 console entry point。** 这能发现 dev 安装里看不到的漏包问题：
     ```bash
-    uv venv /tmp/nber-cli-smoke
+    uv venv --seed /tmp/nber-cli-smoke
     /tmp/nber-cli-smoke/bin/pip install dist/*.whl
     /tmp/nber-cli-smoke/bin/nber-cli --version
     /tmp/nber-cli-smoke/bin/nber-cli info cache

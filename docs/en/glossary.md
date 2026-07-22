@@ -10,7 +10,7 @@ The `nber-cli` command implemented in `src/nber_cli/cli.py`. It is optimized for
 
 ## MCP Server
 
-The agent-facing server implemented in `src/nber_cli/mcp.py` with FastMCP. It exposes three tools: `get_paper_info`, `search_papers`, and `download_paper`.
+The agent-facing server implemented in `src/nber_cli/mcp/mcp.py` with FastMCP. It exposes three tools: `get_paper_info`, `search_papers`, and `download_paper`.
 
 ## Info Cache
 
@@ -26,11 +26,11 @@ The RSS workflow in `feed.py`. It reads `https://www.nber.org/rss/new.xml`, pars
 
 ## Local Database
 
-The SQLite database resolved by `db.get_database_path()`. By default it lives at `~/.nber-cli/nber.db`. It stores feed cache rows, info cache rows, and behavior logs.
+The SQLite database resolved by `db.get_database_path()`. By default it lives at `~/.nber-cli/nber.db`. It stores Feed and metadata caches, read state, behavior logs, and four Desktop tag tables.
 
 ## Config File
 
-The JSON file at `~/.nber-cli/config.json`. It stores the configured database path, database schema version, info cache settings, and download defaults.
+The JSON file at `~/.nber-cli/config.json`. It stores the configured database path, database schema version, info-cache and download settings, plus the Desktop refresh interval and detail font size.
 
 ## SQLModel
 
@@ -52,7 +52,7 @@ A non-critical database write failure that should not break the main operation. 
 
 ## Download Restriction
 
-The filesystem safety rule that keeps download targets inside the current working directory by default. The CLI can override this with `--restrict false`; MCP downloads always enforce the restriction.
+The current lexical working-directory check for download targets. CLI enables it by default and can disable it with `--restrict false`; MCP always enables it. In 0.10.0 it does not resolve `..` or symbolic links and is therefore not a security sandbox.
 
 ## `display_all`
 

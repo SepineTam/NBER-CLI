@@ -116,7 +116,7 @@ Parameters:
 | Name | Type | Default | Description |
 | --- | --- | --- | --- |
 | `paper_id` | `string` | Required | Paper ID such as `w34567` or `34567`. The tool normalizes both forms to `w34567`. |
-| `output_path` | `string` or `null` | `null` | Explicit PDF output path. It must resolve inside the server process's current working directory. If omitted, the normalized file name, such as `w34567.pdf`, is saved in that directory. |
+| `output_path` | `string` or `null` | `null` | Explicit PDF output path. It must pass the current lexical working-directory check. If omitted, the normalized file name, such as `w34567.pdf`, is saved in the server process's current directory. |
 
 Returns `{"success": true}` when the download succeeds. Validation, path, network, and filesystem failures are returned as `{"error": "..."}` rather than raised to the MCP caller. Callers must inspect which key is present.
 
@@ -124,12 +124,15 @@ Returns `{"success": true}` when the download succeeds. Validation, path, networ
 
 - Prefer `search_papers` before `download_paper` when the paper ID is unknown.
 - Use `get_paper_info` before downloading when a workflow needs title, author, or abstract confirmation.
-- Pass an explicit `output_path` for downloads when the MCP client has a known path inside the server process's working directory.
+- Prefer the default filename or a simple relative `output_path` when the MCP client controls the server process's isolated working directory.
 - NBER may restrict access to newly released papers during the first week; those downloads can return HTTP 403.
 
 ## Security Notes
 
-The MCP server performs network requests to NBER and can write PDFs to disk through `download_paper`. Configure the server only in trusted clients and use explicit download paths when you need predictable file placement.
+The MCP server performs network requests to NBER and can write PDFs to disk through `download_paper`. Configure it only in trusted clients and start it in an isolated working directory when tool arguments may be untrusted.
+
+!!! warning "The path check is not a sandbox"
+    In 0.10.0, the check compares absolute path components without resolving `..` segments or symbolic links. A crafted `output_path` can therefore pass the check and still write outside the working directory. Use simple relative filenames and rely on operating-system isolation for a real security boundary.
 
 ### Local Persistence and Caching
 
@@ -152,4 +155,4 @@ The tool docstrings describe the public shape. In summary:
 
 ### Download Path Rules
 
-When `output_path` is omitted, the file is saved to `<cwd>/<normalized-paper-id>.pdf`, where `cwd` is the **server process** working directory. The server is typically launched by the MCP client, so this directory may differ from the user's interactive shell directory. An explicit path is accepted only when it resolves inside that same working directory; attempts to escape it return an `error` dictionary. The download module writes the entire response body to disk in one call and overwrites any existing file at the target path. There is no atomic-rename guarantee; an interrupted write can leave a partial file at the target path.
+When `output_path` is omitted, the file is saved to `<cwd>/<normalized-paper-id>.pdf`, where `cwd` is the **server process** working directory. The server is typically launched by the MCP client, so this directory may differ from the user's interactive shell directory. Explicit paths are passed through the lexical check described above; obvious non-prefixed paths return an `error` dictionary, but `..` and symbolic-link escapes are not currently prevented. The download module writes the entire response body to disk in one call and overwrites any existing file at the target path. There is no atomic-rename guarantee; an interrupted write can leave a partial file at the target path.

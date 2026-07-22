@@ -41,22 +41,22 @@ nber-cli download w34567
 Download to an explicit file:
 
 ```bash
-nber-cli download w34567 --file ~/papers/w34567.pdf
-nber-cli download w34567 -f ~/papers/w34567.pdf
+nber-cli download w34567 --file papers/w34567.pdf
+nber-cli download w34567 -f papers/w34567.pdf
 ```
 
 Download to a target directory:
 
 ```bash
-nber-cli download w34567 --save-base ~/papers/nber
-nber-cli download w34567 -s ~/papers/nber
+nber-cli download w34567 --save-base papers/nber
+nber-cli download w34567 -s papers/nber
 ```
 
 Batch download:
 
 ```bash
-nber-cli download --batch w34567 w25000 w32000 --save-base ~/papers/nber
-nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
+nber-cli download --batch w34567 w25000 w32000 --save-base papers/nber
+nber-cli download -b w34567 w25000 w32000 -s papers/nber
 ```
 
 ### download Options
@@ -67,7 +67,7 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 | `--file`, `-f` | Explicit target PDF path for a single download. |
 | `--save-base`, `-s` | Target directory for generated `<paper_id>.pdf` files. Defaults to the current working directory. |
 | `--batch`, `-b` | One or more paper IDs to download concurrently. |
-| `--restrict` | Restrict downloads to the current directory and its subdirectories. Defaults to `true`; use `--restrict false` to override per invocation. |
+| `--restrict` | Enable the current lexical working-directory check. Defaults to `true`; use `--restrict false` to disable it per invocation. |
 | `--concurrency`, `-c` | Maximum concurrent downloads. Overrides the `download.concurrency` config value. |
 
 ### download Rules
@@ -80,12 +80,15 @@ nber-cli download -b w34567 w25000 w32000 -s ~/papers/nber
 
 ### download Filesystem Behavior
 
+!!! warning "The restriction is not a sandbox"
+    In 0.10.0, restricted mode compares absolute path components without resolving `..` segments or symbolic links. A crafted path can therefore pass the check and still write outside the working directory. Use simple relative filenames, run the process in an isolated working directory when input is untrusted, and do not treat `--restrict` as an operating-system security boundary.
+
 - **Existing files are overwritten.** When the target PDF path already exists, NBER-CLI writes the new bytes in place and overwrites the previous file. There is no "skip if newer" or "preserve on error" mode.
 - **No atomic rename.** The download is read fully into memory and then written to the target path in a single `write_bytes` call. If the process is killed, the host loses power, or the disk fills up mid-write, the file at the target path can be left empty, truncated, or partially written. The previous file (when it existed) is not preserved on the failure path.
 - **Parent directories are auto-created.** The parent of the resolved output path is created with `mkdir(parents=True, exist_ok=True)`. Missing intermediate directories do not cause a failure, but the process needs write permission on the deepest existing ancestor.
 - **Path resolution is literal.** The string passed to `--file` (or `<paper_id>.pdf` derived from `--save-base`) is used verbatim. Relative paths resolve against the current working directory. Tilde expansion (`~`) is **not** performed; if you want `~`-relative paths, your shell needs to expand them.
 - **Single download is fully in-memory.** The full PDF body is buffered before any disk write, so a single download holds the entire PDF in memory for the duration of the transfer. Very large PDFs may briefly use several hundred MB of RAM.
-- **Python API callers own sessions they provide.** `download_paper` and `download_paper_to_file` accept a custom `session=...`; the caller owns that `ClientSession` (or `RetryClient`), including its timeout, connector limits, and retry behavior. `download_multiple_papers` does not currently accept a session argument.
+- **Python API callers own sessions they provide.** `download_paper` and `download_paper_to_file` accept a custom `aiohttp.ClientSession`; the caller owns its lifecycle, timeout, and connector limits. NBER-CLI still applies its fixed-attempt retry helper. `download_multiple_papers` does not currently accept a session argument.
 
 For the Python API, see [Python API — Download PDF](python-api.md#download-a-pdf).
 
@@ -345,7 +348,7 @@ nber-cli db init --db-path sqlite:////Users/name/data/nber.db
 
 If `--db-path` is omitted, the default database path is `~/.nber-cli/nber.db`.
 
-If an existing `~/.nber-cli/feed.db` from 0.3.0 is present and no `nber.db` exists yet, NBER-CLI uses that legacy file in place. Schema is automatically upgraded from version 1 to version 2 on first use.
+If an existing `~/.nber-cli/feed.db` from 0.3.0 is present and no `nber.db` exists yet, NBER-CLI uses that legacy file in place. On first database-backed use, older schemas are upgraded step by step to the current version 3.
 
 ### db migrate
 

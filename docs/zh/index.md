@@ -1,54 +1,39 @@
 # NBER-CLI
 
-NBER-CLI 是一个命令行工具包，用于搜索 NBER 工作论文、查看论文元数据、下载 PDF，并通过 MCP 把这些能力提供给 AI Agent。
+NBER-CLI 是一个以 Desktop 为主要入口、在本机运行的 NBER 工作论文研究工作台。研究者使用 Desktop；AI Agent 和自动化任务使用 MCP Server 或 CLI；定制集成还可以使用 Python API 和可选的 loopback HTTP API。
 
-## 它能做什么
+## 推荐入口：Desktop
 
-NBER-CLI 聚焦 NBER 工作论文的常见研究流程：
+请从 [GitHub Releases](https://github.com/sepinetam/nber-cli/releases/latest) 下载 macOS、Windows 或 Linux 安装包。Desktop 自带运行环境，普通用户不需要安装 Python 或 uv。
 
-- 按关键词、作者、标题、摘要或论文编号搜索论文。
-- 查看论文标题、作者、日期、摘要、URL 和相关元数据。
-- 通过 NBER RSS feed 和本地缓存跟踪最新工作论文。
-- 通过论文编号下载 PDF。
-- 将多篇论文批量下载到指定目录。
-- 作为 MCP server 向 Agent 提供论文搜索、查询和下载能力。
+Desktop 可以同步 NBER 工作论文 Feed、搜索和筛选本地论文、显示缓存详情、维护已读状态和本地标签、复制六种引用格式，并将研究数据保存在用户自己的设备上。
 
-## 快速开始
+第一次使用请按[用户操作手册](user-manual.md)完成完整流程；平台、设置、数据、快捷键和排错细节见 [Desktop 指南](desktop.md)。
 
-无需安装即可运行：
+!!! warning "安装包尚未签名"
+    当前 Desktop 安装包没有代码签名或 macOS notarization。只从官方 GitHub Release 下载；确认系统和 CPU 架构正确后，再决定是否绕过操作系统警告。
 
-```bash
-uvx nber-cli search "Labor Economic"
-uvx nber-cli info w25000
-uvx nber-cli feed fetch --max-items 5
-uvx nber-cli download w34567
-```
+## 使用入口
 
-如果提示命令不存在或报错，请先通过 `uvx nber-cli -v` 检查当前运行的版本。如果不是最新版本，可以通过如下命令将缓存更新至最新版本：
+| 入口 | 主要使用者 | 用途 |
+| --- | --- | --- |
+| Desktop | 研究者 | 可视化论文 Feed、阅读、引用、已读状态和本地标签工作流。 |
+| MCP Server | AI Agent | 结构化搜索、论文查询和受目录约束的 PDF 下载工具。 |
+| CLI | AI Agent 与自动化任务 | 提供适合脚本的命令、可读文本和 JSON 输出。 |
+| Python API | 开发者 | 直接调用异步获取、下载、Feed、缓存和数据库函数。 |
+| 本地 HTTP API | 本地集成程序 | 可选的 loopback 服务，提供 Feed、论文、已读状态和设置接口。 |
 
-```bash
-uvx --refresh nber-cli -v
-```
+各入口会在合适的地方共用核心代码和本地数据，但支持的能力并不完全相同。准确的功能矩阵与源码追溯表见[软件规格说明](software-specification.md)。
 
-安装成可复用命令：
+## 配置 AI Agent
 
-```bash
-uv tool install nber-cli
-nber-cli search "Labor Economic"
-nber-cli info w25000
-nber-cli feed fetch --max-items 5
-nber-cli download w34567
-```
-
-## 一分钟配置 MCP
-
-启动默认 stdio MCP server：
+对于支持 MCP 的 Agent，先启动 stdio Server：
 
 ```bash
 uvx nber-cli mcp-server
 ```
 
-添加到 MCP 客户端：
+再把下面的配置加入 MCP 客户端：
 
 ```json
 {
@@ -61,24 +46,33 @@ uvx nber-cli mcp-server
 }
 ```
 
+不同客户端的安装与验证方法见 [Agent 指南](agents/index.md)。通过终端工作的 Agent 也可以直接使用 [CLI 参考](cli.md)。
+
 ## 文档导航
 
-- [快速开始](getting-started.md)：安装方式和第一组命令。
-- [Desktop 应用](desktop.md)：安装包选择、未签名警告、本地数据、设置和故障排查。
-- [Agent 指南](agents/index.md)：Claude Code、Codex、OpenClaw 和其他 Agent 的 plugin、MCP 与 skill 配置。
-- [CLI 参考](cli.md)：命令语法、选项、输出格式和示例。
-- [MCP Server](mcp.md)：Agent 配置、传输方式和可用工具。
-- [本地 HTTP API](http-api.md)：Server 启动、安全边界、端点契约、响应结构和副作用。
-- [Python API](python-api.md)：异步函数和数据模型。
-- [配置](configuration.md)：运行时默认值和操作行为。
-- [持久化层](persistence.md)：本地 SQLite schema、缓存行为、日志、迁移和清理边界。
-- [系统架构](architecture.md)：CLI、MCP server、网络层、下载引擎、feed 系统和持久化层如何协作。
-- [术语表](glossary.md)：项目专用术语、表名、错误模型和论文编号约定。
-- [开发](development.md)：本地环境、测试、文档、CI 和发布流程。
-- [测试基础设施](testing.md)：fixture、mock 策略、异步测试和健壮性覆盖。
-- [贡献指南](contributing.md)：贡献标准和评审期望。
-- [更新日志](changelog.md)：项目重要变更。
+### 使用软件
 
-## 项目状态
+- [用户操作手册](user-manual.md)：安装、首次同步、Desktop 日常任务、Agent 工作流、备份、更新和卸载。
+- [Desktop 应用](desktop.md)：安装包、本地数据、设置、快捷键、限制和故障排查。
+- [快速开始](getting-started.md)：选择 Desktop、MCP 或 CLI 并完成第一个任务。
+- [Agent 指南](agents/index.md)：Claude Code、Codex、OpenClaw 和其他 Agent 的配置。
+- [CLI 参考](cli.md)与 [MCP Server](mcp.md)：准确的 AI 使用接口。
 
-当前公开命令模型是 `nber-cli` v0.8.0。CLI 保持小而清晰：默认文本输出适合人读，需要结构化输出时可以使用 `--format json`。
+### 理解数据和行为
+
+- [软件规格说明](software-specification.md)：软件标识、功能范围、模块边界、约束和代码追溯。
+- [配置](configuration.md)：运行默认值和支持的本地设置。
+- [持久化层](persistence.md)：文件、SQLite 数据表、缓存、迁移、清理和备份。
+- [使用政策](policy.md)：项目边界、访问、版权与用户责任。
+- [术语表](glossary.md)：项目专用名词。
+
+### 集成与开发
+
+- [本地 HTTP API](http-api.md)与 [Python API](python-api.md)：集成接口契约。
+- [系统架构](architecture.md)：运行组件、核心流程和信任边界。
+- [开发](development.md)、[测试](testing.md)和[贡献指南](contributing.md)：仓库工作流与质量门禁。
+- [更新日志](changelog.md)：版本历史。当前仓库版本为 **0.10.0**。
+
+## 范围与状态
+
+NBER-CLI 是处于 Beta 阶段的独立 Apache-2.0 开源项目。它使用 NBER 的公开页面和端点，不需要项目账号或 API Key，也不隶属于 NBER 或获得 NBER 认可。具体论文能否访问仍取决于 NBER 的服务状态与政策。

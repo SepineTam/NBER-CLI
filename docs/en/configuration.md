@@ -17,7 +17,7 @@ For the full SQLite schema, cache tables, behavior logs, and backup guidance, se
 
 These values live in `NBERCLIConfig` and `NBER_CLI_CONFIG`. They are **compile-time constants**: they are not exposed in `~/.nber-cli/config.json`, are not read from any environment variable, and are not settable through CLI flags. To change them you must edit the source code and reinstall the package.
 
-If you need different network behavior at runtime, the supported escape hatch is to call the Python API directly and pass a custom `aiohttp.ClientSession` (or `aiohttp_retry.RetryClient`) with the timeout, connector limits, and retry policy you want. The package's built-in retry client and connector are only used when the function creates its own session.
+If you need different transport behavior at runtime, call the Python API directly and pass a custom `aiohttp.ClientSession` with the timeout and connector limits you want. The package still wraps eligible requests with its own fixed-attempt retry helper; changing the retry count requires a source change.
 
 ## What is configurable today
 
@@ -30,8 +30,10 @@ The following list is exhaustive — values not listed here are constants.
 | `feed.db-path` (database path or `sqlite:///...` URL) | Yes | `~/.nber-cli/config.json`; set via `nber-cli db init --db-path ...` or `nber-cli db migrate ...` |
 | `download.restrict_dir` | Stored, not used as the CLI default | `~/.nber-cli/config.json`; the current CLI still defaults `--restrict` to `true` on every invocation |
 | `download.concurrency` | Yes | `~/.nber-cli/config.json`; set via `nber-cli config set download.concurrency <N>` |
-| `desktop.server_port` | Legacy / HTTP API only | Ignored by Desktop 0.9.0; retained for optional `nber-server` compatibility |
+| `desktop.server_port` | Legacy / HTTP settings API only | Ignored by Desktop; `nber-server` binds from `--port` and does not read this field. |
 | `desktop.feed_refresh_interval_minutes` | Yes | `~/.nber-cli/config.json` or Desktop Settings; valid range `1`–`65535` |
+| `desktop.detail_font_size` | Yes | Desktop Settings; accepted values are `14`, `16`, and `18` |
+| Desktop preview width | Yes, device-local | WebView local storage; range `360`–`640` px, default `420` px |
 | Request timeout | **No** | Code constant in `NBERCLIConfig` |
 | Retry count / request attempts | **No** | Code constant in `NBERCLIConfig` |
 | Download connection limits | **No** | Code constant in `NBERCLIConfig` |
@@ -65,12 +67,13 @@ Current schema:
     "concurrency": 3
   },
   "desktop": {
-    "feed_refresh_interval_minutes": 60
+    "feed_refresh_interval_minutes": 60,
+    "detail_font_size": 16
   }
 }
 ```
 
-`feed.db-path` points to the local database used by `info`, `search`, `download`, and `feed`. It may be a normal filesystem path or a SQLite URL such as `sqlite:///relative/nber.db` or `sqlite:////Users/name/data/nber.db`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose.
+`feed.db-path` points to the local database used by the Python `info`, `search`, `download`, and `feed` paths. It may be a normal filesystem path or a SQLite URL such as `sqlite:///relative/nber.db` or `sqlite:////Users/name/data/nber.db`. The historical `feed` key name is preserved for backward compatibility; the database itself is general-purpose. The optional HTTP server has a [documented custom-path split](http-api.md#install-and-start), so pass the same path with `nber-server --db-path`.
 
 `download.restrict_dir` is currently stored and schema-validated, but the CLI does not use it as the default for downloads. Each invocation defaults to restricted mode. Use `--restrict false` explicitly for an unrestricted invocation.
 
@@ -78,7 +81,9 @@ Current schema:
 
 `schema_version` records the current database schema version. NBER-CLI updates it after `db init` or schema upgrades.
 
-Desktop 0.9.0 does not run a local server, so it ignores the legacy `desktop.server_port` value. `desktop.feed_refresh_interval_minutes` controls native automatic RSS refresh and must be between `1` and `65535`.
+Desktop does not run a local server, so it ignores the legacy `desktop.server_port` value. The optional `nber-server` also does not read this field when binding; its actual port comes from `--port`. `desktop.feed_refresh_interval_minutes` controls automatic Feed refresh and must be between `1` and `65535`. The timer runs only while Desktop is open, initialized, visible, and not already refreshing.
+
+`desktop.detail_font_size` controls paper-detail reading text. Desktop accepts only `14`, `16`, or `18` and defaults invalid or missing values to `16`. The preview-pane width is not written to this file; it is stored in WebView local storage for the current device.
 
 `info.cache_enabled` controls the `info_cache` lookup globally. Set to `false` to force every `info` call (and the MCP `get_paper_info` tool) to go straight to NBER. Defaults to `true`.
 
@@ -124,6 +129,8 @@ The database holds:
 
 - `feed_items` and `feed_fetches`: RSS cache used by `feed fetch` and `feed clean`.
 - `info_cache`: paper metadata cache used by `info` and the MCP `get_paper_info` tool. Cache reads are gated by `info.cache_enabled` and respect the `info.cache_ttl_days` TTL.
+- `read_status`: per-paper state used by Desktop and the optional HTTP API.
+- `desktop_raw_tags`, `desktop_user_tags`, `desktop_hidden_raw_tags`, and `desktop_raw_tag_sync_state`: Desktop-only tag source, user, hiding, and synchronization state.
 - `query_log`, `download_log`, `info_log`: behavior logs for search keywords, download outcomes, and info lookups.
 
 ### Storage, Safety, and Extensibility
@@ -142,12 +149,17 @@ The database is created and upgraded automatically the first time any command th
 
 | Table | Written by | Read by | Cleanup |
 | --- | --- | --- | --- |
-| `feed_items` | `feed fetch` | `feed fetch` (`display_all=False` selects new items) | `feed clean` (with confirmation) |
-| `feed_fetches` | `feed fetch` | not read by any command | none |
-| `info_cache` | `info` and `get_paper_info` (with the cache enabled) | `info` and `get_paper_info` | `info cache clear` (with confirmation) |
+| `feed_items` | CLI / Desktop worker / HTTP API | CLI / Desktop / HTTP API | `feed clean` (with confirmation) |
+| `feed_fetches` | CLI / Desktop worker / HTTP API | Desktop and HTTP status calculations | none |
+| `read_status` | Desktop / HTTP API | Desktop / HTTP API | none |
+| `info_cache` | CLI / MCP / Desktop worker / HTTP paper route | CLI / MCP / Desktop worker / HTTP paper route | `info cache clear` (with confirmation); HTTP uses configured/default Python DB, which may differ from server `--db-path` |
 | `query_log` | `search` | not read by any command | none |
 | `download_log` | `download` (single and batch) | not read by any command | none |
 | `info_log` | `info` and `get_paper_info` | not read by any command | none |
+| `desktop_raw_tags` | Desktop | Desktop | none |
+| `desktop_user_tags` | Desktop | Desktop | individual tag removal |
+| `desktop_hidden_raw_tags` | Desktop | Desktop | none |
+| `desktop_raw_tag_sync_state` | Desktop | Desktop | none |
 
 ### CLI vs MCP Differences
 
@@ -195,19 +207,19 @@ Creates:
 Directory-based download:
 
 ```bash
-nber-cli download w34567 --save-base ~/papers/nber
+nber-cli download w34567 --save-base papers/nber
 ```
 
 Creates:
 
 ```text
-~/papers/nber/w34567.pdf
+./papers/nber/w34567.pdf
 ```
 
 Explicit file download:
 
 ```bash
-nber-cli download w34567 --file ~/papers/custom-name.pdf
+nber-cli download w34567 --file papers/custom-name.pdf
 ```
 
 Creates exactly the requested path, including parent directories when possible.

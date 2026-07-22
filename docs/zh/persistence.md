@@ -7,24 +7,33 @@ NBER-CLI 使用一个本地 SQLite 数据库和一个 JSON 配置文件。数据
 | 文件 | 默认路径 | 用途 |
 | --- | --- | --- |
 | 配置 | `~/.nber-cli/config.json` | 保存 `schema_version`、数据库路径、缓存、下载和 Desktop 设置。 |
-| 数据库 | `~/.nber-cli/nber.db` | 保存 feed 缓存、论文信息缓存和行为日志。 |
+| 数据库 | `~/.nber-cli/nber.db` | 保存 Feed、论文元数据、已读状态、Desktop 标签和行为日志。 |
 | 旧数据库 | `~/.nber-cli/feed.db` | 仅在从旧版本升级且没有 `nber.db` 时作为回退使用。 |
 | 调试日志 | `~/.nber-cli/debug.log` | 轮转日志文件；默认记录 warning/error，开启调试后记录 debug。 |
-| Desktop 诊断目录 | `~/.nber-cli/logs/` | 预留给本地诊断；Desktop 0.9.0 不再生成 Python sidecar 日志。 |
+| Desktop 诊断目录 | `~/.nber-cli/logs/` | 预留给本地诊断；Desktop 不生成长期运行的 Python sidecar 日志。 |
+| WebView local storage | 由平台管理 | 保存当前设备上的 Desktop 论文详情区宽度。 |
 
 ## 数据库表
 
 | 表 | 主要用途 | 写入方 | 清理方式 |
 | --- | --- | --- | --- |
-| `feed_items` | 按论文编号缓存 RSS 论文条目。 | `feed fetch` | `feed clean` |
-| `feed_fetches` | RSS 获取次数和数量的审计记录。 | `feed fetch` | 没有 CLI 清理命令。 |
+| `feed_items` | 按论文编号缓存 RSS 论文条目。 | CLI / Desktop worker / HTTP API | `feed clean` |
+| `feed_fetches` | RSS 获取次数和数量的审计记录。 | CLI / Desktop worker / HTTP API | 没有 CLI 清理命令。 |
 | `read_status` | Desktop 与可选 HTTP API 共享的逐篇已读/未读状态。 | Desktop / HTTP API | 没有 CLI 清理命令。 |
-| `info_cache` | `info` 和 `get_paper_info` 使用的论文元数据缓存。 | `info`、MCP `get_paper_info` | `info cache clear` |
+| `info_cache` | info 流程与 Desktop 详情使用的论文元数据缓存。 | CLI / MCP / Desktop worker / HTTP 论文路由 | `info cache clear` |
 | `query_log` | CLI 搜索关键词和结果数量历史。 | CLI `search` | 没有 CLI 清理命令。 |
 | `download_log` | CLI 下载成功与失败记录。 | CLI `download` | 没有 CLI 清理命令。 |
 | `info_log` | 论文信息查询历史。 | CLI `info`、MCP `get_paper_info` | 没有 CLI 清理命令。 |
+| `desktop_raw_tags` | 从缓存元数据复制的 NBER Topics 与 Programs。 | Desktop | 没有 UI/CLI 清理命令。 |
+| `desktop_user_tags` | 用户创建或编辑的论文标签。 | Desktop | 只能在 Desktop 中逐个删除。 |
+| `desktop_hidden_raw_tags` | 在本机隐藏的 NBER 来源标签。 | Desktop | 没有 UI/CLI 批量清理命令。 |
+| `desktop_raw_tag_sync_state` | 每篇论文的来源标签同步标记。 | Desktop | 没有 UI/CLI 清理命令。 |
 
-Schema 版本保存在 SQLite 的 `PRAGMA user_version` 中。当前 schema 版本是 `3`。已有 v1、v2 数据库会在下一次执行数据库相关 CLI 操作、启动 Desktop 或启动可选 HTTP server 时自动升级。v2 到 v3 的迁移只新增 `read_status`，不会删除已有的 feed、缓存或日志记录。如果数据库来自更新的 schema 版本，NBER-CLI 会拒绝写入。
+共用 schema 版本保存在 SQLite 的 `PRAGMA user_version` 中。当前版本是 `3`。已有 v1、v2 数据库会在下一次执行数据库相关 CLI 操作、启动 Desktop 或启动可选 HTTP server 时自动升级。v2 到 v3 的迁移只新增 `read_status`，不会删除已有的 Feed、缓存或日志记录。如果数据库来自更新的 schema 版本，NBER-CLI 会拒绝写入。
+
+四张 `desktop_*` 标签表由 Desktop 使用 `CREATE TABLE IF NOT EXISTS` 创建，不修改 `PRAGMA user_version`，因此同一数据库仍兼容 CLI schema v3。来源标签、用户标签和隐藏来源选择有意分开保存。
+
+0.10.0 的可选 HTTP server 存在自定义路径注意事项：Feed 与已读路由使用 server 的 `--db-path`，论文详情的元数据缓存调用则使用 Python 配置中的 `feed.db-path` 或默认路径。应保持两者完全相同，避免 `info_cache` 写入另一个数据库。详见[本地 HTTP API](http-api.md#_2)。
 
 ## Info Cache 行为
 
@@ -61,7 +70,7 @@ nber-cli feed fetch --max-items 5
 
 `feed_items` 以论文编号作为主键。已有行会更新标题、摘要、URL、source URL、GUID、作者和 `last_seen_at`。新行会保留自己的 `first_seen_at`。
 
-`feed_fetches` 是追加式审计表。`feed clean` 不会清理它。
+`feed_fetches` 是追加式审计表。`feed clean` 不会清理它。Desktop 刷新会调用同一套 Python Feed 实现；`info.cache_enabled` 为 true 时，worker 还会把论文详情预取到 `info_cache`，为 false 时跳过该步骤。Rust 随后把缓存元数据中已有的 Topics 与 Programs 同步到 Desktop 原始标签表。
 
 ## 日志与软失败
 
@@ -91,7 +100,9 @@ nber-cli info cache clear --days 30
 nber-cli info cache clear --all
 ```
 
-两个清理命令都会先显示预览，并在删除前要求确认。`feed clean` 只删除 `feed_items`。`info cache clear` 只删除 `info_cache`。日志表和 `feed_fetches` 需要手动 SQLite 维护，或换用新数据库。
+两个清理命令都会先显示预览，并在删除前要求确认。`feed clean` 只删除 `feed_items`。`info cache clear` 只删除 `info_cache`。日志、`feed_fetches`、`read_status` 和全部 `desktop_*` 表只能使用可用的逐项 Desktop 操作、手动 SQLite 维护，或换用新数据库。
+
+从 `feed_items` 删除论文不会自动删除相关已读状态或 Desktop 标签。手动 SQL 清理属于高级操作，执行前必须备份。
 
 ## 备份
 

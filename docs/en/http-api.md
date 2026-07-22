@@ -1,6 +1,6 @@
 # Local HTTP API
 
-The optional FastAPI service is available for trusted local integrations. Desktop 0.9.0 uses native Rust commands instead. The service continues to reuse the CLI's configuration, persistence, feed, and metadata-cache modules.
+The optional FastAPI service is available for trusted local integrations. The current Desktop uses native Rust commands and does not start or call this service. The service continues to reuse the CLI's configuration, persistence, Feed, and metadata-cache modules.
 
 ## Install and Start
 
@@ -28,6 +28,8 @@ The server creates or upgrades the database to schema v3 during startup.
 
 !!! warning "Custom database paths"
     Without `--db-path`, the server currently uses `~/.nber-cli/nber.db`; it does not resolve a custom `feed.db-path` from the CLI config. Pass the same database explicitly when a local integration must share a migrated database, for example `--db-path ~/data/nber.db`.
+
+    There is one additional 0.10.0 limitation: Feed rows and read state use the server's `--db-path`, but the paper-details route calls the shared metadata-cache helper without forwarding that path. Its `info_cache` lookup therefore uses the database selected by CLI `feed.db-path` (or the default). To avoid split state, configure `feed.db-path` and pass the identical path with `--db-path`.
 
 ## Security Boundary
 
@@ -143,7 +145,7 @@ curl -X PATCH \
 
 | Field | Rules | Effect |
 | --- | --- | --- |
-| `server_port` | Integer from `1024` through `65535` | Saved immediately; the running server keeps its current port until restart |
+| `server_port` | Integer from `1024` through `65535` | Saved as a legacy compatibility field only. `nber-server` binds from `--port` (default `31527`) and does not read this field on restart. |
 | `feed_refresh_interval_minutes` | Positive integer; use `1`–`65535` for Desktop | Used by Desktop automatic refresh. The API accepts larger values, but the current Rust shell falls back to `60` on its next start. |
 
 Unknown fields are rejected with HTTP `422` and `code: 1`. This endpoint cannot change the database or log path.
